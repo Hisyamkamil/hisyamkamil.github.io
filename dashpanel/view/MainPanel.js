@@ -1,9 +1,9 @@
 Ext.define('Store.dashpanel.view.MainPanel', {
     extend: 'Ext.panel.Panel',
-    alias: 'widget.sensormonitoringmain',
+    alias: 'widget.dashpanelmain',
     
     layout: 'border',
-    title: 'Real-Time Sensor Monitoring',
+    title: 'Real-Time Dashboard Panel',
     
     initComponent: function() {
         var me = this;
@@ -13,7 +13,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             region: 'north',
             height: 60,
             title: 'Selected Vehicle',
-            html: '<div style="padding: 10px; text-align: center; color: #666;">Select a vehicle from the navigation panel to view sensor data</div>',
+            html: '<div style="padding: 10px; text-align: center; color: #666;">Select a vehicle from the dashboard panel to view data</div>',
             bodyStyle: 'background: #f5f5f5;'
         });
         
@@ -60,7 +60,13 @@ Ext.define('Store.dashpanel.view.MainPanel', {
                     else if (status === 'critical') color = '#ff0000';
                     else if (status === 'normal') color = '#008000';
                     
-                    return '<span style="color: ' + color + '; font-weight: bold;">' + value + ' ' + unit + '</span>';
+                    // Format value based on sensor type
+                    var formattedValue = value;
+                    if (typeof value === 'number') {
+                        formattedValue = Ext.util.Format.number(value, '0.##');
+                    }
+                    
+                    return '<span style="color: ' + color + '; font-weight: bold;">' + formattedValue + ' ' + unit + '</span>';
                 }
             }, {
                 text: 'Status',
@@ -143,7 +149,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         me.vehicleInfoPanel.update(
             '<div style="padding: 10px;">' +
             '<h3 style="margin: 0; color: #333;"><i class="fa fa-car"></i> ' + vehicleName + '</h3>' +
-            '<span style="color: #666;">Vehicle ID: ' + vehicleId + ' | Real-time sensor monitoring active</span>' +
+            '<span style="color: #666;">Vehicle ID: ' + vehicleId + ' | Real-time dashboard monitoring active</span>' +
             '</div>'
         );
         
@@ -177,53 +183,150 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             return;
         }
         
-        // Load sensor data from PILOT API
+        // Load real-time sensor data from PILOT v3 API
         Ext.Ajax.request({
-            url: '/ax/sensors.php', // Assumed sensor data endpoint
+            url: '/api/v3/vehicles/status',
             params: {
-                vehicle_id: me.currentVehicleId,
-                type: 'realtime'
+                agent_id: me.currentVehicleId
             },
             success: function(response) {
                 try {
                     var data = Ext.decode(response.responseText);
-                    me.processSensorData(data);
+                    if (data.code === 0 && data.data && data.data.length > 0) {
+                        me.processRealSensorData(data.data[0]);
+                    } else {
+                        console.warn('No vehicle data received, using mock data');
+                        me.loadMockSensorData();
+                    }
                 } catch (e) {
-                    console.error('Error parsing sensor data:', e);
+                    console.error('Error parsing vehicle status data:', e);
                     // Continue with mock data for demonstration
                     me.loadMockSensorData();
                 }
             },
-            failure: function() {
-                console.warn('Failed to load sensor data from API, using mock data');
+            failure: function(response) {
+                console.warn('Failed to load vehicle status from PILOT v3 API, using mock data');
                 // Load mock data for demonstration purposes
                 me.loadMockSensorData();
             }
         });
     },
     
-    processSensorData: function(data) {
+    processRealSensorData: function(vehicleData) {
         var me = this;
         var sensorData = [];
         
-        if (data && Ext.isArray(data.sensors)) {
-            Ext.each(data.sensors, function(sensor) {
-                var status = me.calculateSensorStatus(sensor.value, sensor.min_threshold, sensor.max_threshold);
+        // Process real sensor data from PILOT v3 API response
+        if (vehicleData && Ext.isArray(vehicleData.sensors)) {
+            Ext.each(vehicleData.sensors, function(sensor) {
+                // Determine sensor type from name or use generic
+                var sensorType = me.determineSensorType(sensor.name);
+                
+                // Calculate status based on sensor value patterns (since API doesn't provide thresholds)
+                var status = me.calculateSensorStatusFromValue(sensor.dig_value, sensorType);
                 
                 sensorData.push({
                     sensor_name: sensor.name || 'Unknown Sensor',
-                    sensor_type: sensor.type || 'generic',
-                    current_value: sensor.value,
-                    unit: sensor.unit || '',
+                    sensor_type: sensorType,
+                    current_value: sensor.dig_value,
+                    unit: me.extractUnit(sensor.hum_value),
                     status: status,
-                    last_update: sensor.timestamp || new Date(),
-                    min_threshold: sensor.min_threshold,
-                    max_threshold: sensor.max_threshold
+                    last_update: new Date(sensor.change_ts * 1000), // Convert from unix timestamp
+                    min_threshold: null, // API doesn't provide thresholds
+                    max_threshold: null,
+                    raw_value: sensor.raw_value,
+                    sensor_id: sensor.id
                 });
             });
         }
         
+        // Also add vehicle status as sensors
+        if (vehicleData) {
+            // Add speed as a sensor
+            if (vehicleData.speed !== undefined) {
+                sensorData.push({
+                    sensor_name: 'Vehicle Speed',
+                    sensor_type: 'speed',
+                    current_value: vehicleData.speed,
+                    unit: 'km/h',
+                    status: vehicleData.speed > 80 ? 'warning' : 'normal',
+                    last_update: new Date(vehicleData.unixtimestamp * 1000),
+                    min_threshold: null,
+                    max_threshold: 80
+                });
+            }
+            
+            // Add engine status
+            if (vehicleData.firing !== undefined) {
+                sensorData.push({
+                    sensor_name: 'Engine Status',
+                    sensor_type: 'engine',
+                    current_value: vehicleData.firing,
+                    unit: vehicleData.firing ? 'ON' : 'OFF',
+                    status: 'normal',
+                    last_update: new Date(vehicleData.unixtimestamp * 1000),
+                    min_threshold: null,
+                    max_threshold: null
+                });
+            }
+        }
+        
         me.sensorGrid.getStore().loadData(sensorData);
+    },
+    
+    // Helper method to determine sensor type from name
+    determineSensorType: function(sensorName) {
+        if (!sensorName) return 'generic';
+        
+        var name = sensorName.toLowerCase();
+        if (name.includes('температур') || name.includes('temp')) return 'temperature';
+        if (name.includes('давлен') || name.includes('pressure')) return 'pressure';
+        if (name.includes('топлив') || name.includes('fuel') || name.includes('уровень')) return 'level';
+        if (name.includes('напряж') || name.includes('voltage') || name.includes('вольт')) return 'voltage';
+        if (name.includes('скорост') || name.includes('speed')) return 'speed';
+        if (name.includes('нагрузк') || name.includes('вес') || name.includes('load') || name.includes('weight')) return 'weight';
+        
+        return 'generic';
+    },
+    
+    // Helper method to extract unit from human readable value
+    extractUnit: function(humValue) {
+        if (!humValue) return '';
+        
+        // Extract unit from strings like "14356 кг" or "25.5 V"
+        var matches = humValue.toString().match(/([a-zA-Zа-яА-Я°%]+)$/);
+        return matches ? matches[1] : '';
+    },
+    
+    // Calculate status from sensor value based on type
+    calculateSensorStatusFromValue: function(value, sensorType) {
+        if (value === null || value === undefined) return 'unknown';
+        
+        // Basic heuristics for different sensor types
+        switch (sensorType) {
+            case 'temperature':
+                if (value > 100 || value < -20) return 'critical';
+                if (value > 80 || value < 0) return 'warning';
+                return 'normal';
+                
+            case 'voltage':
+                if (value > 15 || value < 10) return 'critical';
+                if (value > 14 || value < 11) return 'warning';
+                return 'normal';
+                
+            case 'pressure':
+                if (value > 100 || value < 0) return 'critical';
+                if (value > 80 || value < 10) return 'warning';
+                return 'normal';
+                
+            case 'level':
+                if (value < 5) return 'critical';
+                if (value < 15) return 'warning';
+                return 'normal';
+                
+            default:
+                return 'normal';
+        }
     },
     
     // Mock data for demonstration when API is not available
