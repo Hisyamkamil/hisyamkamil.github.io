@@ -66,7 +66,7 @@ Ext.define('Store.dashpanel.view.Navigation', {
         
         // Load vehicles from PILOT API as required by AI_SPECS
         Ext.Ajax.request({
-            url: 'dev-telematics.mst.co.id/ax/tree.php',
+            url: '/ax/tree.php',
             params: { 
                 vehs: 1, 
                 state: 1 
