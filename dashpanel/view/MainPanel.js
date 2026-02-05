@@ -180,32 +180,40 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         var me = this;
         
         if (!me.currentVehicleId) {
+            console.warn('No vehicle ID set, skipping sensor data load');
             return;
         }
         
-        // Load real-time sensor data from PILOT v3 API
+        console.log('🔄 Loading sensor data for vehicle ID:', me.currentVehicleId);
+        
+        // Load real-time sensor data from PILOT v3 API with authentication
         Ext.Ajax.request({
             url: '/api/v3/vehicles/status',
+            headers: {
+                'Authorization': 'Bearer 010b2ec453be98c07694d807b30861d1'
+            },
             params: {
                 agent_id: me.currentVehicleId
             },
             success: function(response) {
+                console.log('PILOT v3 API Response:', response.responseText);
                 try {
                     var data = Ext.decode(response.responseText);
                     if (data.code === 0 && data.data && data.data.length > 0) {
+                        console.log('Processing real sensor data from v3 API');
                         me.processRealSensorData(data.data[0]);
                     } else {
-                        console.warn('No vehicle data received, using mock data');
+                        console.warn('No vehicle data received from v3 API, response:', data);
                         me.loadMockSensorData();
                     }
                 } catch (e) {
-                    console.error('Error parsing vehicle status data:', e);
+                    console.error('Error parsing vehicle status data:', e, 'Response:', response.responseText);
                     // Continue with mock data for demonstration
                     me.loadMockSensorData();
                 }
             },
             failure: function(response) {
-                console.warn('Failed to load vehicle status from PILOT v3 API, using mock data');
+                console.error('Failed to load vehicle status from PILOT v3 API. Status:', response.status, 'Response:', response.responseText);
                 // Load mock data for demonstration purposes
                 me.loadMockSensorData();
             }
@@ -271,6 +279,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             }
         }
         
+        console.log('Successfully loaded real sensor data. Count:', sensorData.length);
         me.sensorGrid.getStore().loadData(sensorData);
     },
     
@@ -333,6 +342,9 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     loadMockSensorData: function() {
         var me = this;
         
+        console.warn('🚨 LOADING MOCK SENSOR DATA - Real API failed or unavailable');
+        console.warn('Current vehicle ID:', me.currentVehicleId);
+        
         var mockSensors = [
             {
                 sensor_name: 'Engine Temperature',
@@ -388,6 +400,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             sensor.status = me.calculateSensorStatus(sensor.current_value, sensor.min_threshold, sensor.max_threshold);
         });
         
+        console.warn('📊 Mock sensor data loaded. Count:', mockSensors.length);
         me.sensorGrid.getStore().loadData(mockSensors);
     },
     
