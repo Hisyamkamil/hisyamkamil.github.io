@@ -1,4 +1,4 @@
-Ext.define('Store.SensorMonitoring.view.Navigation', {
+Ext.define('Store.dashpanel.view.Navigation', {
     extend: 'Ext.panel.Panel',
     alias: 'widget.sensormonitoringnav',
     
