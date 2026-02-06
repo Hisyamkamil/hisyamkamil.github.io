@@ -185,48 +185,55 @@ Ext.define('Store.dashpanel.Module', {
         var vehicleName = vehicleRecord.get('name') || vehicleRecord.get('text') || 'Unknown Vehicle';
         var vehicleId = vehicleRecord.get('id') || vehicleRecord.get('imei') || vehicleRecord.get('agent_id');
         
-        console.log('Showing sensor panel for:', vehicleName, 'ID:', vehicleId);
+        console.log('🚗 Context menu clicked for vehicle:', vehicleName, 'ID:', vehicleId);
+        console.log('🔍 Sensor panel status:', me.sensorPanel ? 'exists' : 'undefined');
+        console.log('🔍 Skeleton mapframe:', !!skeleton.mapframe);
         
         // Store current vehicle info
         me.currentVehicleId = vehicleId;
         me.currentVehicleName = vehicleName;
         
-        // Check if panel exists before updating
+        // Always ensure panel exists - robust approach
         if (!me.sensorPanel) {
-            console.error('❌ Sensor panel not available - creating it now...');
-            me.createPermanentSensorPanel();
+            console.warn('⚠️ Panel not found, attempting to create...');
             
-            // Wait a moment for panel creation
-            Ext.defer(function() {
-                if (me.sensorPanel) {
-                    me.sensorPanel.setTitle('🔧 Dashboard Panel - ' + vehicleName + ' (Real-time)');
-                    if (me.sensorPanel.collapsed) {
-                        me.sensorPanel.expand();
-                    }
-                } else {
-                    console.error('❌ Panel creation failed completely');
+            // Force panel creation with immediate skeleton check
+            if (skeleton && skeleton.mapframe) {
+                me.createPermanentSensorPanel();
+                
+                if (!me.sensorPanel) {
+                    console.error('❌ Panel creation failed - skeleton.mapframe may not support add()');
+                    alert('Unable to create sensor panel. Check console for details.');
+                    return;
                 }
-            }, 100);
-            return;
+            } else {
+                console.error('❌ Skeleton or mapframe not available');
+                alert('PILOT skeleton not ready. Please try again.');
+                return;
+            }
         }
         
-        // Update panel title
+        // Safe panel operations
         try {
+            console.log('✅ Updating panel for vehicle:', vehicleName);
             me.sensorPanel.setTitle('🔧 Dashboard Panel - ' + vehicleName + ' (Real-time)');
             
             // Expand the panel if collapsed
             if (me.sensorPanel.collapsed) {
+                console.log('📖 Expanding collapsed panel');
                 me.sensorPanel.expand();
             }
+            
+            // Load sensor data
+            me.loadSensorDataForPanel(vehicleId);
+            
+            // Start real-time refresh
+            me.startAutoRefresh(vehicleId);
+            
         } catch (e) {
-            console.error('❌ Error updating sensor panel:', e);
+            console.error('❌ Critical error in showSensorPanel:', e);
+            alert('Error updating sensor panel: ' + e.message);
         }
-        
-        // Load sensor data
-        me.loadSensorDataForPanel(vehicleId);
-        
-        // Start real-time refresh
-        me.startAutoRefresh(vehicleId);
     },
     
     startAutoRefresh: function(vehicleId) {
