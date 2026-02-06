@@ -4,13 +4,22 @@ Ext.define('Store.dashpanel.Module', {
     initModule: function () {
         var me = this;
         
-        console.log('Dashpanel V2 (Context Menu) extension initializing...');
+        console.log('Dashpanel V2 (Hybrid Pattern) extension initializing...');
         
         // Store reference for later use in context menu handlers
         window.dashpanelModule = me;
         
-        // Safely access the online tree and add context menu item
-        me.initializeContextMenu();
+        // Wait for skeleton to be fully available, then create permanent panel and context menu
+        if (skeleton && skeleton.mapframe) {
+            me.createPermanentSensorPanel();
+            me.initializeContextMenu();
+        } else {
+            // Retry after short delay if skeleton not ready
+            Ext.defer(function() {
+                me.createPermanentSensorPanel();
+                me.initializeContextMenu();
+            }, 500);
+        }
     },
     
     initializeContextMenu: function() {
@@ -20,10 +29,7 @@ Ext.define('Store.dashpanel.Module', {
         if (skeleton && skeleton.navigation && skeleton.navigation.online && skeleton.navigation.online.online_tree) {
             var tree = skeleton.navigation.online.online_tree;
             
-            console.log('Found online tree, adding context menu item and main panel...');
-            
-            // Create the collapsible sensor panel in main content area (mapframe)
-            me.createSensorPanel();
+            console.log('Found online tree, adding context menu item...');
             
             // Handle both possible context menu property names
             var contextMenu = tree.context_menu || tree.contextmenu;
@@ -54,7 +60,7 @@ Ext.define('Store.dashpanel.Module', {
         }
     },
     
-    createSensorPanel: function() {
+    createPermanentSensorPanel: function() {
         var me = this;
         
         // Create sensor data store
@@ -71,15 +77,14 @@ Ext.define('Store.dashpanel.Module', {
             data: []
         });
         
-        // Create collapsible sensor panel for main content area (bottom of map)
-        me.sensorPanel = Ext.create('Ext.panel.Panel', {
+        // Create permanent sensor panel for main content area (Pattern 1-like panel without nav tab)
+        var sensorPanel = Ext.create('Ext.panel.Panel', {
             title: '🔧 Dashboard Panel - Sensor Data',
             height: 250,
             split: true,
             collapsible: true,
             collapsed: true, // Start collapsed
             layout: 'fit',
-            region: 'south',
             border: true,
             
             items: [{
