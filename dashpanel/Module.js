@@ -7,7 +7,7 @@ Ext.define('Store.dashpanel.Module', {
         console.log('Panel V2 (Context Menu) extension initializing...');
         
         // Store reference for later use in context menu handlers
-        window.panelModule = me;
+        window.dashpanelModule = me;
         
         // Safely access the online tree and add context menu item
         me.initializeContextMenu();
@@ -32,7 +32,7 @@ Ext.define('Store.dashpanel.Module', {
             if (contextMenu) {
                 // Add menu item to existing context menu
                 contextMenu.add({
-                    text: 'View Panel',
+                    text: 'View Dashboard Panel',
                     iconCls: 'fa fa-tachometer-alt',
                     scope: tree,
                     handler: function() {
@@ -75,7 +75,7 @@ Ext.define('Store.dashpanel.Module', {
         // Create collapsible sensor panel
         me.sensorPanel = Ext.create('Ext.panel.Panel', {
             region: 'south',
-            title: '🔧 Panel - Sensor Data',
+            title: '🔧 Dashboard Panel - Sensor Data',
             height: 300,
             split: true,
             collapsible: true,
@@ -144,7 +144,7 @@ Ext.define('Store.dashpanel.Module', {
                     }
                 }],
                 viewConfig: {
-                    emptyText: 'Select a vehicle and click "View Panel" to see sensor data',
+                    emptyText: 'Select a vehicle and click "View Dashboard Panel" to see sensor data',
                     deferEmptyText: false
                 }
             }],
@@ -191,7 +191,7 @@ Ext.define('Store.dashpanel.Module', {
         me.currentVehicleName = vehicleName;
         
         // Update panel title
-        me.sensorPanel.setTitle('🔧 Panel - ' + vehicleName + ' (Real-time)');
+        me.sensorPanel.setTitle('🔧 Dashboard Panel - ' + vehicleName + ' (Real-time)');
         
         // Expand the panel if collapsed
         if (me.sensorPanel.collapsed) {
