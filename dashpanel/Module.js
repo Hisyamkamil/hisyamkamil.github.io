@@ -154,24 +154,23 @@ Ext.define('Store.dashpanel.Module', {
             closable: true,
             
             items: [{
-                // Top: Map area
-                region: 'center',
+                // Top: Map area (reduced height to ensure sensor panel shows)
+                region: 'north',
                 title: 'Vehicle Location - ' + vehicleName,
-                html: '<div style="padding: 30px; text-align: center; background: #e8f4fd;">' +
-                      '<i class="fa fa-map-marker-alt" style="font-size: 64px; color: #dc3545; margin-bottom: 20px;"></i>' +
-                      '<h3>' + vehicleName + '</h3>' +
-                      '<p><strong>Vehicle ID:</strong> ' + vehicleId + '</p>' +
-                      '<p><strong>Location:</strong> ' + (vehicleRecord.get('lat') || 'N/A') + ', ' + (vehicleRecord.get('lon') || 'N/A') + '</p>' +
+                height: 250,
+                split: true,
+                html: '<div style="padding: 20px; text-align: center; background: #e8f4fd; height: 100%;">' +
+                      '<i class="fa fa-map-marker-alt" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>' +
+                      '<h3 style="margin: 10px 0;">' + vehicleName + '</h3>' +
+                      '<p><strong>ID:</strong> ' + vehicleId + ' | <strong>Location:</strong> ' + (vehicleRecord.get('lat') || 'N/A') + ', ' + (vehicleRecord.get('lon') || 'N/A') + '</p>' +
                       '<p><strong>Status:</strong> ' + (vehicleRecord.get('state') === 1 ? '<span style="color: green;">●Online</span>' : '<span style="color: red;">●Offline</span>') + '</p>' +
                       '</div>'
             }, {
-                // Bottom: Sensor panel
-                region: 'south',
+                // Bottom: Sensor panel (center region to ensure it shows)
+                region: 'center',
                 title: 'Live Sensor Data - Real-time (0.5s)',
-                height: 400,
-                split: true,
-                collapsible: true,
                 layout: 'fit',
+                split: true,
                 items: [{
                     xtype: 'grid',
                     itemId: 'sensorGrid',
@@ -182,40 +181,84 @@ Ext.define('Store.dashpanel.Module', {
                     columns: [{
                         text: 'Sensor Name',
                         dataIndex: 'sensor_name',
-                        flex: 2
+                        flex: 3,
+                        renderer: function(value, meta, record) {
+                            var iconClass = me.getSensorIcon(record.get('sensor_type'));
+                            return '<i class="' + iconClass + '" style="margin-right: 5px;"></i>' + value;
+                        }
                     }, {
                         text: 'Value',
                         dataIndex: 'current_value',
-                        width: 100,
+                        width: 120,
                         renderer: function(value, meta, record) {
                             var unit = record.get('unit') || '';
-                            return '<strong>' + value + ' ' + unit + '</strong>';
+                            var status = record.get('status');
+                            
+                            // Color coding
+                            var color = status === 'critical' ? '#ff0000' :
+                                       status === 'warning' ? '#ff8c00' : '#008000';
+                            
+                            var formattedValue = typeof value === 'number' ?
+                                               Ext.util.Format.number(value, '0.##') : value;
+                            
+                            return '<span style="color: ' + color + '; font-weight: bold;">' + formattedValue + ' ' + unit + '</span>';
                         }
                     }, {
                         text: 'Status',
                         dataIndex: 'status',
-                        width: 70,
-                        renderer: function(value) {
-                            var color = value === 'critical' ? 'red' : value === 'warning' ? 'orange' : 'green';
-                            return '<i class="fa fa-circle" style="color: ' + color + ';"></i>';
-                        }
-                    }, {
-                        text: 'Updated',
-                        dataIndex: 'last_update',
                         width: 80,
                         renderer: function(value) {
-                            return value ? Ext.Date.format(new Date(value), 'H:i:s') : '-';
+                            var icon = value === 'critical' ? 'fa fa-times-circle' :
+                                      value === 'warning' ? 'fa fa-exclamation-triangle' : 'fa fa-check-circle';
+                            var color = value === 'critical' ? 'red' :
+                                       value === 'warning' ? 'orange' : 'green';
+                            return '<i class="' + icon + '" style="color: ' + color + ';"></i> ' +
+                                   (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Unknown');
                         }
-                    }]
+                    }, {
+                        text: 'Last Update',
+                        dataIndex: 'last_update',
+                        width: 140,
+                        renderer: function(value) {
+                            return value ? Ext.Date.format(new Date(value), 'Y-m-d H:i:s') : '-';
+                        }
+                    }],
+                    viewConfig: {
+                        emptyText: 'Loading sensor data...',
+                        deferEmptyText: false
+                    }
                 }]
             }],
             
             listeners: {
                 afterrender: function() {
-                    me.loadSensorData(vehicleId, mainModal.down('#sensorGrid'));
-                    me.startRefresh(vehicleId, mainModal.down('#sensorGrid'));
+                    console.log('🚀 Modal rendered, loading sensor data...');
+                    
+                    var sensorGrid = mainModal.down('#sensorGrid');
+                    console.log('🔍 Sensor grid found:', !!sensorGrid);
+                    
+                    if (sensorGrid) {
+                        // Load some test data first to ensure grid is visible
+                        sensorGrid.getStore().loadData([{
+                            sensor_name: 'Loading...',
+                            sensor_type: 'info',
+                            current_value: 'Please wait',
+                            unit: '',
+                            status: 'normal',
+                            last_update: new Date()
+                        }]);
+                        
+                        // Then load real data
+                        Ext.defer(function() {
+                            me.loadSensorData(vehicleId, sensorGrid);
+                            me.startRefresh(vehicleId, sensorGrid);
+                        }, 500);
+                    } else {
+                        console.error('❌ Sensor grid not found in modal');
+                    }
                 },
                 close: function() {
+                    console.log('🚪 Modal closing, stopping refresh...');
                     me.stopRefresh();
                 }
             }
