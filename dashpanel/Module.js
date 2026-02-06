@@ -4,22 +4,13 @@ Ext.define('Store.dashpanel.Module', {
     initModule: function () {
         var me = this;
         
-        console.log('Dashpanel V2 (Hybrid Pattern) extension initializing...');
+        console.log('Dashpanel V2 (Pattern 2 - Modal) extension initializing...');
         
         // Store reference for later use in context menu handlers
         window.dashpanelModule = me;
         
-        // Wait for skeleton to be fully available, then create permanent panel and context menu
-        if (skeleton && skeleton.mapframe) {
-            me.createPermanentSensorPanel();
-            me.initializeContextMenu();
-        } else {
-            // Retry after short delay if skeleton not ready
-            Ext.defer(function() {
-                me.createPermanentSensorPanel();
-                me.initializeContextMenu();
-            }, 500);
-        }
+        // Initialize context menu (proper Pattern 2)
+        me.initializeContextMenu();
     },
     
     initializeContextMenu: function() {
@@ -35,7 +26,7 @@ Ext.define('Store.dashpanel.Module', {
             var contextMenu = tree.context_menu || tree.contextmenu;
             
             if (contextMenu) {
-                // Add menu item to existing context menu
+                // Add menu item to existing context menu (Pattern 2)
                 contextMenu.add({
                     text: 'View Dashboard Panel',
                     iconCls: 'fa fa-tachometer-alt',
@@ -44,7 +35,7 @@ Ext.define('Store.dashpanel.Module', {
                         // 'this' refers to the tree due to scope
                         if (this.record) {
                             console.log('Context menu clicked for vehicle:', this.record.get('name'));
-                            me.showSensorPanel(this.record);
+                            me.openSensorModal(this.record);
                         } else {
                             console.warn('No vehicle record selected');
                         }
@@ -60,11 +51,26 @@ Ext.define('Store.dashpanel.Module', {
         }
     },
     
-    createPermanentSensorPanel: function() {
+    openSensorModal: function(vehicleRecord) {
         var me = this;
         
+        var vehicleName = vehicleRecord.get('name') || vehicleRecord.get('text') || 'Unknown Vehicle';
+        var vehicleId = vehicleRecord.get('id') || vehicleRecord.get('imei') || vehicleRecord.get('agent_id');
+        
+        console.log('🚗 Opening sensor modal for vehicle:', vehicleName, 'ID:', vehicleId);
+        
+        // Close existing window if open
+        var existingWindow = Ext.getCmp('dashpanel-sensor-window');
+        if (existingWindow) {
+            existingWindow.close();
+        }
+        
+        // Store current vehicle info
+        me.currentVehicleId = vehicleId;
+        me.currentVehicleName = vehicleName;
+        
         // Create sensor data store
-        me.sensorStore = Ext.create('Ext.data.Store', {
+        var sensorStore = Ext.create('Ext.data.Store', {
             fields: [
                 'sensor_name',
                 'sensor_type',
@@ -77,31 +83,49 @@ Ext.define('Store.dashpanel.Module', {
             data: []
         });
         
-        // Create permanent sensor panel for main content area (Pattern 1-like panel without nav tab)
-        var sensorPanel = Ext.create('Ext.panel.Panel', {
-            title: '🔧 Dashboard Panel - Sensor Data',
-            height: 250,
-            split: true,
-            collapsible: true,
-            collapsed: true, // Start collapsed
-            layout: 'fit',
-            border: true,
+        // Create modal window (proper Pattern 2)
+        var sensorWindow = Ext.create('Ext.window.Window', {
+            id: 'dashpanel-sensor-window',
+            title: '🔧 Dashboard Panel - ' + vehicleName,
+            width: 1000,
+            height: 700,
+            modal: true,
+            layout: 'border',
+            closable: true,
+            resizable: true,
+            maximizable: true,
             
             items: [{
+                // Top info panel
+                region: 'north',
+                xtype: 'panel',
+                height: 60,
+                html: '<div style="padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">' +
+                      '<h3 style="margin: 0; color: white;"><i class="fa fa-car"></i> ' + vehicleName + '</h3>' +
+                      '<span>Vehicle ID: ' + vehicleId + ' | Real-time sensor monitoring (0.5s refresh)</span>' +
+                      '</div>',
+                border: false
+            }, {
+                // Main sensor grid
+                region: 'center',
                 xtype: 'grid',
-                store: me.sensorStore,
+                store: sensorStore,
                 columns: [{
                     text: 'Sensor Name',
                     dataIndex: 'sensor_name',
-                    flex: 2,
+                    flex: 3,
                     renderer: function(value, meta, record) {
                         var iconClass = me.getSensorIcon(record.get('sensor_type'));
                         return '<i class="' + iconClass + '"></i> ' + value;
                     }
                 }, {
-                    text: 'Value',
+                    text: 'Type',
+                    dataIndex: 'sensor_type',
+                    width: 100
+                }, {
+                    text: 'Current Value',
                     dataIndex: 'current_value',
-                    width: 100,
+                    width: 120,
                     renderer: function(value, meta, record) {
                         var unit = record.get('unit') || '';
                         var status = record.get('status');
@@ -122,7 +146,7 @@ Ext.define('Store.dashpanel.Module', {
                 }, {
                     text: 'Status',
                     dataIndex: 'status',
-                    width: 70,
+                    width: 80,
                     renderer: function(value) {
                         var icon = '';
                         var color = '';
@@ -145,189 +169,97 @@ Ext.define('Store.dashpanel.Module', {
                                 color = 'gray';
                         }
                         
-                        return '<i class="' + icon + '" style="color: ' + color + ';"></i>';
+                        return '<i class="' + icon + '" style="color: ' + color + ';"></i> ' + 
+                               (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Unknown');
+                    }
+                }, {
+                    text: 'Last Update',
+                    dataIndex: 'last_update',
+                    width: 140,
+                    renderer: function(value) {
+                        if (value) {
+                            return Ext.Date.format(new Date(value), 'Y-m-d H:i:s');
+                        }
+                        return '-';
                     }
                 }],
                 viewConfig: {
-                    emptyText: 'Select a vehicle and click "View Dashboard Panel" to see sensor data',
+                    emptyText: 'Loading sensor data...',
                     deferEmptyText: false
                 }
             }],
             
-            // Panel toolbar
+            // Window toolbar
             tbar: [{
                 text: 'Refresh',
                 iconCls: 'fa fa-refresh',
                 handler: function() {
-                    if (me.currentVehicleId) {
-                        me.loadSensorDataForPanel(me.currentVehicleId);
-                    }
+                    me.loadSensorDataForModal(vehicleId, sensorStore);
                 }
             }, '->', {
                 xtype: 'tbtext',
                 text: 'Real-time (0.5s)',
-                style: 'color: #666; font-size: 11px;'
-            }]
+                style: 'color: #666;'
+            }],
+            
+            listeners: {
+                afterrender: function() {
+                    // Load initial sensor data
+                    me.loadSensorDataForModal(vehicleId, sensorStore);
+                    
+                    // Start real-time refresh
+                    me.startAutoRefreshModal(vehicleId, sensorStore);
+                },
+                close: function() {
+                    // Clean up auto-refresh on window close
+                    me.stopAutoRefresh();
+                }
+            }
         });
         
-        // Add panel to main content area (mapframe) - bottom of map
-        if (skeleton.mapframe && skeleton.mapframe.add) {
-            skeleton.mapframe.add(me.sensorPanel);
-            console.log('✅ Sensor panel added to main content area (bottom of map)');
-        } else {
-            console.warn('⚠️ Unable to add sensor panel - mapframe not available');
-        }
+        sensorWindow.show();
     },
     
-    showSensorPanel: function(vehicleRecord) {
-        var me = this;
-        
-        var vehicleName = vehicleRecord.get('name') || vehicleRecord.get('text') || 'Unknown Vehicle';
-        var vehicleId = vehicleRecord.get('id') || vehicleRecord.get('imei') || vehicleRecord.get('agent_id');
-        
-        console.log('🚗 Context menu clicked for vehicle:', vehicleName, 'ID:', vehicleId);
-        console.log('🔍 Sensor panel status:', me.sensorPanel ? 'exists' : 'undefined');
-        console.log('🔍 Skeleton mapframe:', !!skeleton.mapframe);
-        
-        // Store current vehicle info
-        me.currentVehicleId = vehicleId;
-        me.currentVehicleName = vehicleName;
-        
-        // Always ensure panel exists - robust approach
-        if (!me.sensorPanel) {
-            console.warn('⚠️ Panel not found, attempting to create...');
-            
-            // Force panel creation with immediate skeleton check
-            if (skeleton && skeleton.mapframe) {
-                me.createPermanentSensorPanel();
-                
-                if (!me.sensorPanel) {
-                    console.error('❌ Panel creation failed - skeleton.mapframe may not support add()');
-                    alert('Unable to create sensor panel. Check console for details.');
-                    return;
-                }
-            } else {
-                console.error('❌ Skeleton or mapframe not available');
-                alert('PILOT skeleton not ready. Please try again.');
-                return;
-            }
-        }
-        
-        // Safe panel operations
-        try {
-            console.log('✅ Updating panel for vehicle:', vehicleName);
-            me.sensorPanel.setTitle('🔧 Dashboard Panel - ' + vehicleName + ' (Real-time)');
-            
-            // Expand the panel if collapsed
-            if (me.sensorPanel.collapsed) {
-                console.log('📖 Expanding collapsed panel');
-                me.sensorPanel.expand();
-            }
-            
-            // Load sensor data
-            me.loadSensorDataForPanel(vehicleId);
-            
-            // Start real-time refresh
-            me.startAutoRefresh(vehicleId);
-            
-        } catch (e) {
-            console.error('❌ Critical error in showSensorPanel:', e);
-            alert('Error updating sensor panel: ' + e.message);
-        }
-    },
-    
-    startAutoRefresh: function(vehicleId) {
+    startAutoRefreshModal: function(vehicleId, store) {
         var me = this;
         
         // Stop existing refresh
         me.stopAutoRefresh();
         
-        // Start new refresh every 0.5 seconds for real-time monitoring
+        // Start new refresh every 0.5 seconds
         me.refreshTask = setInterval(function() {
-            me.loadSensorDataForPanel(vehicleId);
+            me.loadSensorDataForModal(vehicleId, store);
         }, 500);
         
-        console.log('Real-time auto-refresh started for vehicle:', vehicleId, '(every 0.5s)');
+        console.log('Real-time auto-refresh started for modal, vehicle:', vehicleId, '(every 0.5s)');
     },
     
-    stopAutoRefresh: function() {
+    loadSensorDataForModal: function(vehicleId, store) {
         var me = this;
         
-        if (me.refreshTask) {
-            clearInterval(me.refreshTask);
-            me.refreshTask = null;
-            console.log('Auto-refresh stopped');
-        }
-    },
-    
-    loadSensorDataForPanel: function(vehicleId) {
-        var me = this;
+        console.log('🔄 Loading sensor data for modal, vehicle ID:', vehicleId);
         
-        console.log('🔄 Loading sensor data for panel, vehicle ID:', vehicleId);
-        
-        // Try v3 API first, then fallback to backend API
-        me.tryV3APIForPanel(vehicleId);
-    },
-    
-    tryV3APIForPanel: function(vehicleId) {
-        var me = this;
-        
-        // Try PILOT v3 API first
-        Ext.Ajax.request({
-            url: '/api/v3/vehicles/status',
-            headers: {
-                'Authorization': 'Bearer 010b2ec453be98c07694d807b30861d1'
-            },
-            params: {
-                agent_id: vehicleId
-            },
-            success: function(response) {
-                try {
-                    var data = Ext.decode(response.responseText);
-                    if (data.code === 0 && data.data && data.data.length > 0) {
-                        console.log('✅ Processing sensor data from v3 API');
-                        me.processV3SensorDataForPanel(data.data[0]);
-                        return;
-                    }
-                } catch (e) {
-                    console.error('v3 API parse error:', e);
-                }
-                // Fallback to backend API
-                me.tryBackendAPIForPanel(vehicleId);
-            },
-            failure: function(response) {
-                console.warn('❌ v3 API failed, trying backend API...');
-                // Fallback to backend API
-                me.tryBackendAPIForPanel(vehicleId);
-            }
-        });
-    },
-    
-    tryBackendAPIForPanel: function(vehicleId) {
-        var me = this;
-        
-        // Try backend API
+        // Try backend API (working endpoint)
         Ext.Ajax.request({
             url: '/backend/ax/current_data.php',
             success: function(response) {
                 try {
                     var data = Ext.decode(response.responseText);
-                    me.processBackendSensorDataForPanel(data, vehicleId);
+                    me.processBackendSensorDataForModal(data, vehicleId, store);
                 } catch (e) {
                     console.error('❌ Backend API parse error:', e);
                     // Try external URL
-                    me.tryExternalBackendAPIForPanel(vehicleId);
+                    me.tryExternalBackendAPIForModal(vehicleId, store);
                 }
             },
             failure: function(response) {
                 console.warn('❌ Backend API failed, trying external...');
-                // Try external URL
-                me.tryExternalBackendAPIForPanel(vehicleId);
+                me.tryExternalBackendAPIForModal(vehicleId, store);
             }
         });
     },
     
-    tryExternalBackendAPIForPanel: function(vehicleId) {
+    tryExternalBackendAPIForModal: function(vehicleId, store) {
         var me = this;
         
         // Try external backend API
@@ -336,50 +268,24 @@ Ext.define('Store.dashpanel.Module', {
             success: function(response) {
                 try {
                     var data = Ext.decode(response.responseText);
-                    me.processBackendSensorDataForPanel(data, vehicleId);
+                    me.processBackendSensorDataForModal(data, vehicleId, store);
                 } catch (e) {
                     console.error('❌ External API parse error:', e);
-                    me.showNoDataInPanel();
+                    me.showNoDataInModal(store);
                 }
             },
             failure: function(response) {
                 console.error('❌ External API failed:', response.status);
-                me.showNoDataInPanel();
+                me.showNoDataInModal(store);
             }
         });
     },
     
-    processV3SensorDataForPanel: function(vehicleData) {
+    processBackendSensorDataForModal: function(data, vehicleId, store) {
         var me = this;
         var sensorDataArray = [];
         
-        // Process v3 API sensor data
-        if (vehicleData && Ext.isArray(vehicleData.sensors)) {
-            Ext.each(vehicleData.sensors, function(sensor) {
-                var sensorType = me.determineSensorType(sensor.name);
-                var status = me.calculateSensorStatus(sensor.dig_value, sensorType);
-                
-                sensorDataArray.push({
-                    sensor_name: sensor.name || 'Unknown Sensor',
-                    sensor_type: sensorType,
-                    current_value: sensor.dig_value,
-                    unit: me.extractUnit(sensor.hum_value),
-                    status: status,
-                    last_update: new Date(sensor.change_ts * 1000),
-                    human_value: sensor.hum_value
-                });
-            });
-        }
-        
-        console.log('✅ V3 sensor data processed for panel. Count:', sensorDataArray.length);
-        me.sensorStore.loadData(sensorDataArray);
-    },
-    
-    processBackendSensorDataForPanel: function(data, vehicleId) {
-        var me = this;
-        var sensorDataArray = [];
-        
-        console.log('Processing backend sensor data for panel, vehicle:', vehicleId);
+        console.log('Processing backend sensor data for modal, vehicle:', vehicleId);
         
         // Backend API returns: {c: 0, objects: [...]}
         if (data && data.c === 0 && Ext.isArray(data.objects)) {
@@ -394,11 +300,11 @@ Ext.define('Store.dashpanel.Module', {
             
             if (!vehicle) {
                 console.error('❌ Vehicle ID', vehicleId, 'not found');
-                me.showNoDataInPanel();
+                me.showNoDataInModal(store);
                 return;
             }
             
-            console.log('✅ Found vehicle for panel:', vehicle.name);
+            console.log('✅ Found vehicle for modal:', vehicle.name);
             
             // Add basic vehicle data
             if (vehicle.last_event && vehicle.last_event.speed !== undefined) {
@@ -428,7 +334,7 @@ Ext.define('Store.dashpanel.Module', {
             
             // Process sensors object
             if (vehicle.sensors && typeof vehicle.sensors === 'object') {
-                console.log('Processing', Object.keys(vehicle.sensors).length, 'sensors for panel...');
+                console.log('Processing', Object.keys(vehicle.sensors).length, 'sensors for modal...');
                 
                 Ext.Object.each(vehicle.sensors, function(sensorName, sensorValue) {
                     // Parse: "14 %|1770111620|1507796|14|Auto Can|11|1|3"
@@ -457,18 +363,16 @@ Ext.define('Store.dashpanel.Module', {
         }
         
         if (sensorDataArray.length === 0) {
-            me.showNoDataInPanel();
+            me.showNoDataInModal(store);
             return;
         }
         
-        console.log('✅ Backend sensor data processed for panel. Count:', sensorDataArray.length);
-        me.sensorStore.loadData(sensorDataArray);
+        console.log('✅ Backend sensor data processed for modal. Count:', sensorDataArray.length);
+        store.loadData(sensorDataArray);
     },
     
-    showNoDataInPanel: function() {
-        var me = this;
-        
-        me.sensorStore.loadData([{
+    showNoDataInModal: function(store) {
+        store.loadData([{
             sensor_name: 'No Data Available',
             sensor_type: 'error',
             current_value: 'Unable to load sensor data',
@@ -479,7 +383,17 @@ Ext.define('Store.dashpanel.Module', {
         }]);
     },
     
-    // Helper methods (same as V1)
+    stopAutoRefresh: function() {
+        var me = this;
+        
+        if (me.refreshTask) {
+            clearInterval(me.refreshTask);
+            me.refreshTask = null;
+            console.log('Auto-refresh stopped');
+        }
+    },
+    
+    // Helper methods
     determineSensorType: function(sensorName) {
         if (!sensorName) return 'generic';
         
