@@ -16,15 +16,14 @@ Ext.define('Store.dashpanel.Module', {
     initializeContextMenu: function() {
         var me = this;
         
-        // Try to access online tree and navigation panel safely
+        // Try to access online tree safely
         if (skeleton && skeleton.navigation && skeleton.navigation.online && skeleton.navigation.online.online_tree) {
             var tree = skeleton.navigation.online.online_tree;
-            var onlinePanel = skeleton.navigation.online;
             
-            console.log('Found online tree, adding context menu item and panel...');
+            console.log('Found online tree, adding context menu item and main panel...');
             
-            // Create the collapsible sensor panel
-            me.createSensorPanel(onlinePanel);
+            // Create the collapsible sensor panel in main content area (mapframe)
+            me.createSensorPanel();
             
             // Handle both possible context menu property names
             var contextMenu = tree.context_menu || tree.contextmenu;
@@ -55,7 +54,7 @@ Ext.define('Store.dashpanel.Module', {
         }
     },
     
-    createSensorPanel: function(onlinePanel) {
+    createSensorPanel: function() {
         var me = this;
         
         // Create sensor data store
@@ -72,11 +71,11 @@ Ext.define('Store.dashpanel.Module', {
             data: []
         });
         
-        // Create collapsible sensor panel
+        // Create collapsible sensor panel for main content area (bottom of map)
         me.sensorPanel = Ext.create('Ext.panel.Panel', {
             region: 'south',
             title: '🔧 Dashboard Panel - Sensor Data',
-            height: 300,
+            height: 250,
             split: true,
             collapsible: true,
             collapsed: true, // Start collapsed
@@ -165,16 +164,12 @@ Ext.define('Store.dashpanel.Module', {
             }]
         });
         
-        // Add panel to online navigation (as south region)
-        if (onlinePanel && onlinePanel.add) {
-            onlinePanel.add(me.sensorPanel);
-            console.log('✅ Sensor panel added to online navigation');
-        } else if (onlinePanel.layout === 'border') {
-            // If online panel has border layout, add as south region
-            onlinePanel.add(me.sensorPanel);
-            console.log('✅ Sensor panel added as south region');
+        // Add panel to main content area (mapframe) - bottom of map
+        if (skeleton.mapframe && skeleton.mapframe.add) {
+            skeleton.mapframe.add(me.sensorPanel);
+            console.log('✅ Sensor panel added to main content area (bottom of map)');
         } else {
-            console.warn('⚠️ Unable to add sensor panel - online panel layout not compatible');
+            console.warn('⚠️ Unable to add sensor panel - mapframe not available');
         }
     },
     
