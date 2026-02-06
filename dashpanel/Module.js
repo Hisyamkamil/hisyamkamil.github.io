@@ -63,7 +63,7 @@ Ext.define('Store.dashpanel.Module', {
         
         console.log('📊 Creating background sensor panel (behind navigation)...');
         
-        // Create permanent sensor panel with lower z-index (behind navigation)
+        // Create permanent sensor panel with VERY low z-index (behind everything)
         var backgroundPanel = Ext.create('Ext.panel.Panel', {
             id: 'dashpanel-background-panel',
             title: '🔧 Dashboard Panel - Sensor Data',
@@ -71,21 +71,34 @@ Ext.define('Store.dashpanel.Module', {
             height: 300,
             collapsible: true,
             collapsed: true,  // Start collapsed
+            animCollapse: true,  // Enable animation for collapse/expand
+            titleCollapse: true, // Allow click on title to collapse/expand
+            tools: [{
+                type: 'toggle',
+                tooltip: 'Expand/Collapse Panel',
+                handler: function(event, toolEl, panel) {
+                    if (panel.collapsed) {
+                        panel.expand();
+                    } else {
+                        panel.collapse();
+                    }
+                }
+            }],
             resizable: false,
             draggable: false,
             closable: false,
             layout: 'fit',
             
-            // Position behind navigation panel (lower z-index)
+            // Position behind navigation panel (MUCH lower z-index)
             style: {
                 position: 'fixed',
                 bottom: '0px',
                 left: '0px',
                 right: '0px',
-                'z-index': '500',  // Lower than navigation (usually 1000+)
+                'z-index': '50',  // Very low - behind everything
                 'box-shadow': '0 -2px 10px rgba(0,0,0,0.2)',
                 'background-color': 'white',
-                'border-top': '1px solid #ddd'
+                'border-top': '2px solid #007bff'
             },
             
             items: [{
