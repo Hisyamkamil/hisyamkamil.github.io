@@ -226,6 +226,17 @@ Ext.define('Store.dashpanel.view.MainPanelV2', {
         
         // Try to center map on selected vehicle (Pattern 3)
         try {
+            // Handle null vehicleRecord (e.g., from auto-load)
+            if (!vehicleRecord) {
+                console.log('⚠️ No vehicle record provided - skipping map centering');
+                me.mapPanel.update('<div style="padding: 20px; text-align: center; background: #e8f4fd;">' +
+                                   '<i class="fa fa-map-marker-alt" style="font-size: 48px; color: #dc3545;"></i>' +
+                                   '<h3>' + me.currentVehicleName + '</h3>' +
+                                   '<p><strong>Status:</strong> Auto-loaded data</p>' +
+                                   '<p>Select vehicle from navigation to see location</p></div>');
+                return;
+            }
+            
             var lat = vehicleRecord.get('lat');
             var lon = vehicleRecord.get('lon');
             
