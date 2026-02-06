@@ -1,0 +1,305 @@
+/* PILOT Dashpanel Extension V2 - Modal Window Styles */
+
+/* Modal window styling */
+#panel-sensor-window {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+}
+
+#panel-sensor-window .x-window-header {
+    background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #dee2e6;
+    color: #495057;
+}
+
+#panel-sensor-window .x-window-header-title {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Vehicle info panel at top of modal */
+.panel-vehicle-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Sensor grid styling in modal */
+#panel-sensor-window .x-grid-header {
+    background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #dee2e6;
+}
+
+#panel-sensor-window .x-grid-header-ct .x-column-header {
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Sensor value styling in modal */
+.panel-sensor-value-normal {
+    color: #28a745;
+    font-weight: bold;
+    background: rgba(40, 167, 69, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.panel-sensor-value-warning {
+    color: #ffc107;
+    font-weight: bold;
+    background: rgba(255, 193, 7, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.panel-sensor-value-critical {
+    color: #dc3545;
+    font-weight: bold;
+    background: rgba(220, 53, 69, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    animation: pulse-critical 1.5s ease-in-out infinite alternate;
+}
+
+/* Status indicators in modal */
+.panel-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.panel-status-normal {
+    background: rgba(40, 167, 69, 0.15);
+    color: #155724;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.panel-status-warning {
+    background: rgba(255, 193, 7, 0.15);
+    color: #856404;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.panel-status-critical {
+    background: rgba(220, 53, 69, 0.15);
+    color: #721c24;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+/* Sensor type icons in modal */
+.panel-sensor-icon {
+    margin-right: 6px;
+    color: #6c757d;
+    width: 16px;
+    text-align: center;
+}
+
+.panel-sensor-icon.temperature { color: #ff6b35; }
+.panel-sensor-icon.pressure { color: #1e90ff; }
+.panel-sensor-icon.level { color: #32cd32; }
+.panel-sensor-icon.voltage { color: #ffd700; }
+.panel-sensor-icon.speed { color: #ff1493; }
+.panel-sensor-icon.weight { color: #8a2be2; }
+.panel-sensor-icon.engine { color: #ff4500; }
+
+/* Grid row styling in modal */
+#panel-sensor-window .x-grid-row {
+    transition: background-color 0.2s ease;
+}
+
+#panel-sensor-window .x-grid-row:hover {
+    background: rgba(0, 123, 255, 0.05);
+}
+
+#panel-sensor-window .x-grid-row.sensor-critical {
+    background: rgba(220, 53, 69, 0.03);
+    border-left: 3px solid #dc3545;
+}
+
+#panel-sensor-window .x-grid-row.sensor-warning {
+    background: rgba(255, 193, 7, 0.03);
+    border-left: 3px solid #ffc107;
+}
+
+/* Modal window toolbar */
+#panel-sensor-window .x-toolbar {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+#panel-sensor-window .x-btn {
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+#panel-sensor-window .x-btn-default {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+#panel-sensor-window .x-btn-default:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+/* Loading and empty state styling */
+#panel-sensor-window .x-grid-empty {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin: 10px;
+}
+
+#panel-sensor-window .x-grid-empty:before {
+    content: "📊";
+    display: block;
+    font-size: 48px;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+/* Context menu item styling */
+.x-menu-item .fa-tachometer-alt {
+    color: #007bff;
+    margin-right: 8px;
+}
+
+/* Animations */
+@keyframes pulse-critical {
+    from { 
+        background: rgba(220, 53, 69, 0.1);
+        box-shadow: 0 0 5px rgba(220, 53, 69, 0.3);
+    }
+    to { 
+        background: rgba(220, 53, 69, 0.2);
+        box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+    }
+}
+
+/* Responsive modal adjustments */
+@media (max-width: 1024px) {
+    #panel-sensor-window {
+        width: 95% !important;
+        height: 80% !important;
+    }
+}
+
+@media (max-width: 768px) {
+    #panel-sensor-window .x-column-header {
+        font-size: 12px;
+        padding: 8px 4px;
+    }
+    
+    #panel-sensor-window .x-grid-cell {
+        padding: 6px 4px;
+        font-size: 12px;
+    }
+    
+    .panel-status-indicator {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+}
+
+/* Dark mode support (if PILOT supports it) */
+@media (prefers-color-scheme: dark) {
+    #panel-sensor-window {
+        background: #1e1e1e;
+        color: #ffffff;
+    }
+    
+    #panel-sensor-window .x-window-header {
+        background: linear-gradient(to bottom, #3c3c3c 0%, #2c2c2c 100%);
+        color: #ffffff;
+    }
+    
+    #panel-sensor-window .x-grid-header {
+        background: linear-gradient(to bottom, #3c3c3c 0%, #2c2c2c 100%);
+        color: #ffffff;
+    }
+    
+    #panel-sensor-window .x-grid-row {
+        background: #1e1e1e;
+        color: #ffffff;
+    }
+    
+    #panel-sensor-window .x-grid-row:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    
+    #panel-sensor-window .x-toolbar {
+        background: #2c2c2c;
+        border-bottom: 1px solid #444;
+    }
+}
+
+/* Print styles for modal content */
+@media print {
+    #panel-sensor-window .x-toolbar {
+        display: none;
+    }
+    
+    #panel-sensor-window .x-window-header {
+        background: transparent !important;
+        color: #000 !important;
+    }
+    
+    .panel-sensor-value-critical {
+        background: #ccc !important;
+        color: #000 !important;
+    }
+}
+
+/* Custom scrollbar for modal grid */
+#panel-sensor-window .x-grid-view::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#panel-sensor-window .x-grid-view::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#panel-sensor-window .x-grid-view::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+#panel-sensor-window .x-grid-view::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* Modal window close button enhancement */
+#panel-sensor-window .x-window-header .x-tool-close {
+    background-color: #dc3545;
+    border-radius: 50%;
+    color: white !important;
+}
+
+#panel-sensor-window .x-window-header .x-tool-close:hover {
+    background-color: #c82333;
+    transform: scale(1.1);
+}
+
+/* Enhancement for refresh button */
+#panel-sensor-window .x-toolbar .x-btn .fa-refresh {
+    animation: none;
+}
+
+#panel-sensor-window .x-toolbar .x-btn:active .fa-refresh {
+    animation: rotate-refresh 0.5s ease-in-out;
+}
+
+@keyframes rotate-refresh {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
