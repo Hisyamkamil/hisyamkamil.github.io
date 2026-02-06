@@ -73,7 +73,7 @@ Ext.define('Store.dashpanel.Module', {
             collapsed: true,  // Start collapsed
             animCollapse: true,
             titleCollapse: true,
-            collapseDirection: 'up', // Collapse upward (minimize to bottom-right corner)
+            // Note: Remove collapseDirection to use default behavior
             tools: [{
                 type: 'toggle',
                 tooltip: 'Expand/Collapse Panel',
