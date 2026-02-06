@@ -177,50 +177,8 @@ Ext.define('Store.dashpanel.Module', {
             console.error('Available methods:', skeleton.mapframe ? Object.keys(skeleton.mapframe).slice(0, 10) : 'undefined');
         }
         
-        // Auto-load default vehicle sensor data with comprehensive debugging
-        setTimeout(function() {
-            console.log('🚀 Auto-load timeout triggered...');
-            
-            if (me.backgroundPanel) {
-                console.log('✅ Background panel available for auto-load');
-                
-                // Set vehicle details
-                me.currentVehicleId = '269384';
-                me.currentVehicleName = 'Iveco Astra v2 (Auto-loaded)';
-                
-                // Update panel title
-                me.backgroundPanel.setTitle('🔧 Sensor Monitor - ' + me.currentVehicleName + ' (Real-time)');
-                
-                // Expand panel if collapsed
-                if (me.backgroundPanel.collapsed) {
-                    me.backgroundPanel.expand();
-                    console.log('✅ Panel expanded for auto-load');
-                }
-                
-                // Verify methods exist before calling
-                console.log('🔍 loadVehicleSensors method exists:', typeof me.loadVehicleSensors);
-                console.log('🔍 startVehicleRefresh method exists:', typeof me.startVehicleRefresh);
-                
-                if (typeof me.loadVehicleSensors === 'function') {
-                    console.log('🔄 Calling loadVehicleSensors...');
-                    me.loadVehicleSensors('269384');
-                } else {
-                    console.error('❌ loadVehicleSensors method not found');
-                }
-                
-                if (typeof me.startVehicleRefresh === 'function') {
-                    console.log('🔄 Calling startVehicleRefresh...');
-                    me.startVehicleRefresh('269384');
-                } else {
-                    console.error('❌ startVehicleRefresh method not found');
-                }
-                
-                console.log('✅ Auto-load process completed');
-            } else {
-                console.error('❌ Background panel not available for auto-load');
-                console.log('🔍 Module backgroundPanel:', me.backgroundPanel);
-            }
-        }, 3000);
+        // Note: Auto-load removed - sensors load only when vehicle is selected from navigation
+        console.log('✅ Docked sensor panel ready - waiting for vehicle selection');
     },
     
     // Called from Navigation component when vehicle is selected
