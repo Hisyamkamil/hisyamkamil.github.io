@@ -122,19 +122,171 @@ Ext.define('Store.dashpanel.Module', {
             id: 'dashpanel-main-v2'
         });
         
-        // Add to mapframe (main content area)
-        try {
-            skeleton.mapframe.add(mainPanel);
-            console.log('✅ Hybrid main panel (Map + Sensors) added to mapframe');
-            
-            // Load vehicle data
-            mainPanel.loadVehicleData(vehicleId, vehicleName, vehicleRecord);
-            
-        } catch (e) {
-            console.error('❌ Failed to add hybrid main panel to mapframe:', e);
-            
-            // Fallback: show alert
-            Ext.Msg.alert('Error', 'Unable to create main panel. Check console for details.');
+        console.log('🔍 Debugging mapframe structure...');
+        console.log('skeleton.mapframe:', skeleton.mapframe);
+        console.log('skeleton.mapframe methods:', skeleton.mapframe ? Object.keys(skeleton.mapframe).slice(0, 10) : 'N/A');
+        
+        // Since skeleton.mapframe.add() doesn't work, create modal instead
+        console.log('⚠️ Using modal fallback since mapframe.add() not supported');
+        me.showModalWithMapAndSensors(vehicleId, vehicleName, vehicleRecord);
+    },
+    
+    showModalWithMapAndSensors: function(vehicleId, vehicleName, vehicleRecord) {
+        var me = this;
+        
+        console.log('📱 Creating modal with map + sensors for:', vehicleName);
+        
+        // Close existing modal if open
+        var existingModal = Ext.getCmp('dashpanel-main-modal-v2');
+        if (existingModal) {
+            existingModal.close();
         }
+        
+        // Create modal window with map + sensors
+        var mainModal = Ext.create('Ext.window.Window', {
+            id: 'dashpanel-main-modal-v2',
+            title: '🔧 Dashboard Panel V2 - ' + vehicleName,
+            width: 1200,
+            height: 800,
+            layout: 'border',
+            modal: true,
+            maximizable: true,
+            closable: true,
+            
+            items: [{
+                // Top: Map area
+                region: 'center',
+                title: 'Vehicle Location - ' + vehicleName,
+                html: '<div style="padding: 30px; text-align: center; background: #e8f4fd;">' +
+                      '<i class="fa fa-map-marker-alt" style="font-size: 64px; color: #dc3545; margin-bottom: 20px;"></i>' +
+                      '<h3>' + vehicleName + '</h3>' +
+                      '<p><strong>Vehicle ID:</strong> ' + vehicleId + '</p>' +
+                      '<p><strong>Location:</strong> ' + (vehicleRecord.get('lat') || 'N/A') + ', ' + (vehicleRecord.get('lon') || 'N/A') + '</p>' +
+                      '<p><strong>Status:</strong> ' + (vehicleRecord.get('state') === 1 ? '<span style="color: green;">●Online</span>' : '<span style="color: red;">●Offline</span>') + '</p>' +
+                      '</div>'
+            }, {
+                // Bottom: Sensor panel
+                region: 'south',
+                title: 'Live Sensor Data - Real-time (0.5s)',
+                height: 400,
+                split: true,
+                collapsible: true,
+                layout: 'fit',
+                items: [{
+                    xtype: 'grid',
+                    itemId: 'sensorGrid',
+                    store: Ext.create('Ext.data.Store', {
+                        fields: ['sensor_name', 'sensor_type', 'current_value', 'unit', 'status', 'last_update'],
+                        data: []
+                    }),
+                    columns: [{
+                        text: 'Sensor Name',
+                        dataIndex: 'sensor_name',
+                        flex: 2
+                    }, {
+                        text: 'Value',
+                        dataIndex: 'current_value',
+                        width: 100,
+                        renderer: function(value, meta, record) {
+                            var unit = record.get('unit') || '';
+                            return '<strong>' + value + ' ' + unit + '</strong>';
+                        }
+                    }, {
+                        text: 'Status',
+                        dataIndex: 'status',
+                        width: 70,
+                        renderer: function(value) {
+                            var color = value === 'critical' ? 'red' : value === 'warning' ? 'orange' : 'green';
+                            return '<i class="fa fa-circle" style="color: ' + color + ';"></i>';
+                        }
+                    }, {
+                        text: 'Updated',
+                        dataIndex: 'last_update',
+                        width: 80,
+                        renderer: function(value) {
+                            return value ? Ext.Date.format(new Date(value), 'H:i:s') : '-';
+                        }
+                    }]
+                }]
+            }],
+            
+            listeners: {
+                afterrender: function() {
+                    me.loadSensorData(vehicleId, mainModal.down('#sensorGrid'));
+                    me.startRefresh(vehicleId, mainModal.down('#sensorGrid'));
+                },
+                close: function() {
+                    me.stopRefresh();
+                }
+            }
+        });
+        
+        mainModal.show();
+    },
+    
+    loadSensorData: function(vehicleId, grid) {
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: '/backend/ax/current_data.php',
+            success: function(response) {
+                try {
+                    var data = Ext.decode(response.responseText);
+                    var vehicle = null;
+                    
+                    if (data && data.objects) {
+                        Ext.each(data.objects, function(obj) {
+                            if (obj.id == vehicleId) {
+                                vehicle = obj;
+                                return false;
+                            }
+                        });
+                    }
+                    
+                    if (vehicle && vehicle.sensors) {
+                        var sensors = [];
+                        Ext.Object.each(vehicle.sensors, function(name, value) {
+                            var parts = value.split('|');
+                            if (parts.length >= 4) {
+                                sensors.push({
+                                    sensor_name: name,
+                                    sensor_type: 'generic',
+                                    current_value: parts[3],
+                                    unit: me.extractUnit(parts[0]),
+                                    status: 'normal',
+                                    last_update: new Date(parseInt(parts[1]) * 1000)
+                                });
+                            }
+                        });
+                        
+                        console.log('✅ Loading', sensors.length, 'sensors');
+                        grid.getStore().loadData(sensors);
+                    }
+                } catch (e) {
+                    console.error('❌ Parse error:', e);
+                }
+            }
+        });
+    },
+    
+    startRefresh: function(vehicleId, grid) {
+        var me = this;
+        me.stopRefresh();
+        me.refreshTask = setInterval(function() {
+            me.loadSensorData(vehicleId, grid);
+        }, 500);
+    },
+    
+    stopRefresh: function() {
+        if (this.refreshTask) {
+            clearInterval(this.refreshTask);
+            this.refreshTask = null;
+        }
+    },
+    
+    extractUnit: function(humValue) {
+        if (!humValue) return '';
+        var matches = humValue.toString().match(/([a-zA-Z°%]+)$/);
+        return matches ? matches[1] : '';
     }
 });
