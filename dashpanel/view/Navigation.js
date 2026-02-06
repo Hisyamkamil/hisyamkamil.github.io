@@ -2,9 +2,9 @@ Ext.define('Store.dashpanel.view.Navigation', {
     extend: 'Ext.panel.Panel',
     alias: 'widget.dashpanelnav',
     
-    title: 'Dashboard Panel V2',
+    title: 'Sensor Monitor',
     iconCls: 'fa fa-tachometer-alt',
-    iconAlign: 'top',
+    iconAlign: 'left',
     layout: 'fit',
     
     initComponent: function() {
