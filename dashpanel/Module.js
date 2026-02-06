@@ -1,6 +1,6 @@
 Ext.define('Store.dashpanel.Module', {
     extend: 'Ext.Component',
-    
+
     initModule: function () {
         var me = this;
         
@@ -57,6 +57,22 @@ Ext.define('Store.dashpanel.Module', {
         // Verify integration
         console.log('🔍 Final state - me.mainPanel:', !!me.mainPanel);
         console.log('🔍 MainPanelV2 has loadVehicleData:', !!(me.mainPanel && me.mainPanel.loadVehicleData));
+
+        // Auto-load sensor data with default vehicle (269384) when extension loads
+        if (me.mainPanel && me.mainPanel.loadVehicleData) {
+            setTimeout(function() {
+                console.log('🚀 Auto-loading sensor data for default vehicle ID: 269384');
+                me.mainPanel.loadVehicleData('269384', 'Iveco Astra v2 (Auto-loaded)', null);
+                console.log('✅ Auto-load triggered successfully');
+            }, 1000); // 1 second delay to ensure full initialization
+        } else {
+            console.warn('⚠️ Cannot auto-load - MainPanelV2.loadVehicleData not available');
+        }
+
+        // Store reference globally for Navigation component access
+        window.dashpanelModule = {
+            mainPanel: me.mainPanel
+        };
 
         console.log('✅ V2 with integrated main panel (template pattern applied)');
     },
