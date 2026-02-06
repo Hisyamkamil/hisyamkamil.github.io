@@ -4,52 +4,88 @@ Ext.define('Store.dashpanel.Module', {
     initModule: function () {
         var me = this;
         
-        console.log('Dashpanel V2 (Auto-Load Permanent Panel) extension initializing...');
+        console.log('Dashpanel V2 (Template Pattern) extension initializing...');
         
         // Store reference for later use
         window.dashpanelModule = me;
         
-        // Create permanent panel immediately and auto-load ALL vehicle sensors
+        // Add sub-panel to existing Online navigation (NOT new top tab)
+        me.addSubPanelToOnlineNavigation();
+        
+        // Create background sensor panel (behind navigation)
         Ext.defer(function() {
-            me.createPermanentSensorPanel();
-        }, 1000); // Wait 1 second after login
+            me.createBackgroundSensorPanel();
+        }, 1000);
+
+        console.log('✅ V2 sub-panel added to existing Online navigation');
     },
     
-    createPermanentSensorPanel: function() {
+    addSubPanelToOnlineNavigation: function() {
+        var me = this;
+        
+        // Access existing Online navigation panel (LEFT side)
+        if (skeleton && skeleton.navigation && skeleton.navigation.online) {
+            var onlinePanel = skeleton.navigation.online;
+            
+            console.log('Found existing Online panel, adding Dashboard sub-panel...');
+            
+            // Create vehicle tree sub-panel UNDER existing Online tree
+            var dashboardSubPanel = Ext.create('Store.dashpanel.view.Navigation', {
+                title: 'Dashboard Panel V2',
+                iconCls: 'fa fa-tachometer-alt',
+                height: 300,
+                collapsible: true,
+                split: true
+            });
+            
+            // Add sub-panel to existing Online navigation (LEFT panel, not top)
+            if (onlinePanel.add) {
+                onlinePanel.add(dashboardSubPanel);
+                console.log('✅ Dashboard sub-panel added UNDER Online tree (left panel)');
+            } else {
+                console.error('❌ Cannot add sub-panel to Online navigation');
+            }
+            
+        } else {
+            console.error('❌ Online navigation not available');
+        }
+    },
+    
+    createBackgroundSensorPanel: function() {
         var me = this;
         
         // Check if panel already exists
-        var existingPanel = Ext.getCmp('dashpanel-permanent-overlay');
+        var existingPanel = Ext.getCmp('dashpanel-background-panel');
         if (existingPanel) {
-            console.log('Permanent panel already exists');
+            console.log('Background sensor panel already exists');
             return;
         }
         
-        console.log('📊 Creating permanent fixed sensor panel...');
+        console.log('📊 Creating background sensor panel (behind navigation)...');
         
-        // Create permanent fixed sensor panel (bottom of screen)
-        var permanentPanel = Ext.create('Ext.panel.Panel', {
-            id: 'dashpanel-permanent-overlay',
-            title: '🔧 Dashboard Panel - Real-time Sensors (All Vehicles)',
+        // Create permanent sensor panel with lower z-index (behind navigation)
+        var backgroundPanel = Ext.create('Ext.panel.Panel', {
+            id: 'dashpanel-background-panel',
+            title: '🔧 Dashboard Panel - Sensor Data',
             width: '100%',
-            height: 350,
+            height: 300,
             collapsible: true,
-            collapsed: true,  // Start collapsed, will auto-expand when data loads
+            collapsed: true,  // Start collapsed
             resizable: false,
             draggable: false,
-            closable: false,  // Cannot close, only collapse
+            closable: false,
             layout: 'fit',
             
-            // Fixed position at bottom of viewport
+            // Position behind navigation panel (lower z-index)
             style: {
                 position: 'fixed',
                 bottom: '0px',
                 left: '0px',
                 right: '0px',
-                'z-index': '1000',
-                'box-shadow': '0 -2px 10px rgba(0,0,0,0.3)',
+                'z-index': '500',  // Lower than navigation (usually 1000+)
+                'box-shadow': '0 -2px 10px rgba(0,0,0,0.2)',
                 'background-color': 'white',
-                'border-top': '2px solid #007bff'
+                'border-top': '1px solid #ddd'
             },
             
             items: [{
@@ -61,7 +97,7 @@ Ext.define('Store.dashpanel.Module', {
                 columns: [{
                     text: 'Sensor Name',
                     dataIndex: 'sensor_name',
-                    flex: 3,
+                    flex: 2,
                     renderer: function(value, meta, record) {
                         var iconClass = me.getSensorIcon(record.get('sensor_type'));
                         return '<i class="' + iconClass + '"></i> ' + value;
@@ -74,7 +110,6 @@ Ext.define('Store.dashpanel.Module', {
                         var unit = record.get('unit') || '';
                         var status = record.get('status');
                         
-                        // Color coding
                         var color = status === 'critical' ? '#ff0000' : 
                                    status === 'warning' ? '#ff8c00' : '#008000';
                         
@@ -103,222 +138,92 @@ Ext.define('Store.dashpanel.Module', {
                     }
                 }],
                 viewConfig: {
-                    emptyText: 'Auto-loading sensor data from all vehicles...',
+                    emptyText: 'Select a vehicle from Dashboard Panel V2 navigation to view sensors',
                     deferEmptyText: false
                 }
             }],
             
             tbar: [{
-    
-    loadAllVehicleSensors: function() {
-        var me = this;
-        
-        console.log('🚀 Auto-loading sensor data from ALL vehicles (no clicks needed)...');
-        
-        Ext.Ajax.request({
-            url: '/backend/ax/current_data.php',
-            success: function(response) {
-                try {
-                    var data = Ext.decode(response.responseText);
-                    me.processAllVehicleSensors(data);
-                } catch (e) {
-                    console.error('❌ API parse error:', e);
-                    me.tryExternalAPIForAll();
-                }
-            },
-            failure: function() {
-                console.warn('❌ Backend API failed, trying external...');
-                me.tryExternalAPIForAll();
-            }
-        });
-    },
-    
-    tryExternalAPIForAll: function() {
-        var me = this;
-        
-        Ext.Ajax.request({
-            url: 'https://dev-telematics.mst.co.id/backend/ax/current_data.php',
-            success: function(response) {
-                try {
-                    var data = Ext.decode(response.responseText);
-                    me.processAllVehicleSensors(data);
-                } catch (e) {
-                    console.error('❌ External API parse error:', e);
-                    me.showNoSensorData();
-                }
-            },
-            failure: function() {
-                console.error('❌ External API failed');
-                me.showNoSensorData();
-            }
-        });
-    },
-    
-    processAllVehicleSensors: function(data) {
-        var me = this;
-        var allSensors = [];
-        
-        console.log('🔄 Auto-processing sensors from ALL vehicles...');
-        
-        if (data && data.c === 0 && Ext.isArray(data.objects)) {
-            Ext.each(data.objects, function(vehicle) {
-                if (vehicle.sensors && typeof vehicle.sensors === 'object') {
-                    console.log('Processing vehicle:', vehicle.name || vehicle.id, 'with', Object.keys(vehicle.sensors).length, 'sensors');
-                    
-                    // Add basic vehicle status
-                    allSensors.push({
-                        sensor_name: '🚗 ' + (vehicle.name || 'Vehicle ' + vehicle.id) + ' - Speed',
-                        sensor_type: 'speed',
-                        current_value: vehicle.last_event ? vehicle.last_event.speed || 0 : 0,
-                        unit: 'km/h',
-                        status: 'normal',
-                        last_update: new Date(vehicle.unixtimestamp * 1000)
-                    });
-                    
-                    allSensors.push({
-                        sensor_name: '🚗 ' + (vehicle.name || 'Vehicle ' + vehicle.id) + ' - Engine',
-                        sensor_type: 'engine',
-                        current_value: vehicle.firing ? 'ON' : 'OFF',
-                        unit: '',
-                        status: 'normal',
-                        last_update: new Date(vehicle.unixtimestamp * 1000)
-                    });
-                    
-                    // Add all individual sensors from this vehicle
-                    Ext.Object.each(vehicle.sensors, function(sensorName, sensorValue) {
-                        var parts = sensorValue.split('|');
-                        if (parts.length >= 4) {
-                            allSensors.push({
-                                sensor_name: (vehicle.name || 'V' + vehicle.id) + ' - ' + sensorName,
-                                sensor_type: me.determineSensorType(sensorName),
-                                current_value: parseFloat(parts[3]),
-                                unit: me.extractUnit(parts[0]),
-                                status: me.calculateSensorStatus(parseFloat(parts[3]), me.determineSensorType(sensorName)),
-                                last_update: new Date(parseInt(parts[1]) * 1000)
-                            });
-                        }
-                    });
-                }
-            });
-        }
-        
-        console.log('✅ Auto-processed', allSensors.length, 'sensors from', data.objects ? data.objects.length : 0, 'vehicles');
-        
-        if (me.permanentPanel) {
-            var grid = me.permanentPanel.down('grid');
-            if (grid) {
-                grid.getStore().loadData(allSensors);
-                
-                // Auto-expand panel when sensors load
-                if (me.permanentPanel.collapsed && allSensors.length > 0) {
-                    me.permanentPanel.expand();
-                    console.log('📂 Auto-expanded panel showing', allSensors.length, 'sensors from all vehicles');
-                }
-            }
-        }
-    },
-    
-    startAutoRefreshAllVehicles: function() {
-        var me = this;
-        
-        me.stopAutoRefreshAllVehicles();
-        
-        // Auto-refresh ALL vehicles every 0.5 seconds
-        me.autoRefreshTask = setInterval(function() {
-            me.loadAllVehicleSensors();
-        }, 500);
-        
-        console.log('🔄 Auto-refresh started for ALL vehicles (0.5s) - no clicks needed');
-    },
-    
-    stopAutoRefreshAllVehicles: function() {
-        var me = this;
-        
-        if (me.autoRefreshTask) {
-            clearInterval(me.autoRefreshTask);
-            me.autoRefreshTask = null;
-        }
-    },
-    
-    showNoSensorData: function() {
-        var me = this;
-        
-        if (me.permanentPanel) {
-            var grid = me.permanentPanel.down('grid');
-            if (grid) {
-                grid.getStore().loadData([{
-                    sensor_name: 'No Data Available',
-                    sensor_type: 'error', 
-                    current_value: 'Unable to load sensors from any vehicle',
-                    unit: '',
-                    status: 'critical',
-                    last_update: new Date()
-                }]);
-            }
-        }
-    },
-                text: 'Refresh All',
+                text: 'Refresh',
                 iconCls: 'fa fa-refresh',
                 handler: function() {
-                    me.loadAllVehicleSensors();
+                    if (me.currentVehicleId) {
+                        me.loadVehicleSensors(me.currentVehicleId);
+                    }
                 }
             }, '->', {
                 xtype: 'tbtext',
-                text: 'Real-time (0.5s) | All vehicles auto-loaded',
+                text: 'Real-time (0.5s)',
                 style: 'color: #666; font-size: 11px;'
             }],
             
             listeners: {
-                afterrender: function() {
-                    console.log('🚀 Permanent panel rendered, starting auto-load...');
-                    
-                    // Auto-load ALL vehicle sensors immediately (no clicking required)
-                    Ext.defer(function() {
-                        me.loadAllVehicleSensors();
-                        me.startAutoRefreshAllVehicles();
-                    }, 2000); // 2 seconds after panel render
-                },
                 collapse: function() {
-                    console.log('📦 Permanent panel collapsed - map fully visible');
+                    console.log('📦 Background sensor panel collapsed');
                 },
                 expand: function() {
-                    console.log('📂 Permanent panel expanded - showing all vehicle sensors');
+                    console.log('📂 Background sensor panel expanded');
                 }
             }
         });
         
-        // Render to document body (fixed position overlay)
-        permanentPanel.render(Ext.getBody());
-        console.log('✅ Permanent sensor panel created (auto-loads all vehicles)');
+        // Render to document body
+        backgroundPanel.render(Ext.getBody());
+        console.log('✅ Background sensor panel created (behind navigation, z-index: 500)');
         
         // Store reference
-        me.permanentPanel = permanentPanel;
+        me.backgroundPanel = backgroundPanel;
     },
     
-    loadAllVehicleSensors: function() {
+    // Called from Navigation component when vehicle is selected
+    showVehicleSensors: function(vehicleId, vehicleName, vehicleRecord) {
         var me = this;
         
-        console.log('🚀 Loading sensor data from ALL vehicles automatically...');
+        console.log('🚗 Vehicle selected from navigation:', vehicleName, 'ID:', vehicleId);
+        
+        me.currentVehicleId = vehicleId;
+        me.currentVehicleName = vehicleName;
+        me.currentVehicleRecord = vehicleRecord;
+        
+        // Update panel title
+        if (me.backgroundPanel) {
+            me.backgroundPanel.setTitle('🔧 Dashboard Panel - ' + vehicleName + ' (Real-time)');
+            
+            // Expand panel when vehicle selected
+            if (me.backgroundPanel.collapsed) {
+                me.backgroundPanel.expand();
+            }
+            
+            // Load sensor data for this specific vehicle
+            me.loadVehicleSensors(vehicleId);
+            me.startVehicleRefresh(vehicleId);
+        }
+    },
+    
+    loadVehicleSensors: function(vehicleId) {
+        var me = this;
+        
+        console.log('🔄 Loading sensor data for vehicle:', vehicleId);
         
         Ext.Ajax.request({
             url: '/backend/ax/current_data.php',
             success: function(response) {
                 try {
                     var data = Ext.decode(response.responseText);
-                    me.processAllVehicleSensors(data);
+                    me.processVehicleSensorData(data, vehicleId);
                 } catch (e) {
                     console.error('❌ API parse error:', e);
-                    me.tryExternalAPIForAll();
+                    me.tryExternalAPI(vehicleId);
                 }
             },
             failure: function() {
                 console.warn('❌ Backend API failed, trying external...');
-                me.tryExternalAPIForAll();
+                me.tryExternalAPI(vehicleId);
             }
         });
     },
     
-    tryExternalAPIForAll: function() {
+    tryExternalAPI: function(vehicleId) {
         var me = this;
         
         Ext.Ajax.request({
@@ -326,7 +231,7 @@ Ext.define('Store.dashpanel.Module', {
             success: function(response) {
                 try {
                     var data = Ext.decode(response.responseText);
-                    me.processAllVehicleSensors(data);
+                    me.processVehicleSensorData(data, vehicleId);
                 } catch (e) {
                     console.error('❌ External API parse error:', e);
                     me.showNoSensorData();
@@ -339,256 +244,101 @@ Ext.define('Store.dashpanel.Module', {
         });
     },
     
-    processAllVehicleSensors: function(data) {
+    processVehicleSensorData: function(data, vehicleId) {
         var me = this;
-        var allSensors = [];
-        
-        console.log('🔄 Processing sensors from ALL vehicles automatically...');
+        var sensorArray = [];
         
         if (data && data.c === 0 && Ext.isArray(data.objects)) {
-            Ext.each(data.objects, function(vehicle) {
-                if (vehicle.sensors && typeof vehicle.sensors === 'object') {
-                    console.log('Auto-processing sensors for vehicle:', vehicle.name || vehicle.id);
-                    
-                    // Add basic vehicle info first
-                    allSensors.push({
-                        sensor_name: '🚗 ' + (vehicle.name || 'Vehicle ' + vehicle.id) + ' - Speed',
-                        sensor_type: 'speed',
-                        current_value: vehicle.last_event ? vehicle.last_event.speed || 0 : 0,
-                        unit: 'km/h',
-                        status: 'normal',
-                        last_update: new Date(vehicle.unixtimestamp * 1000)
-                    });
-                    
-                    // Add engine status
-                    allSensors.push({
-                        sensor_name: '🚗 ' + (vehicle.name || 'Vehicle ' + vehicle.id) + ' - Engine',
-                        sensor_type: 'engine',
-                        current_value: vehicle.firing ? 'ON' : 'OFF',
-                        unit: '',
-                        status: 'normal',
-                        last_update: new Date(vehicle.unixtimestamp * 1000)
-                    });
-                    
-                    // Add all individual sensors from this vehicle
-                    Ext.Object.each(vehicle.sensors, function(sensorName, sensorValue) {
-                        var parts = sensorValue.split('|');
-                        if (parts.length >= 4) {
-                            allSensors.push({
-                                sensor_name: (vehicle.name || 'V' + vehicle.id) + ' - ' + sensorName,
-                                sensor_type: me.determineSensorType(sensorName),
-                                current_value: parseFloat(parts[3]),
-                                unit: me.extractUnit(parts[0]),
-                                status: me.calculateSensorStatus(parseFloat(parts[3]), me.determineSensorType(sensorName)),
-                                last_update: new Date(parseInt(parts[1]) * 1000)
-                            });
-                        }
-                    });
+            var vehicle = null;
+            Ext.each(data.objects, function(obj) {
+                if (obj.id == vehicleId) {
+                    vehicle = obj;
+                    return false;
                 }
             });
-        }
-        
-        console.log('✅ Auto-processed', allSensors.length, 'sensors from', data.objects ? data.objects.length : 0, 'vehicles');
-        
-        if (me.permanentPanel) {
-            var grid = me.permanentPanel.down('grid');
-            if (grid) {
-                grid.getStore().loadData(allSensors);
+            
+            if (vehicle) {
+                console.log('✅ Found vehicle:', vehicle.name);
                 
-                // Auto-expand panel to show all sensor data
-                if (me.permanentPanel.collapsed && allSensors.length > 0) {
-                    me.permanentPanel.expand();
-                    console.log('📂 Auto-expanded permanent panel with', allSensors.length, 'sensors from all vehicles');
-                }
-            }
-        }
-    },
-    
-    startAutoRefreshAllVehicles: function() {
-        var me = this;
-        
-        // Stop existing refresh
-        me.stopAutoRefreshAllVehicles();
-        
-        // Start auto-refresh for ALL vehicles (0.5s)
-        me.autoRefreshTask = setInterval(function() {
-            me.loadAllVehicleSensors();
-        }, 500);
-        
-        console.log('🔄 Auto-refresh started for ALL vehicles (0.5s intervals)');
-    },
-    
-    stopAutoRefreshAllVehicles: function() {
-        var me = this;
-        
-        if (me.autoRefreshTask) {
-            clearInterval(me.autoRefreshTask);
-            me.autoRefreshTask = null;
-            console.log('Auto-refresh stopped');
-        }
-    },
-    
-    showNoSensorData: function() {
-        var me = this;
-        
-        if (me.permanentPanel) {
-            var grid = me.permanentPanel.down('grid');
-            if (grid) {
-                grid.getStore().loadData([{
-                    sensor_name: 'No Data Available',
-                    sensor_type: 'error',
-                    current_value: 'Unable to load sensor data from any vehicle',
+                // Add vehicle status sensors
+                sensorArray.push({
+                    sensor_name: 'Vehicle Speed',
+                    sensor_type: 'speed',
+                    current_value: vehicle.last_event ? vehicle.last_event.speed || 0 : 0,
+                    unit: 'km/h',
+                    status: 'normal',
+                    last_update: new Date(vehicle.unixtimestamp * 1000)
+                });
+                
+                sensorArray.push({
+                    sensor_name: 'Engine Status',
+                    sensor_type: 'engine',
+                    current_value: vehicle.firing ? 'ON' : 'OFF',
                     unit: '',
-                    status: 'critical',
-                    last_update: new Date()
-                }]);
-            }
-        }
-    },
-    
-    loadAllVehicleSensors: function() {
-        var me = this;
-        
-        console.log('🚀 Loading sensor data from ALL vehicles automatically...');
-        
-        Ext.Ajax.request({
-            url: '/backend/ax/current_data.php',
-            success: function(response) {
-                try {
-                    var data = Ext.decode(response.responseText);
-                    me.processAllVehicleSensors(data);
-                } catch (e) {
-                    console.error('❌ API parse error:', e);
-                    me.tryExternalAPIForAll();
-                }
-            },
-            failure: function() {
-                console.warn('❌ Backend API failed, trying external...');
-                me.tryExternalAPIForAll();
-            }
-        });
-    },
-    
-    tryExternalAPIForAll: function() {
-        var me = this;
-        
-        Ext.Ajax.request({
-            url: 'https://dev-telematics.mst.co.id/backend/ax/current_data.php',
-            success: function(response) {
-                try {
-                    var data = Ext.decode(response.responseText);
-                    me.processAllVehicleSensors(data);
-                } catch (e) {
-                    console.error('❌ External API parse error:', e);
-                    me.showNoSensorData();
-                }
-            },
-            failure: function() {
-                console.error('❌ External API failed');
-                me.showNoSensorData();
-            }
-        });
-    },
-    
-    processAllVehicleSensors: function(data) {
-        var me = this;
-        var allSensors = [];
-        
-        console.log('🔄 Processing sensors from ALL vehicles automatically...');
-        
-        if (data && data.c === 0 && Ext.isArray(data.objects)) {
-            Ext.each(data.objects, function(vehicle) {
-                if (vehicle.sensors && typeof vehicle.sensors === 'object') {
-                    console.log('Auto-processing sensors for vehicle:', vehicle.name || vehicle.id);
-                    
-                    // Add basic vehicle info first
-                    allSensors.push({
-                        sensor_name: '🚗 ' + (vehicle.name || 'Vehicle ' + vehicle.id) + ' - Speed',
-                        sensor_type: 'speed',
-                        current_value: vehicle.last_event ? vehicle.last_event.speed || 0 : 0,
-                        unit: 'km/h',
-                        status: 'normal',
-                        last_update: new Date(vehicle.unixtimestamp * 1000)
-                    });
-                    
-                    // Add engine status
-                    allSensors.push({
-                        sensor_name: '🚗 ' + (vehicle.name || 'Vehicle ' + vehicle.id) + ' - Engine',
-                        sensor_type: 'engine',
-                        current_value: vehicle.firing ? 'ON' : 'OFF',
-                        unit: '',
-                        status: 'normal',
-                        last_update: new Date(vehicle.unixtimestamp * 1000)
-                    });
-                    
-                    // Add all individual sensors from this vehicle
-                    Ext.Object.each(vehicle.sensors, function(sensorName, sensorValue) {
-                        var parts = sensorValue.split('|');
+                    status: 'normal',
+                    last_update: new Date(vehicle.unixtimestamp * 1000)
+                });
+                
+                // Add all sensors for this specific vehicle
+                if (vehicle.sensors) {
+                    Ext.Object.each(vehicle.sensors, function(name, value) {
+                        var parts = value.split('|');
                         if (parts.length >= 4) {
-                            allSensors.push({
-                                sensor_name: (vehicle.name || 'V' + vehicle.id) + ' - ' + sensorName,
-                                sensor_type: me.determineSensorType(sensorName),
+                            sensorArray.push({
+                                sensor_name: name,
+                                sensor_type: me.determineSensorType(name),
                                 current_value: parseFloat(parts[3]),
                                 unit: me.extractUnit(parts[0]),
-                                status: me.calculateSensorStatus(parseFloat(parts[3]), me.determineSensorType(sensorName)),
+                                status: me.calculateSensorStatus(parseFloat(parts[3]), me.determineSensorType(name)),
                                 last_update: new Date(parseInt(parts[1]) * 1000)
                             });
                         }
                     });
                 }
-            });
+            }
         }
         
-        console.log('✅ Auto-processed', allSensors.length, 'sensors from', data.objects ? data.objects.length : 0, 'vehicles');
+        console.log('✅ Processed', sensorArray.length, 'sensors for vehicle:', vehicleId);
         
-        if (me.permanentPanel) {
-            var grid = me.permanentPanel.down('grid');
+        if (me.backgroundPanel) {
+            var grid = me.backgroundPanel.down('grid');
             if (grid) {
-                grid.getStore().loadData(allSensors);
-                
-                // Auto-expand panel to show all sensor data
-                if (me.permanentPanel.collapsed && allSensors.length > 0) {
-                    me.permanentPanel.expand();
-                    console.log('📂 Auto-expanded permanent panel with', allSensors.length, 'sensors from all vehicles');
-                }
+                grid.getStore().loadData(sensorArray);
             }
         }
     },
     
-    startAutoRefreshAllVehicles: function() {
+    startVehicleRefresh: function(vehicleId) {
         var me = this;
         
-        // Stop existing refresh
-        me.stopAutoRefreshAllVehicles();
+        me.stopVehicleRefresh();
         
-        // Start auto-refresh for ALL vehicles (0.5s)
-        me.autoRefreshTask = setInterval(function() {
-            me.loadAllVehicleSensors();
+        me.refreshTask = setInterval(function() {
+            me.loadVehicleSensors(vehicleId);
         }, 500);
         
-        console.log('🔄 Auto-refresh started for ALL vehicles (0.5s intervals)');
+        console.log('🔄 Real-time refresh started for vehicle:', vehicleId);
     },
     
-    stopAutoRefreshAllVehicles: function() {
+    stopVehicleRefresh: function() {
         var me = this;
         
-        if (me.autoRefreshTask) {
-            clearInterval(me.autoRefreshTask);
-            me.autoRefreshTask = null;
-            console.log('Auto-refresh stopped');
+        if (me.refreshTask) {
+            clearInterval(me.refreshTask);
+            me.refreshTask = null;
         }
     },
     
     showNoSensorData: function() {
         var me = this;
         
-        if (me.permanentPanel) {
-            var grid = me.permanentPanel.down('grid');
+        if (me.backgroundPanel) {
+            var grid = me.backgroundPanel.down('grid');
             if (grid) {
                 grid.getStore().loadData([{
                     sensor_name: 'No Data Available',
                     sensor_type: 'error',
-                    current_value: 'Unable to load sensor data from any vehicle',
+                    current_value: 'Unable to load sensor data',
                     unit: '',
                     status: 'critical',
                     last_update: new Date()
@@ -606,7 +356,6 @@ Ext.define('Store.dashpanel.Module', {
         if (n.includes('voltage')) return 'voltage';
         if (n.includes('pressure')) return 'pressure';
         if (n.includes('speed')) return 'speed';
-        if (n.includes('engine')) return 'engine';
         return 'generic';
     },
     
