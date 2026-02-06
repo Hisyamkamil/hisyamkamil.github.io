@@ -61,11 +61,17 @@ Ext.define('Store.dashpanel.view.Navigation', {
                     if (selected.length > 0) {
                         var record = selected[0];
                         if (record.get('leaf') && (record.get('id') || record.get('vehicle_id'))) {
+                            var vehicleId = record.get('id') || record.get('vehicle_id');
+                            var vehicleName = record.get('name') || record.get('text') || 'Unknown Vehicle';
+                            
                             // Update main panel with selected vehicle
                             if (me.map_frame) {
-                                var vehicleId = record.get('id') || record.get('vehicle_id');
-                                var vehicleName = record.get('name') || record.get('text') || 'Unknown Vehicle';
                                 me.map_frame.loadVehicleData(vehicleId, vehicleName, record);
+                            }
+                            
+                            // Trigger background sensor panel (like template pattern)
+                            if (window.dashpanelModule) {
+                                window.dashpanelModule.showVehicleSensors(vehicleId, vehicleName, record);
                             }
                         }
                     }
