@@ -63,17 +63,17 @@ Ext.define('Store.dashpanel.Module', {
         
         console.log('📊 Creating background sensor panel (behind navigation)...');
         
-        // Create sensor panel on RIGHT side of left navigation (not bottom)
-        var rightSensorPanel = Ext.create('Ext.panel.Panel', {
-            id: 'dashpanel-right-panel',
+        // Create sensor panel on BOTTOM-RIGHT of main content area (over map)
+        var bottomRightPanel = Ext.create('Ext.panel.Panel', {
+            id: 'dashpanel-bottom-right-panel',
             title: '🔧 Sensor Monitor - Sensor Data',
-            width: 400,
-            height: '100%',
+            width: 500,
+            height: 350,
             collapsible: true,
             collapsed: true,  // Start collapsed
             animCollapse: true,
             titleCollapse: true,
-            collapseDirection: 'left', // Collapse to the left (towards navigation)
+            collapseDirection: 'up', // Collapse upward (minimize to bottom-right corner)
             tools: [{
                 type: 'toggle',
                 tooltip: 'Expand/Collapse Panel',
@@ -90,16 +90,17 @@ Ext.define('Store.dashpanel.Module', {
             closable: false,
             layout: 'fit',
             
-            // Position on RIGHT side of left navigation (very low z-index)
+            // Position on BOTTOM-RIGHT of main content area (overlays map)
             style: {
                 position: 'fixed',
-                top: '60px',  // Below header
-                left: '300px', // Right of left navigation (adjust based on nav width)
-                bottom: '0px',
-                'z-index': '1',  // Extremely low - behind everything including map
-                'box-shadow': '2px 0 10px rgba(0,0,0,0.1)',
-                'background-color': 'white',
-                'border-left': '2px solid #007bff'
+                bottom: '10px',   // Close to bottom edge
+                right: '10px',    // Close to right edge
+                'z-index': '500', // In front of map, behind navigation panels
+                'box-shadow': '0 0 20px rgba(0,0,0,0.4)',
+                'background-color': 'rgba(255,255,255,0.95)', // Semi-transparent white
+                'border': '2px solid #007bff',
+                'border-radius': '8px',
+                'backdrop-filter': 'blur(5px)' // Blur effect behind panel
             },
             
             items: [{
@@ -181,12 +182,12 @@ Ext.define('Store.dashpanel.Module', {
             }
         });
         
-        // Render to document body (right side of navigation)
-        rightSensorPanel.render(Ext.getBody());
-        console.log('✅ Right-side sensor panel created (beside left navigation, z-index: 1)');
+        // Render to document body (bottom-right of main area)
+        bottomRightPanel.render(Ext.getBody());
+        console.log('✅ Bottom-right sensor panel created (over map, z-index: 100)');
         
         // Store reference
-        me.backgroundPanel = rightSensorPanel;
+        me.backgroundPanel = bottomRightPanel;
     },
     
     // Called from Navigation component when vehicle is selected
