@@ -191,12 +191,35 @@ Ext.define('Store.dashpanel.Module', {
         me.currentVehicleId = vehicleId;
         me.currentVehicleName = vehicleName;
         
-        // Update panel title
-        me.sensorPanel.setTitle('🔧 Dashboard Panel - ' + vehicleName + ' (Real-time)');
+        // Check if panel exists before updating
+        if (!me.sensorPanel) {
+            console.error('❌ Sensor panel not available - creating it now...');
+            me.createPermanentSensorPanel();
+            
+            // Wait a moment for panel creation
+            Ext.defer(function() {
+                if (me.sensorPanel) {
+                    me.sensorPanel.setTitle('🔧 Dashboard Panel - ' + vehicleName + ' (Real-time)');
+                    if (me.sensorPanel.collapsed) {
+                        me.sensorPanel.expand();
+                    }
+                } else {
+                    console.error('❌ Panel creation failed completely');
+                }
+            }, 100);
+            return;
+        }
         
-        // Expand the panel if collapsed
-        if (me.sensorPanel.collapsed) {
-            me.sensorPanel.expand();
+        // Update panel title
+        try {
+            me.sensorPanel.setTitle('🔧 Dashboard Panel - ' + vehicleName + ' (Real-time)');
+            
+            // Expand the panel if collapsed
+            if (me.sensorPanel.collapsed) {
+                me.sensorPanel.expand();
+            }
+        } catch (e) {
+            console.error('❌ Error updating sensor panel:', e);
         }
         
         // Load sensor data
