@@ -90,17 +90,46 @@ Ext.define('Store.dashpanel.Module', {
             closable: false,
             layout: 'fit',
             
-            // Position on BOTTOM-RIGHT of main content area (overlays map)
+            // Position RESPONSIVE to left navigation width (not fixed overlay)
             style: {
-                position: 'fixed',
-                bottom: '10px',   // Close to bottom edge
-                right: '10px',    // Close to right edge
-                'z-index': '500', // In front of map, behind navigation panels
-                'box-shadow': '0 0 20px rgba(0,0,0,0.4)',
-                'background-color': 'rgba(255,255,255,0.95)', // Semi-transparent white
+                position: 'absolute',
+                bottom: '20px',
+                right: '20px',
+                'z-index': '100',
+                'box-shadow': '0 2px 10px rgba(0,0,0,0.2)',
+                'background-color': 'white',
                 'border': '2px solid #007bff',
-                'border-radius': '8px',
-                'backdrop-filter': 'blur(5px)' // Blur effect behind panel
+                'border-radius': '8px'
+            },
+            
+            // Make panel responsive to navigation width
+            listeners: {
+                afterrender: function(panel) {
+                    // Calculate responsive position based on navigation width
+                    Ext.defer(function() {
+                        var navWidth = 0;
+                        if (skeleton.navigation && skeleton.navigation.getWidth) {
+                            navWidth = skeleton.navigation.getWidth();
+                        } else {
+                            navWidth = 250; // Default navigation width
+                        }
+                        
+                        // Position panel at BOTTOM-RIGHT, responsive to navigation
+                        var windowHeight = window.innerHeight || document.documentElement.clientHeight;
+                        var windowWidth = window.innerWidth || document.documentElement.clientWidth;
+                        
+                        panel.setX(windowWidth - panel.getWidth() - 30); // 30px from right edge
+                        panel.setY(windowHeight - panel.getHeight() - 50); // 50px from bottom edge
+                        
+                        console.log('📍 Panel positioned at BOTTOM-RIGHT, responsive to screen:', windowWidth, 'x', windowHeight);
+                    }, 100);
+                },
+                collapse: function() {
+                    console.log('📦 Sensor panel collapsed');
+                },
+                expand: function() {
+                    console.log('📂 Sensor panel expanded');
+                }
             },
             
             items: [{
