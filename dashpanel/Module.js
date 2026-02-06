@@ -1,4 +1,4 @@
-Ext.define('Store.dashpanel.Module', {
+Ext.define('Store.panel.Module', {
     extend: 'Ext.Component',
 
     initModule: function () {
@@ -16,11 +16,15 @@ Ext.define('Store.dashpanel.Module', {
     initializeContextMenu: function() {
         var me = this;
         
-        // Try to access online tree safely
+        // Try to access online tree and navigation panel safely
         if (skeleton && skeleton.navigation && skeleton.navigation.online && skeleton.navigation.online.online_tree) {
             var tree = skeleton.navigation.online.online_tree;
+            var onlinePanel = skeleton.navigation.online;
             
-            console.log('Found online tree, adding context menu item...');
+            console.log('Found online tree, adding context menu item and panel...');
+            
+            // Create the collapsible sensor panel
+            me.createSensorPanel(onlinePanel);
             
             // Handle both possible context menu property names
             var contextMenu = tree.context_menu || tree.contextmenu;
@@ -35,7 +39,7 @@ Ext.define('Store.dashpanel.Module', {
                         // 'this' refers to the tree due to scope
                         if (this.record) {
                             console.log('Context menu clicked for vehicle:', this.record.get('name'));
-                            me.openSensorWindow(this.record);
+                            me.showSensorPanel(this.record);
                         } else {
                             console.warn('No vehicle record selected');
                         }
@@ -51,25 +55,14 @@ Ext.define('Store.dashpanel.Module', {
         }
     },
     
-    openSensorWindow: function(vehicleRecord) {
+    createSensorPanel: function(onlinePanel) {
         var me = this;
         
-        var vehicleName = vehicleRecord.get('name') || vehicleRecord.get('text') || 'Unknown Vehicle';
-        var vehicleId = vehicleRecord.get('id') || vehicleRecord.get('imei') || vehicleRecord.get('agent_id');
-        
-        console.log('Opening sensor window for:', vehicleName, 'ID:', vehicleId);
-        
-        // Check if window is already open
-        var existingWindow = Ext.getCmp('panel-sensor-window');
-        if (existingWindow) {
-            existingWindow.close();
-        }
-        
         // Create sensor data store
-        var sensorStore = Ext.create('Ext.data.Store', {
+        me.sensorStore = Ext.create('Ext.data.Store', {
             fields: [
                 'sensor_name',
-                'sensor_type', 
+                'sensor_type',
                 'current_value',
                 'unit',
                 'status',
@@ -79,32 +72,19 @@ Ext.define('Store.dashpanel.Module', {
             data: []
         });
         
-        // Create the modal window
-        var sensorWindow = Ext.create('Ext.window.Window', {
-            id: 'panel-sensor-window',
-            title: '🔧 Panel - ' + vehicleName,
-            width: 900,
-            height: 600,
-            modal: true,
-            layout: 'border',
-            closable: true,
-            resizable: true,
+        // Create collapsible sensor panel
+        me.sensorPanel = Ext.create('Ext.panel.Panel', {
+            region: 'south',
+            title: '🔧 Panel - Sensor Data',
+            height: 300,
+            split: true,
+            collapsible: true,
+            collapsed: true, // Start collapsed
+            layout: 'fit',
             
             items: [{
-                // Top panel with vehicle info
-                region: 'north',
-                xtype: 'panel',
-                height: 80,
-                html: '<div style="padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">' +
-                      '<h3 style="margin: 0; color: white;"><i class="fa fa-car"></i> ' + vehicleName + '</h3>' +
-                      '<span>Vehicle ID: ' + vehicleId + ' | Real-time sensor monitoring</span>' +
-                      '</div>',
-                border: false
-            }, {
-                // Main sensor grid
-                region: 'center',
                 xtype: 'grid',
-                store: sensorStore,
+                store: me.sensorStore,
                 columns: [{
                     text: 'Sensor Name',
                     dataIndex: 'sensor_name',
@@ -114,13 +94,9 @@ Ext.define('Store.dashpanel.Module', {
                         return '<i class="' + iconClass + '"></i> ' + value;
                     }
                 }, {
-                    text: 'Type',
-                    dataIndex: 'sensor_type',
-                    width: 100
-                }, {
-                    text: 'Current Value',
+                    text: 'Value',
                     dataIndex: 'current_value',
-                    width: 120,
+                    width: 100,
                     renderer: function(value, meta, record) {
                         var unit = record.get('unit') || '';
                         var status = record.get('status');
@@ -141,7 +117,7 @@ Ext.define('Store.dashpanel.Module', {
                 }, {
                     text: 'Status',
                     dataIndex: 'status',
-                    width: 80,
+                    width: 70,
                     renderer: function(value) {
                         var icon = '';
                         var color = '';
@@ -164,69 +140,83 @@ Ext.define('Store.dashpanel.Module', {
                                 color = 'gray';
                         }
                         
-                        return '<i class="' + icon + '" style="color: ' + color + ';"></i> ' + 
-                               (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Unknown');
-                    }
-                }, {
-                    text: 'Last Update',
-                    dataIndex: 'last_update',
-                    width: 140,
-                    renderer: function(value) {
-                        if (value) {
-                            return Ext.Date.format(new Date(value), 'Y-m-d H:i:s');
-                        }
-                        return '-';
+                        return '<i class="' + icon + '" style="color: ' + color + ';"></i>';
                     }
                 }],
                 viewConfig: {
-                    emptyText: 'Loading sensor data...',
+                    emptyText: 'Select a vehicle and click "View Panel" to see sensor data',
                     deferEmptyText: false
                 }
             }],
             
-            // Window toolbar with refresh button
+            // Panel toolbar
             tbar: [{
                 text: 'Refresh',
                 iconCls: 'fa fa-refresh',
                 handler: function() {
-                    me.loadSensorDataForWindow(vehicleId, sensorStore);
+                    if (me.currentVehicleId) {
+                        me.loadSensorDataForPanel(me.currentVehicleId);
+                    }
                 }
             }, '->', {
                 xtype: 'tbtext',
-                text: 'Auto-refresh every 10 seconds',
-                style: 'color: #666;'
-            }],
-            
-            listeners: {
-                afterrender: function() {
-                    // Load initial sensor data
-                    me.loadSensorDataForWindow(vehicleId, sensorStore);
-                    
-                    // Set up auto-refresh
-                    me.startAutoRefresh(vehicleId, sensorStore);
-                },
-                close: function() {
-                    // Clean up auto-refresh on window close
-                    me.stopAutoRefresh();
-                }
-            }
+                text: 'Real-time (0.5s)',
+                style: 'color: #666; font-size: 11px;'
+            }]
         });
         
-        sensorWindow.show();
+        // Add panel to online navigation (as south region)
+        if (onlinePanel && onlinePanel.add) {
+            onlinePanel.add(me.sensorPanel);
+            console.log('✅ Sensor panel added to online navigation');
+        } else if (onlinePanel.layout === 'border') {
+            // If online panel has border layout, add as south region
+            onlinePanel.add(me.sensorPanel);
+            console.log('✅ Sensor panel added as south region');
+        } else {
+            console.warn('⚠️ Unable to add sensor panel - online panel layout not compatible');
+        }
     },
     
-    startAutoRefresh: function(vehicleId, store) {
+    showSensorPanel: function(vehicleRecord) {
+        var me = this;
+        
+        var vehicleName = vehicleRecord.get('name') || vehicleRecord.get('text') || 'Unknown Vehicle';
+        var vehicleId = vehicleRecord.get('id') || vehicleRecord.get('imei') || vehicleRecord.get('agent_id');
+        
+        console.log('Showing sensor panel for:', vehicleName, 'ID:', vehicleId);
+        
+        // Store current vehicle info
+        me.currentVehicleId = vehicleId;
+        me.currentVehicleName = vehicleName;
+        
+        // Update panel title
+        me.sensorPanel.setTitle('🔧 Panel - ' + vehicleName + ' (Real-time)');
+        
+        // Expand the panel if collapsed
+        if (me.sensorPanel.collapsed) {
+            me.sensorPanel.expand();
+        }
+        
+        // Load sensor data
+        me.loadSensorDataForPanel(vehicleId);
+        
+        // Start real-time refresh
+        me.startAutoRefresh(vehicleId);
+    },
+    
+    startAutoRefresh: function(vehicleId) {
         var me = this;
         
         // Stop existing refresh
         me.stopAutoRefresh();
         
-        // Start new refresh every 10 seconds
+        // Start new refresh every 0.5 seconds for real-time monitoring
         me.refreshTask = setInterval(function() {
-            me.loadSensorDataForWindow(vehicleId, store);
-        }, 10000);
+            me.loadSensorDataForPanel(vehicleId);
+        }, 500);
         
-        console.log('Auto-refresh started for vehicle:', vehicleId);
+        console.log('Real-time auto-refresh started for vehicle:', vehicleId, '(every 0.5s)');
     },
     
     stopAutoRefresh: function() {
@@ -239,16 +229,16 @@ Ext.define('Store.dashpanel.Module', {
         }
     },
     
-    loadSensorDataForWindow: function(vehicleId, store) {
+    loadSensorDataForPanel: function(vehicleId) {
         var me = this;
         
-        console.log('🔄 Loading sensor data for vehicle ID:', vehicleId);
+        console.log('🔄 Loading sensor data for panel, vehicle ID:', vehicleId);
         
         // Try v3 API first, then fallback to backend API
-        me.tryV3APIForWindow(vehicleId, store);
+        me.tryV3APIForPanel(vehicleId);
     },
     
-    tryV3APIForWindow: function(vehicleId, store) {
+    tryV3APIForPanel: function(vehicleId) {
         var me = this;
         
         // Try PILOT v3 API first
@@ -265,24 +255,24 @@ Ext.define('Store.dashpanel.Module', {
                     var data = Ext.decode(response.responseText);
                     if (data.code === 0 && data.data && data.data.length > 0) {
                         console.log('✅ Processing sensor data from v3 API');
-                        me.processV3SensorData(data.data[0], store);
+                        me.processV3SensorDataForPanel(data.data[0]);
                         return;
                     }
                 } catch (e) {
                     console.error('v3 API parse error:', e);
                 }
                 // Fallback to backend API
-                me.tryBackendAPIForWindow(vehicleId, store);
+                me.tryBackendAPIForPanel(vehicleId);
             },
             failure: function(response) {
                 console.warn('❌ v3 API failed, trying backend API...');
                 // Fallback to backend API
-                me.tryBackendAPIForWindow(vehicleId, store);
+                me.tryBackendAPIForPanel(vehicleId);
             }
         });
     },
     
-    tryBackendAPIForWindow: function(vehicleId, store) {
+    tryBackendAPIForPanel: function(vehicleId) {
         var me = this;
         
         // Try backend API
@@ -291,22 +281,22 @@ Ext.define('Store.dashpanel.Module', {
             success: function(response) {
                 try {
                     var data = Ext.decode(response.responseText);
-                    me.processBackendSensorData(data, vehicleId, store);
+                    me.processBackendSensorDataForPanel(data, vehicleId);
                 } catch (e) {
                     console.error('❌ Backend API parse error:', e);
                     // Try external URL
-                    me.tryExternalBackendAPIForWindow(vehicleId, store);
+                    me.tryExternalBackendAPIForPanel(vehicleId);
                 }
             },
             failure: function(response) {
                 console.warn('❌ Backend API failed, trying external...');
                 // Try external URL
-                me.tryExternalBackendAPIForWindow(vehicleId, store);
+                me.tryExternalBackendAPIForPanel(vehicleId);
             }
         });
     },
     
-    tryExternalBackendAPIForWindow: function(vehicleId, store) {
+    tryExternalBackendAPIForPanel: function(vehicleId) {
         var me = this;
         
         // Try external backend API
@@ -315,20 +305,20 @@ Ext.define('Store.dashpanel.Module', {
             success: function(response) {
                 try {
                     var data = Ext.decode(response.responseText);
-                    me.processBackendSensorData(data, vehicleId, store);
+                    me.processBackendSensorDataForPanel(data, vehicleId);
                 } catch (e) {
                     console.error('❌ External API parse error:', e);
-                    me.showNoDataInWindow(store);
+                    me.showNoDataInPanel();
                 }
             },
             failure: function(response) {
                 console.error('❌ External API failed:', response.status);
-                me.showNoDataInWindow(store);
+                me.showNoDataInPanel();
             }
         });
     },
     
-    processV3SensorData: function(vehicleData, store) {
+    processV3SensorDataForPanel: function(vehicleData) {
         var me = this;
         var sensorDataArray = [];
         
@@ -350,15 +340,15 @@ Ext.define('Store.dashpanel.Module', {
             });
         }
         
-        console.log('✅ V3 sensor data processed. Count:', sensorDataArray.length);
-        store.loadData(sensorDataArray);
+        console.log('✅ V3 sensor data processed for panel. Count:', sensorDataArray.length);
+        me.sensorStore.loadData(sensorDataArray);
     },
     
-    processBackendSensorData: function(data, vehicleId, store) {
+    processBackendSensorDataForPanel: function(data, vehicleId) {
         var me = this;
         var sensorDataArray = [];
         
-        console.log('Processing backend sensor data for vehicle:', vehicleId);
+        console.log('Processing backend sensor data for panel, vehicle:', vehicleId);
         
         // Backend API returns: {c: 0, objects: [...]}
         if (data && data.c === 0 && Ext.isArray(data.objects)) {
@@ -373,11 +363,11 @@ Ext.define('Store.dashpanel.Module', {
             
             if (!vehicle) {
                 console.error('❌ Vehicle ID', vehicleId, 'not found');
-                me.showNoDataInWindow(store);
+                me.showNoDataInPanel();
                 return;
             }
             
-            console.log('✅ Found vehicle:', vehicle.name);
+            console.log('✅ Found vehicle for panel:', vehicle.name);
             
             // Add basic vehicle data
             if (vehicle.last_event && vehicle.last_event.speed !== undefined) {
@@ -407,7 +397,7 @@ Ext.define('Store.dashpanel.Module', {
             
             // Process sensors object
             if (vehicle.sensors && typeof vehicle.sensors === 'object') {
-                console.log('Processing', Object.keys(vehicle.sensors).length, 'sensors...');
+                console.log('Processing', Object.keys(vehicle.sensors).length, 'sensors for panel...');
                 
                 Ext.Object.each(vehicle.sensors, function(sensorName, sensorValue) {
                     // Parse: "14 %|1770111620|1507796|14|Auto Can|11|1|3"
@@ -436,16 +426,18 @@ Ext.define('Store.dashpanel.Module', {
         }
         
         if (sensorDataArray.length === 0) {
-            me.showNoDataInWindow(store);
+            me.showNoDataInPanel();
             return;
         }
         
-        console.log('✅ Backend sensor data processed. Count:', sensorDataArray.length);
-        store.loadData(sensorDataArray);
+        console.log('✅ Backend sensor data processed for panel. Count:', sensorDataArray.length);
+        me.sensorStore.loadData(sensorDataArray);
     },
     
-    showNoDataInWindow: function(store) {
-        store.loadData([{
+    showNoDataInPanel: function() {
+        var me = this;
+        
+        me.sensorStore.loadData([{
             sensor_name: 'No Data Available',
             sensor_type: 'error',
             current_value: 'Unable to load sensor data',
