@@ -102,41 +102,24 @@ Ext.define('Store.dashpanel.Module', {
         var dockedSensorPanel = Ext.create('Ext.panel.Panel', {
             title: '🔧 Sensor Monitor - Sensor Data',
             height: 325,
-            dockedItems: [{
-                xtype: 'toolbar',
-                dock: 'top',
-                items: [{
-                    text: 'Refresh',
-                    iconCls: 'fa fa-refresh',
-                    handler: function () {
-                        if (me.currentVehicleId) {
-                            me.loadVehicleSensors(me.currentVehicleId);
-                        }
-                    }
-                }, '->', {
-                    xtype: 'tbtext',
-                    text: 'Real-time (0.5s)',
-                    style: 'color: #666; font-size: 11px;'
-                }]
-            }],
-        
-            dock: 'bottom',
+            
+            region: 'south',       // bottom of layout, NOT docked
             split: true,
-            resizable: true,
             collapsible: true,
-            collapseMode: 'mini',
-            animCollapse: true,
-            collapseDirection: 'bottom',
+            collapseMode: 'mini',  // <== clean mini collapse header
+            animCollapse: true,    // smooth top-down animation
             titleCollapse: true,
         
+            // DO NOT use collapseDirection (forces wrong animation)
+            // DO NOT dock panel (breaks mini mode)
+            
             hidden: true,
-            id: 'dashpanel-sensor-panel',
             layout: 'fit',
+            id: 'dashpanel-sensor-panel',
         
-            // --- FIXED CUSTOM TOOLS ---
             tools: [{
                 itemId: 'toggleCollapseTool',
-                type: 'down',     // starts expanded, so show “down arrow”
+                type: 'down',
                 callback: function(panel) {
                     panel.collapsed ? panel.expand() : panel.collapse();
                 }
@@ -144,12 +127,10 @@ Ext.define('Store.dashpanel.Module', {
         
             listeners: {
                 collapse: function(panel) {
-                    panel.down('#toggleCollapseTool').setType('up');   // when collapsed → show UP arrow
-                    console.log("Panel collapsed");
+                    panel.down('#toggleCollapseTool').setType('up');
                 },
                 expand: function(panel) {
-                    panel.down('#toggleCollapseTool').setType('down'); // when expanded → show DOWN arrow
-                    console.log("Panel expanded");
+                    panel.down('#toggleCollapseTool').setType('down');
                 }
             },
         
