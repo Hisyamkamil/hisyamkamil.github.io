@@ -1,6 +1,6 @@
 Ext.define('Store.dashpanel.Module', {
     extend: 'Ext.Component',
-
+    
     initModule: function () {
         var me = this;
         
