@@ -126,9 +126,48 @@ Ext.define('Store.dashpanel.Module', {
         console.log('skeleton.mapframe:', skeleton.mapframe);
         console.log('skeleton.mapframe methods:', skeleton.mapframe ? Object.keys(skeleton.mapframe).slice(0, 10) : 'N/A');
         
-        // Since skeleton.mapframe.add() doesn't work, create modal instead
-        console.log('⚠️ Using modal fallback since mapframe.add() not supported');
-        me.showModalWithMapAndSensors(vehicleId, vehicleName, vehicleRecord);
+        // Try alternative approaches to create main panel (not modal)
+        console.log('⚠️ Trying alternative main panel integration...');
+        
+        try {
+            // Approach 1: Replace mapframe content entirely
+            if (skeleton.mapframe.removeAll && skeleton.mapframe.add) {
+                skeleton.mapframe.removeAll();
+                skeleton.mapframe.add(mainPanel);
+                console.log('✅ Replaced mapframe content with MainPanelV2');
+                mainPanel.loadVehicleData(vehicleId, vehicleName, vehicleRecord);
+                return;
+            }
+            
+            // Approach 2: Use items collection directly
+            if (skeleton.mapframe.items) {
+                skeleton.mapframe.items.clear();
+                skeleton.mapframe.items.add(mainPanel);
+                skeleton.mapframe.doLayout();
+                console.log('✅ Added MainPanelV2 via items collection');
+                mainPanel.loadVehicleData(vehicleId, vehicleName, vehicleRecord);
+                return;
+            }
+            
+            // Approach 3: Direct DOM rendering
+            if (skeleton.mapframe.body) {
+                skeleton.mapframe.body.update('');
+                mainPanel.render(skeleton.mapframe.body);
+                console.log('✅ Rendered MainPanelV2 to mapframe body');
+                mainPanel.loadVehicleData(vehicleId, vehicleName, vehicleRecord);
+                return;
+            }
+            
+            throw new Error('No suitable integration method found');
+            
+        } catch (e) {
+            console.error('❌ All main panel approaches failed:', e);
+            console.error('Available mapframe methods:', Object.keys(skeleton.mapframe));
+            
+            Ext.Msg.alert('Integration Issue',
+                'Unable to integrate main panel with this PILOT version.<br>' +
+                'Available methods: ' + Object.keys(skeleton.mapframe).join(', '));
+        }
     },
     
     showModalWithMapAndSensors: function(vehicleId, vehicleName, vehicleRecord) {
