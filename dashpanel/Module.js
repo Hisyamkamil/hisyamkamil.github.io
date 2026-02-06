@@ -4,7 +4,7 @@ Ext.define('Store.dashpanel.Module', {
     initModule: function () {
         var me = this;
         
-        console.log('Panel V2 (Context Menu) extension initializing...');
+        console.log('Dashpanel V2 (Context Menu) extension initializing...');
         
         // Store reference for later use in context menu handlers
         window.dashpanelModule = me;
