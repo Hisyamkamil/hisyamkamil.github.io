@@ -54,54 +54,19 @@ Ext.define('Store.dashpanel.Module', {
     createBackgroundSensorPanel: function() {
         var me = this;
         
-        // Check if panel already exists
-        var existingPanel = Ext.getCmp('dashpanel-background-panel');
-        if (existingPanel) {
-            console.log('Background sensor panel already exists');
-            return;
-        }
+        console.log('📊 Creating docked sensor panel (within mapframe)...');
         
-        console.log('📊 Creating background sensor panel (behind navigation)...');
-        
-        // Create sensor panel on BOTTOM-RIGHT of main content area (over map)
-        var bottomRightPanel = Ext.create('Ext.panel.Panel', {
-            id: 'dashpanel-bottom-right-panel',
+        // Create sensor panel to dock within mapframe (like reference pattern)
+        var dockedSensorPanel = Ext.create('Ext.panel.Panel', {
             title: '🔧 Sensor Monitor - Sensor Data',
-            width: 500,
-            height: 350,
-            collapsible: true,
-            collapsed: true,  // Start collapsed
-            animCollapse: true,
-            titleCollapse: true,
-            // Note: Remove collapseDirection to use default behavior
-            tools: [{
-                type: 'toggle',
-                tooltip: 'Expand/Collapse Panel',
-                handler: function(event, toolEl, panel) {
-                    if (panel.collapsed) {
-                        panel.expand();
-                    } else {
-                        panel.collapse();
-                    }
-                }
-            }],
+            height: 325,
+            region: 'south',  // Dock at bottom of mapframe
+            split: true,
             resizable: true,
-            draggable: false,
-            closable: false,
+            collapsible: true,
+            collapsed: false,
+            animCollapse: true,
             layout: 'fit',
-            
-            // Position on BOTTOM-RIGHT of main content area (overlays map)
-            style: {
-                position: 'fixed',
-                bottom: '10px',   // Close to bottom edge
-                right: '10px',    // Close to right edge
-                'z-index': '500', // In front of map, behind navigation panels
-                'box-shadow': '0 0 20px rgba(0,0,0,0.4)',
-                'background-color': 'rgba(255,255,255,0.95)', // Semi-transparent white
-                'border': '2px solid #007bff',
-                'border-radius': '8px',
-                'backdrop-filter': 'blur(5px)' // Blur effect behind panel
-            },
             
             items: [{
                 xtype: 'grid',
@@ -125,10 +90,10 @@ Ext.define('Store.dashpanel.Module', {
                         var unit = record.get('unit') || '';
                         var status = record.get('status');
                         
-                        var color = status === 'critical' ? '#ff0000' : 
+                        var color = status === 'critical' ? '#ff0000' :
                                    status === 'warning' ? '#ff8c00' : '#008000';
                         
-                        var formattedValue = typeof value === 'number' ? 
+                        var formattedValue = typeof value === 'number' ?
                                            Ext.util.Format.number(value, '0.##') : value;
                         
                         return '<span style="color: ' + color + '; font-weight: bold;">' + formattedValue + ' ' + unit + '</span>';
@@ -140,7 +105,7 @@ Ext.define('Store.dashpanel.Module', {
                     renderer: function(value) {
                         var icon = value === 'critical' ? 'fa fa-times-circle' :
                                   value === 'warning' ? 'fa fa-exclamation-triangle' : 'fa fa-check-circle';
-                        var color = value === 'critical' ? 'red' : 
+                        var color = value === 'critical' ? 'red' :
                                    value === 'warning' ? 'orange' : 'green';
                         return '<i class="' + icon + '" style="color: ' + color + ';"></i>';
                     }
@@ -153,7 +118,7 @@ Ext.define('Store.dashpanel.Module', {
                     }
                 }],
                 viewConfig: {
-                    emptyText: 'Select a vehicle from Dashboard Panel V2 navigation to view sensors',
+                    emptyText: 'Select a vehicle from Sensor Monitor navigation to view sensors',
                     deferEmptyText: false
                 }
             }],
@@ -170,24 +135,42 @@ Ext.define('Store.dashpanel.Module', {
                 xtype: 'tbtext',
                 text: 'Real-time (0.5s)',
                 style: 'color: #666; font-size: 11px;'
-            }],
-            
-            listeners: {
-                collapse: function() {
-                    console.log('📦 Background sensor panel collapsed');
-                },
-                expand: function() {
-                    console.log('📂 Background sensor panel expanded');
-                }
-            }
+            }]
         });
         
-        // Render to document body (bottom-right of main area)
-        bottomRightPanel.render(Ext.getBody());
-        console.log('✅ Bottom-right sensor panel created (over map, z-index: 100)');
+        // Add docked panel to mapframe (like reference pattern)
+        try {
+            if (skeleton && skeleton.mapframe) {
+                // Get the mapframe panel and add as docked bottom
+                var mapFramePanel = skeleton.mapframe.down('panel');
+                if (mapFramePanel && mapFramePanel.addDocked) {
+                    mapFramePanel.addDocked(dockedSensorPanel);
+                    console.log('✅ Docked sensor panel added to mapframe (bottom)');
+                    me.backgroundPanel = dockedSensorPanel;
+                } else if (skeleton.mapframe.add) {
+                    // Alternative: Add as regular item
+                    skeleton.mapframe.add(dockedSensorPanel);
+                    console.log('✅ Sensor panel added to mapframe container');
+                    me.backgroundPanel = dockedSensorPanel;
+                } else {
+                    console.warn('❌ Cannot dock panel to mapframe');
+                }
+            }
+        } catch (e) {
+            console.error('❌ Failed to dock sensor panel:', e.message);
+        }
         
-        // Store reference
-        me.backgroundPanel = bottomRightPanel;
+        // Auto-load default vehicle sensor data
+        setTimeout(function() {
+            if (me.backgroundPanel) {
+                console.log('🚀 Auto-loading sensor data for default vehicle: 269384');
+                me.currentVehicleId = '269384';
+                me.currentVehicleName = 'Iveco Astra v2 (Auto-loaded)';
+                me.backgroundPanel.setTitle('🔧 Sensor Monitor - ' + me.currentVehicleName + ' (Real-time)');
+                me.loadVehicleSensors('269384');
+                me.startVehicleRefresh('269384');
+            }
+        }, 2000);
     },
     
     // Called from Navigation component when vehicle is selected
