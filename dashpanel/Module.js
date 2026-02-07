@@ -384,7 +384,7 @@ Ext.define('Store.dashpanel.Module', {
                 var sensorsPerColumn = Math.ceil(sensorRows.length / 3);
                 var columnsHtml = '';
                 
-                // Create 3 columns
+                // Create seamless 3 columns (no card separation)
                 for (var col = 0; col < 3; col++) {
                     var startIdx = col * sensorsPerColumn;
                     var endIdx = Math.min(startIdx + sensorsPerColumn, sensorRows.length);
@@ -393,10 +393,8 @@ Ext.define('Store.dashpanel.Module', {
                         columnsHtml += '<div style="' +
                                      'flex: 1; ' +
                                      'min-width: 200px; ' +
-                                     'background: white; ' +
-                                     'border-radius: 6px; ' +
-                                     'padding: 8px; ' +
-                                     'box-shadow: 0 1px 3px rgba(0,0,0,0.1);' +
+                                     'padding: 5px 10px; ' +
+                                     'border-right: ' + (col < 2 ? '1px solid #ddd' : 'none') + ';' +  // Separator between columns only
                                      '">';
                         
                         // Add sensor rows to this column
