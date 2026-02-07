@@ -107,14 +107,18 @@ Ext.define('Store.dashpanel.Module', {
             resizable: true,
             collapsible: true,
             collapsed: false,
-            collapseFirst: false,  // Move ExtJS collapse tool to LEFT side (before title)
-            //collapseMode : 'header',
+            collapseFirst: true,  // Move ExtJS collapse tool to LEFT side (before title)
             animCollapse: 300,  // Smooth animation duration (300ms)
             collapseDirection: 'bottom',  // Collapse towards bottom
             titleCollapse: true,  // Allow clicking title to collapse
             layout: 'fit',
             hidden: true,  // Start hidden - show only when navigation tab is clicked
             id: 'dashpanel-sensor-panel',
+            
+            // Configure header to support collapseFirst positioning
+            header: {
+                titlePosition: 1  // Title after tools (tools appear first/left)
+            },
             
             // Manual toggle tool commented out to avoid duplicate with ExtJS auto-collapse
             /* tools: [{
@@ -204,19 +208,7 @@ Ext.define('Store.dashpanel.Module', {
                 }
             }],
             
-            tbar: [{
-                text: 'Refresh',
-                iconCls: 'fa fa-refresh',
-                handler: function() {
-                    if (me.currentVehicleId) {
-                        me.loadVehicleSensors(me.currentVehicleId);
-                    }
-                }
-            }, '->', {
-                xtype: 'tbtext',
-                text: 'Real-time (0.5s)',
-                style: 'color: #666; font-size: 11px;'
-            }]
+            // Removed tbar - no refresh button or real-time text needed
         });
         
         // Add docked panel to mapframe (like reference pattern - BOTTOM placement)
