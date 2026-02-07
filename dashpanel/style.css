@@ -170,34 +170,41 @@
     outline-style: none;
 }
 
-/* Collapsed panel header - compact like follow_text button */
-#dashpanel-v3-sensor-panel.x-collapsed .x-panel-header {
-    width: auto !important;
-    max-width: 300px !important;
-    display: inline-block !important;
-    position: relative !important;
-    float: left !important;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin: 5px;
-}
-
-/* Collapsed panel header title styling */
-#dashpanel-v3-sensor-panel.x-collapsed .x-panel-header .x-title {
-    width: auto !important;
-    max-width: 250px !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Collapsed panel - make entire panel compact */
+/* Collapsed panel - compact but ALWAYS visible */
 #dashpanel-v3-sensor-panel.x-collapsed {
-    width: auto !important;
-    max-width: 320px !important;
-    position: relative !important;
-    float: left !important;
-    margin: 5px !important;
+    height: 48px !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    /* Keep normal docked position - don't change width or position */
+}
+
+/* Collapsed header remains fully functional */
+#dashpanel-v3-sensor-panel.x-collapsed .x-panel-header {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: 46px !important;
+    cursor: pointer;
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+}
+
+/* Expand button always visible when collapsed */
+#dashpanel-v3-sensor-panel.x-collapsed .x-tool {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Only hide the body content when collapsed */
+#dashpanel-v3-sensor-panel.x-collapsed .x-panel-body {
+    display: none !important;
+    height: 0 !important;
+}
+
+/* Hover effect for collapsed header */
+#dashpanel-v3-sensor-panel.x-collapsed .x-panel-header:hover {
+    background: #e9ecef;
+    border-bottom-color: #007bff;
 }
