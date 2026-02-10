@@ -574,27 +574,27 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     },
 
     /**
-     * Generate multi-column HTML (V3-style layout)
+     * Generate multi-column HTML (V3-style always 3 columns for consistent spacing)
      * @param {Array} sensorRows - Array of sensor rows
      * @returns {string} HTML columns
      */
     generateMultiColumnHTML: function(sensorRows) {
-        var me = this;
-        var columns = me.config.sensors.defaultColumns;
-        var sensorsPerColumn = Math.ceil(sensorRows.length / columns);
+        // V3 approach: Always create 3 columns regardless of sensor count
+        var sensorsPerColumn = Math.ceil(sensorRows.length / 3);
         var columnsHtml = '';
         
-        for (var col = 0; col < columns; col++) {
+        for (var col = 0; col < 3; col++) {
             var startIdx = col * sensorsPerColumn;
             var endIdx = Math.min(startIdx + sensorsPerColumn, sensorRows.length);
             
+            // Always create column div, even if empty (for consistent spacing)
+            columnsHtml += '<div style="flex: 1; min-width: 200px; padding: 5px 10px;">';
             if (startIdx < sensorRows.length) {
-                columnsHtml += '<div style="flex: 1; min-width: 200px; padding: 5px 10px;">';
                 for (var i = startIdx; i < endIdx; i++) {
                     columnsHtml += sensorRows[i];
                 }
-                columnsHtml += '</div>';
             }
+            columnsHtml += '</div>';
         }
         
         return '<div style="display: flex; flex-wrap: wrap; align-items: flex-start; padding: 10px;">' +
