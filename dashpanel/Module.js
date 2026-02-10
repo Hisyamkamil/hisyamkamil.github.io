@@ -240,7 +240,7 @@ Ext.define('Store.dashpanel.Module', {
         var me = this;
         
         Ext.Ajax.request({
-            url: 'V4/config.json',
+            url: '/store/dashpanel/config.json',
             method: 'GET',
             timeout: 30000,
             success: function(response) {
