@@ -337,11 +337,38 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         var sensorIcon = me.getSensorIcon(sensor.type);
         var formattedValue = me.formatSensorValue(sensor.value);
         
-        return '<div class="dashpanel-sensor-row ' + sensor.status + '">' +
-               '<i class="' + sensorIcon + ' dashpanel-sensor-icon ' + sensor.status + '"></i>' +
-               '<span class="dashpanel-sensor-name">' + sensor.name + '</span>' +
-               '<span class="dashpanel-sensor-value ' + sensor.status + '">' + formattedValue + '</span>' +
-               '<span class="dashpanel-sensor-unit">' + (sensor.unit || '') + '</span>' +
+        return '<div style="' +
+               'display: flex; ' +
+               'align-items: center; ' +
+               'padding: 3px 0; ' +
+               /* 'border-bottom: 1px solid #eee; ' */  // Row borders commented for cleaner look +
+               'font-size: 11px; ' +
+               'line-height: 1.2;' +
+               '">' +
+               '<i class="' + sensor.icon + '" style="' +
+               'color: ' + statusColor + '; ' +
+               'width: 16px; ' +
+               'margin-right: 6px; ' +
+               'font-size: 12px;' +
+               '"></i>' +
+               '<span style="' +
+               'flex: 1; ' +
+               'font-weight: 500; ' +
+               'color: #333; ' +
+               'overflow: hidden; ' +
+               'text-overflow: ellipsis; ' +
+               'white-space: nowrap;' +
+               '">' + sensor.name + '</span>' +
+               '<span style="' +
+               'font-weight: bold; ' +
+               'color: ' + statusColor + '; ' +
+               'margin-left: 5px;' +
+               '">' + formattedValue + '</span>' +
+               '<span style="' +
+               'color: #666; ' +
+               'font-size: 10px; ' +
+               'margin-left: 2px;' +
+               '">' + (sensor.unit || '') + '</span>' +
                '</div>';
     },
 
