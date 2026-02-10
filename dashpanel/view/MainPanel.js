@@ -327,7 +327,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     },
 
     /**
-     * Create sensor row HTML
+     * Create sensor row HTML (using V3 inline style approach for tight spacing)
      * @param {Object} sensor - Sensor object
      * @returns {string} HTML row
      */
@@ -337,15 +337,15 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         var sensorIcon = me.getSensorIcon(sensor.type);
         var formattedValue = me.formatSensorValue(sensor.value);
         
+        // V3-style inline layout for precise spacing
         return '<div style="' +
                'display: flex; ' +
                'align-items: center; ' +
                'padding: 3px 0; ' +
-               /* 'border-bottom: 1px solid #eee; ' */  // Row borders commented for cleaner look +
                'font-size: 11px; ' +
                'line-height: 1.2;' +
                '">' +
-               '<i class="' + sensor.icon + '" style="' +
+               '<i class="' + sensorIcon + '" style="' +
                'color: ' + statusColor + '; ' +
                'width: 16px; ' +
                'margin-right: 6px; ' +
@@ -561,7 +561,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     },
 
     /**
-     * Generate full width HTML
+     * Generate full width HTML (for DTC tables)
      * @param {Array} sensorRows - Array of sensor rows
      * @returns {string} HTML
      */
@@ -570,11 +570,11 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         Ext.each(sensorRows, function(row) {
             html += row;
         });
-        return '<div class="dashpanel-v4-full-width">' + html + '</div>';
+        return '<div style="padding: 10px; width: 100%;">' + html + '</div>';
     },
 
     /**
-     * Generate multi-column HTML
+     * Generate multi-column HTML (V3-style layout)
      * @param {Array} sensorRows - Array of sensor rows
      * @returns {string} HTML columns
      */
@@ -589,7 +589,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             var endIdx = Math.min(startIdx + sensorsPerColumn, sensorRows.length);
             
             if (startIdx < sensorRows.length) {
-                columnsHtml += '<div class="dashpanel-v4-column">';
+                columnsHtml += '<div style="flex: 1; min-width: 200px; padding: 5px 10px;">';
                 for (var i = startIdx; i < endIdx; i++) {
                     columnsHtml += sensorRows[i];
                 }
@@ -597,7 +597,8 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             }
         }
         
-        return '<div class="dashpanel-v4-columns-container">' + columnsHtml + '</div>';
+        return '<div style="display: flex; flex-wrap: wrap; align-items: flex-start; padding: 10px;">' +
+               columnsHtml + '</div>';
     },
 
     /**
@@ -612,12 +613,12 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             tabPanel.add({
                 title: 'No Data',
                 iconCls: 'fa fa-exclamation-triangle',
-                html: '<div class="dashpanel-v4-no-data">' +
-                      '<i class="fa fa-exclamation-triangle"></i>' +
+                html: '<div style="text-align: center; padding: 40px; color: #666;">' +
+                      '<i class="fa fa-exclamation-triangle" style="font-size: 48px; color: #ff8c00;"></i>' +
                       '<h3>No Sensor Data Available</h3>' +
                       '<p>Unable to load sensor data for this vehicle</p>' +
                       '</div>',
-                cls: 'dashpanel-v4-tab-content'
+                cls: 'dashpanel-tab-content'
             });
             tabPanel.setActiveTab(0);
         }
