@@ -1,0 +1,63 @@
+{
+  "module": {
+    "name": "Sensor Monitor",
+    "version": "4.0.0",
+    "description": "Clean configuration-driven sensor monitoring with DTC support"
+  },
+  "api": {
+    "url": "/backend/ax/current_data.php",
+    "timeout": 30000
+  },
+  "refresh": {
+    "interval": 500,
+    "minInterval": 100,
+    "maxInterval": 10000
+  },
+  "ui": {
+    "panelHeight": 325,
+    "deferredInitDelay": 1000,
+    "tabIcon": "fa fa-list-alt",
+    "collapsible": true,
+    "resizable": true,
+    "animCollapse": 300
+  },
+  "sensors": {
+    "dtcDetectionKeyword": "group by active dtc",
+    "defaultColumns": 3,
+    "sensorsPerColumn": null
+  },
+  "colors": {
+    "normal": "#008000",
+    "warning": "#ff8c00",
+    "critical": "#ff0000",
+    "unknown": "#666666"
+  },
+  "thresholds": {
+    "temperature": {
+      "critical": { "min": -20, "max": 100 },
+      "warning": { "min": 0, "max": 80 }
+    },
+    "voltage": {
+      "critical": { "min": 10, "max": 15 },
+      "warning": { "min": 11, "max": 14 }
+    },
+    "pressure": {
+      "critical": { "min": 0, "max": 100 },
+      "warning": { "min": 10, "max": 80 }
+    },
+    "level": {
+      "critical": { "min": 5 },
+      "warning": { "min": 15 }
+    }
+  },
+  "icons": {
+    "temperature": "fa fa-thermometer-half",
+    "pressure": "fa fa-tachometer-alt",
+    "level": "fa fa-battery-half",
+    "voltage": "fa fa-bolt",
+    "speed": "fa fa-speedometer",
+    "weight": "fa fa-weight",
+    "engine": "fa fa-cog",
+    "default": "fa fa-microchip"
+  }
+}
