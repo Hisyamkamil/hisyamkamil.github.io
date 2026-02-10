@@ -208,7 +208,7 @@ Ext.define('Store.dashpanel.Module', {
         var cssLink = document.createElement("link");
         cssLink.setAttribute("rel", "stylesheet");
         cssLink.setAttribute("type", "text/css");
-        cssLink.setAttribute("href", '/store/dashpanel/V4/style.css');
+        cssLink.setAttribute("href", '/store/dashpanel/style.css');
         document.head.appendChild(cssLink);
         console.log('✅ Custom styles loaded');
     },
@@ -269,7 +269,7 @@ Ext.define('Store.dashpanel.Module', {
         var me = this;
         me.config = {
             module: { name: 'Sensor Monitor (Fallback)', version: '4.0.0' },
-            api: { url: '/backend/ax/current_data.php', timeout: 30000 },
+            api: { url: '/ax/current_data.php', timeout: 30000 },
             refresh: { interval: 500, minInterval: 100, maxInterval: 10000 },
             ui: { panelHeight: 325, deferredInitDelay: 1000, tabIcon: 'fa fa-list-alt', collapsible: true, resizable: true, animCollapse: 300 },
             sensors: { dtcDetectionKeyword: 'group by active dtc', defaultColumns: 3 },
