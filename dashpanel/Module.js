@@ -276,7 +276,7 @@ Ext.define('Store.dashpanel.Module', {
         console.log('🔄 Loading sensor tags for dynamic icons...');
         
         Ext.Ajax.request({
-            url: window.location.origin + 'ax/sensors/tags.php',
+            url: 'ax/sensors/tags.php',
             method: 'GET',
             timeout: 30000,
             success: function(response) {
