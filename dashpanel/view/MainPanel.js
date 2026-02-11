@@ -290,29 +290,27 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         if (vehicleRecord) {
             // Vehicle Details Section
             sensorGroups['Vehicle Information'].push(me.createVehicleInfoSection('Vehicle Details', [
-                { label: 'Vehicle Name', value: vehicleRecord.get('name') || vehicle.name || 'N/A' },
-                { label: 'Model', value: vehicleRecord.get('model') || 'N/A' },
-                { label: 'Year', value: vehicleRecord.get('year') || 'N/A' },
-                { label: 'VIN', value: vehicleRecord.get('vin') || 'N/A' },
-                { label: 'Type', value: vehicleRecord.get('typename') || 'N/A' },
-                { label: 'Configuration', value: vehicleRecord.get('configuration') || 'N/A' }
+                { label: 'Vehicle Name', value: vehicleRecord.get('name') || vehicle.name || '-' },
+                { label: 'Model', value: vehicleRecord.get('model') || '-' },
+                { label: 'Year', value: vehicleRecord.get('year') || '-' },
+                { label: 'VIN', value: vehicleRecord.get('vin') || '-' },
+                { label: 'Type', value: vehicleRecord.get('typename') || '-' }
             ]));
 
-            // Current Status Section
-            sensorGroups['Vehicle Information'].push(me.createVehicleInfoSection('Current Status', [
-                { label: 'Engine Status', value: vehicle.firing ? 'ON' : 'OFF', status: 'normal' },
-                { label: 'Equipment Status', value: vehicle.equipment || 'N/A' },
-                { label: 'Current Speed', value: (vehicle.last_event && vehicle.last_event.speed !== undefined) ? vehicle.last_event.speed + ' km/h' : 'N/A' },
-                { label: 'Motor Hours', value: vehicleRecord.get('current_motohours') ? me.formatMotorHours(vehicleRecord.get('current_motohours')) : vehicle.motor_hours ? me.formatMotorHours(vehicle.motor_hours) : 'N/A' }
+            // License Information Section
+            sensorGroups['Vehicle Information'].push(me.createVehicleInfoSection('License Information', [
+                { label: 'License Number', value: vehicleRecord.get('veh_license') || '-' },
+                { label: 'License Expiry', value: vehicleRecord.get('veh_lic_exp') || '-' },
+                { label: 'Insurance Certificate', value: vehicleRecord.get('veh_ins_sert') || '-' }
             ]));
 
             // Location & Last Event Section
             if (vehicle.last_event) {
                 sensorGroups['Vehicle Information'].push(me.createVehicleInfoSection('Location & Last Event', [
-                    { label: 'Current Location', value: vehicle.lat && vehicle.lon ? me.formatCoordinates(vehicle.lat, vehicle.lon) : 'N/A' },
-                    { label: 'Last Event', value: vehicle.last_event.text || vehicle.last_event.type || 'N/A' },
-                    { label: 'Last Event Time', value: vehicle.last_event.unixtimestamp ? me.formatTimestamp(vehicle.last_event.unixtimestamp) : 'N/A' },
-                    { label: 'Satellites', value: vehicle.satsinview || 'N/A' }
+                    { label: 'Current Location', value: vehicle.lat && vehicle.lon ? me.formatCoordinates(vehicle.lat, vehicle.lon) : '-' },
+                    { label: 'Last Event', value: vehicle.last_event.text || vehicle.last_event.type || '-' },
+                    { label: 'Last Event Time', value: vehicle.last_event.unixtimestamp ? me.formatTimestamp(vehicle.last_event.unixtimestamp) : '-' },
+                    { label: 'Satellites', value: vehicle.satsinview || '-' }
                 ]));
             }
         }
