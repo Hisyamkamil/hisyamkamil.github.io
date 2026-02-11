@@ -5,6 +5,8 @@ Ext.define('Store.dashpanel.Module', {
     config: null,
     navigationComponent: null,
     mainPanelComponent: null,
+    sensorTagsCache: null,
+    sensorTagsById: null,
 
     /**
      * Main initialization function (following template-app pattern)
@@ -17,10 +19,12 @@ Ext.define('Store.dashpanel.Module', {
         // Store global reference
         window.dashpanelModule = me;
         
-        // Load configuration first, then setup components
+        // Load configuration and sensor tags first, then setup components
         me.loadConfiguration(function(success) {
             if (success) {
-                me.setupComponents();
+                me.loadSensorTags(function() {
+                    me.setupComponents();
+                });
             } else {
                 console.error('❌ Failed to initialize module due to configuration error');
             }
@@ -260,6 +264,110 @@ Ext.define('Store.dashpanel.Module', {
                 callback(false);
             }
         });
+    },
+
+    /**
+     * Load sensor tags from API for dynamic icons
+     * @param {Function} callback - Callback function
+     */
+    loadSensorTags: function(callback) {
+        var me = this;
+        
+        console.log('🔄 Loading sensor tags for dynamic icons...');
+        
+        Ext.Ajax.request({
+            url: window.location.origin + 'ax/sensors/tags.php',
+            method: 'GET',
+            timeout: 30000,
+            success: function(response) {
+                try {
+                    var tags = Ext.decode(response.responseText);
+                    me.processSensorTags(tags);
+                    console.log('✅ Sensor tags loaded:', Object.keys(me.sensorTagsCache || {}).length, 'tags');
+                } catch (e) {
+                    console.warn('⚠️ Failed to parse sensor tags, using fallback icons:', e);
+                    me.sensorTagsCache = {}; // Set empty cache
+                }
+                callback();
+            },
+            failure: function(response) {
+                console.warn('⚠️ Failed to load sensor tags, using fallback icons:', response.status);
+                me.sensorTagsCache = {}; // Set empty cache
+                callback();
+            }
+        });
+    },
+
+    /**
+     * Process sensor tags response and create icon cache
+     * @param {Array} tags - Array of sensor tag objects
+     */
+    processSensorTags: function(tags) {
+        var me = this;
+        me.sensorTagsCache = {};
+        me.sensorTagsById = {};
+        
+        if (Ext.isArray(tags)) {
+            Ext.each(tags, function(tag) {
+                if (tag.tag_name && tag.icon) {
+                    // Convert icon name to FontAwesome class
+                    var iconClass = me.convertIconToFontAwesome(tag.icon);
+                    me.sensorTagsCache[tag.tag_name.toLowerCase()] = iconClass;
+                    
+                    // Create reverse lookup by tag ID
+                    if (tag.id) {
+                        me.sensorTagsById[tag.id] = iconClass;
+                    }
+                }
+            });
+        }
+        
+        console.log('✅ Sensor icon cache created with', Object.keys(me.sensorTagsCache).length, 'name mappings and', Object.keys(me.sensorTagsById).length, 'ID mappings');
+    },
+
+    /**
+     * Convert icon name to FontAwesome class
+     * @param {string} iconName - Icon name from API
+     * @returns {string} FontAwesome CSS class
+     */
+    convertIconToFontAwesome: function(iconName) {
+        if (!iconName) return 'fa fa-microchip';
+        
+        // Map specific icons that might need conversion
+        var iconMap = {
+            'car-battery': 'fa fa-car-battery',
+            'car-crash': 'fa fa-car-crash',
+            'shield-alt': 'fa fa-shield-alt',
+            'satellite-dish': 'fa fa-satellite-dish'
+        };
+        
+        return iconMap[iconName] || 'fa fa-' + iconName;
+    },
+
+    /**
+     * Get sensor icon from cache or fallback to config
+     * @param {string} sensorName - Sensor name
+     * @param {string} sensorType - Sensor type (fallback)
+     * @returns {string} FontAwesome CSS class
+     */
+    getSensorIcon: function(sensorName, sensorType) {
+        var me = this;
+        
+        // First check sensor tags cache by exact name match
+        if (me.sensorTagsCache && sensorName) {
+            var cacheKey = sensorName.toLowerCase();
+            if (me.sensorTagsCache[cacheKey]) {
+                return me.sensorTagsCache[cacheKey];
+            }
+        }
+        
+        // Fallback to config icons by type
+        if (me.config && me.config.icons && me.config.icons[sensorType]) {
+            return me.config.icons[sensorType];
+        }
+        
+        // Final fallback
+        return me.config && me.config.icons ? me.config.icons.default : 'fa fa-microchip';
     },
 
     /**
