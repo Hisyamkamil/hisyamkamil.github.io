@@ -114,7 +114,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         console.log('🔄 MainPanel: Loading sensor mappings for vehicle:', vehicleId);
         
         Ext.Ajax.request({
-            url: window.location.origin + '/ax/sensors/sensors.php',
+            url: '/ax/sensors/sensors.php',
             method: 'POST',
             timeout: 30000,
             params: {
