@@ -191,6 +191,27 @@ Ext.define('Store.dashpanel.view.DTCHandler', {
                '<tbody>' + tableRows + '</tbody>' +
                '</table></div>';
     },
+
+    /**
+     * Create DTC table without header (for combined displays)
+     * @param {Array} dtcList - Array of DTC objects
+     * @returns {string} HTML table without header
+     */
+    createDTCTableOnly: function(dtcList) {
+        if (!dtcList || dtcList.length === 0) {
+            return '<div style="text-align: center; padding: 15px; color: #666; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">' +
+                   '<i class="fa fa-check-circle" style="font-size: 20px; color: #00a65a;"></i>' +
+                   '<div style="margin-top: 8px; font-size: 12px;">No DTCs found</div>' +
+                   '</div>';
+        }
+        
+        var tableRows = this.createTableRows(dtcList);
+        
+        return '<table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #ddd;">' +
+               this.getTableHeaderHTML() +
+               '<tbody>' + tableRows + '</tbody>' +
+               '</table>';
+    },
     
     /**
      * Create table header with DTC count
