@@ -436,13 +436,38 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         }
 
         try {
-            // Check if DTCHandler is available
-            if (!Store.dashpanel.view.DTCHandler) {
-                throw new Error('DTCHandler not available');
+            // Ensure DTCHandler class is loaded and get singleton instance
+            var dtcHandler = null;
+            
+            // Method 1: Direct singleton access
+            if (Store && Store.dashpanel && Store.dashpanel.view && Store.dashpanel.view.DTCHandler) {
+                dtcHandler = Store.dashpanel.view.DTCHandler;
+                console.log('🔍 MainPanel: DTCHandler found via direct access');
             }
             
-            var dtcList = Store.dashpanel.view.DTCHandler.parseDTCData(sensorValue);
-            var dtcTableHtml = Store.dashpanel.view.DTCHandler.createDTCTable(dtcList);
+            // Method 2: Try getting from global window scope
+            if (!dtcHandler && window.Store && window.Store.dashpanel && window.Store.dashpanel.view && window.Store.dashpanel.view.DTCHandler) {
+                dtcHandler = window.Store.dashpanel.view.DTCHandler;
+                console.log('🔍 MainPanel: DTCHandler found via window scope');
+            }
+            
+            // Method 3: Try ExtJS class manager
+            if (!dtcHandler) {
+                var DTCHandlerClass = Ext.ClassManager.get('Store.dashpanel.view.DTCHandler');
+                if (DTCHandlerClass) {
+                    dtcHandler = DTCHandlerClass;
+                    console.log('🔍 MainPanel: DTCHandler found via ClassManager');
+                }
+            }
+            
+            if (!dtcHandler) {
+                throw new Error('DTCHandler singleton not available. Ensure DTCHandler.js is loaded before MainPanel.js');
+            }
+            
+            console.log('🔍 MainPanel: Processing DTC data with sensor value length:', sensorValue.length);
+            
+            var dtcList = dtcHandler.parseDTCData(sensorValue);
+            var dtcTableHtml = dtcHandler.createDTCTable(dtcList);
             
             sensorGroups['Active DTC'].push('<div class="dashpanel-dtc-container">' + dtcTableHtml + '</div>');
             
