@@ -522,7 +522,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         if (dtcSensors.active) {
             var activeDTCData = me.extractDTCFromSensorValue(dtcSensors.active);
             var activeDTCList = dtcHandler.parseDTCData(activeDTCData);
-            combinedHtml += me.createResponsiveDTCTable(activeDTCList);
+            combinedHtml += me.createResponsiveDTCTable(activeDTCList, 'No Active DTCs');
         } else {
             combinedHtml += me.createNoDTCMessage('No Active DTCs');
         }
@@ -550,7 +550,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         if (dtcSensors.previous) {
             var previousDTCData = me.extractDTCFromSensorValue(dtcSensors.previous);
             var previousDTCList = dtcHandler.parseDTCData(previousDTCData);
-            combinedHtml += me.createResponsiveDTCTable(previousDTCList);
+            combinedHtml += me.createResponsiveDTCTable(previousDTCList, "No Previously Active DTC's");
         } else {
             combinedHtml += me.createNoDTCMessage("No Previously Active DTC's");
         }
@@ -604,9 +604,10 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     /**
      * Create responsive DTC table for MainPanel's two-column layout
      * @param {Array} dtcList - Array of DTC objects
+     * @param {string} emptyMessage - Message to show when no DTCs found
      * @returns {string} Responsive HTML table for MainPanel layout
      */
-    createResponsiveDTCTable: function(dtcList) {
+    createResponsiveDTCTable: function(dtcList, emptyMessage) {
         var me = this;
         
         if (!dtcList || dtcList.length === 0) {
@@ -620,7 +621,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
                    'margin: 5px 0;' +
                    '">' +
                    '<i class="fa fa-check-circle" style="font-size: 24px; color: #00a65a; margin-bottom: 8px;"></i>' +
-                   '<div style="font-size: 13px; font-weight: 500;">No DTCs found</div>' +
+                   '<div style="font-size: 13px; font-weight: 500;">' + (emptyMessage || 'No DTCs found') + '</div>' +
                    '</div>';
         }
         
