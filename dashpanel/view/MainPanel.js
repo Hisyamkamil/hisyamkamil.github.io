@@ -412,7 +412,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     },
 
     /**
-     * Process DTC sensor
+     * Process DTC sensor with enhanced error handling and logging
      * @param {Object} sensorGroups - Sensor groups object
      * @param {string} sensorValue - DTC sensor value
      */
@@ -420,23 +420,50 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         var me = this;
         
         console.log('🔧 MainPanel: Processing DTC sensor data');
+        console.log('🔧 MainPanel: DTC sensor value:', sensorValue ? sensorValue.substring(0, 100) + '...' : 'Empty');
         
         if (!sensorGroups['Active DTC']) {
             sensorGroups['Active DTC'] = [];
         }
 
+        // Validate input data
+        if (!sensorValue || typeof sensorValue !== 'string') {
+            console.warn('⚠️ MainPanel: Invalid DTC sensor value received');
+            sensorGroups['Active DTC'].push('<div style="text-align: center; padding: 20px; color: #ff8c00;">' +
+                                          '<i class="fa fa-exclamation-triangle"></i><br>' +
+                                          'Invalid DTC sensor data</div>');
+            return;
+        }
+
         try {
+            // Check if DTCHandler is available
+            if (!Store.dashpanel.view.DTCHandler) {
+                throw new Error('DTCHandler not available');
+            }
+            
             var dtcList = Store.dashpanel.view.DTCHandler.parseDTCData(sensorValue);
             var dtcTableHtml = Store.dashpanel.view.DTCHandler.createDTCTable(dtcList);
             
             sensorGroups['Active DTC'].push('<div class="dashpanel-dtc-container">' + dtcTableHtml + '</div>');
             
             var count = dtcList ? dtcList.length : 0;
-            console.log('✅ MainPanel: Added', count, 'DTCs to display');
+            console.log('✅ MainPanel: Successfully added', count, 'DTCs to display');
             
         } catch (e) {
-            console.error('❌ MainPanel: Error processing DTC data:', e);
-            sensorGroups['Active DTC'].push('<div class="dashpanel-error">Error parsing DTC data</div>');
+            console.error('❌ MainPanel: Error processing DTC data');
+            console.error('❌ MainPanel: Error details:', e.message);
+            console.error('❌ MainPanel: Stack trace:', e.stack);
+            
+            // Provide detailed error information
+            var errorMessage = 'Error parsing DTC data';
+            if (e.message) {
+                errorMessage += ': ' + e.message;
+            }
+            
+            sensorGroups['Active DTC'].push('<div style="text-align: center; padding: 20px; color: #d73027;">' +
+                                          '<i class="fa fa-exclamation-triangle"></i><br>' +
+                                          '<strong>DTC Processing Error</strong><br>' +
+                                          '<small>' + errorMessage + '</small></div>');
         }
     },
 
@@ -455,6 +482,14 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             var sensorId = parts[2]; // Sensor ID from API response
             var digitalValue = parseFloat(parts[3]);
             var groupName = parts[4] || 'No Group';
+            
+            // Check if sensor belongs to DTC group
+            if (groupName.toLowerCase() === 'dtc') {
+                console.log('🔍 MainPanel: Sensor with DTC group detected:', sensorName);
+                me.processDTCSensor(sensorGroups, sensorValue);
+                return; // Exit early for DTC sensors
+            }
+            
             var sensorType = me.determineSensorType(sensorName);
             var status = me.calculateSensorStatus(digitalValue, sensorType);
             
