@@ -621,7 +621,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
                    'margin: 5px 0;' +
                    '">' +
                    '<i class="fa fa-check-circle" style="font-size: 24px; color: #00a65a; margin-bottom: 8px;"></i>' +
-                   '<div style="font-size: 13px; font-weight: 500;">' + (emptyMessage || 'No DTCs found') + '</div>' +
+                   '<div style="font-size: 13px; font-weight: 500;">' + emptyMessage + '</div>' +
                    '</div>';
         }
         
