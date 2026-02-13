@@ -597,7 +597,15 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             // Check if sensor belongs to DTC group
             if (groupName.toLowerCase() === 'dtc') {
                 console.log('🔍 MainPanel: Sensor with DTC group detected:', sensorName);
-                me.processDTCSensor(sensorGroups, sensorValue, groupName); // Pass original group name
+                
+                // Extract raw hex DTC data from parts[5] for DTC sensors
+                var rawDTCData = parts[5] || sensorValue; // parts[5] contains hex DTC data
+                console.log('🔍 MainPanel: Raw DTC hex data:', rawDTCData);
+                
+                // Convert hex to ASCII DTC format if it's hex data
+                var dtcData = me.convertHexToDTCFormat(rawDTCData);
+                
+                me.processDTCSensor(sensorGroups, dtcData, groupName); // Pass converted DTC data and group name
                 return; // Exit early for DTC sensors
             }
             
@@ -725,6 +733,54 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         
         // Final fallback to local config
         return me.config.icons[sensorType] || me.config.icons.default;
+    },
+
+    /**
+     * Convert hex encoded DTC data to ASCII DTC format
+     * @param {string} hexData - Hex encoded DTC data from sensor
+     * @returns {string} Converted DTC data in ASCII format
+     */
+    convertHexToDTCFormat: function(hexData) {
+        var me = this;
+        
+        try {
+            // Check if data is hex encoded (even number of characters, all hex)
+            if (!hexData || typeof hexData !== 'string') {
+                console.warn('MainPanel: Invalid hex data received:', hexData);
+                return hexData; // Return as-is if not valid hex
+            }
+            
+            // Remove any spaces or non-hex characters
+            var cleanHex = hexData.replace(/[^0-9A-Fa-f]/g, '');
+            
+            // Check if it's valid hex (even length)
+            if (cleanHex.length % 2 !== 0) {
+                console.warn('MainPanel: Hex data has odd length, using as-is:', hexData);
+                return hexData;
+            }
+            
+            // Convert hex to ASCII
+            var ascii = '';
+            for (var i = 0; i < cleanHex.length; i += 2) {
+                var hexByte = cleanHex.substr(i, 2);
+                var charCode = parseInt(hexByte, 16);
+                
+                // Only convert printable ASCII characters (32-126)
+                if (charCode >= 32 && charCode <= 126) {
+                    ascii += String.fromCharCode(charCode);
+                } else {
+                    // For non-printable chars, keep as hex
+                    ascii += hexByte;
+                }
+            }
+            
+            console.log('MainPanel: Converted hex to ASCII:', hexData, '->', ascii);
+            return ascii;
+            
+        } catch (e) {
+            console.error('MainPanel: Error converting hex to DTC format:', e);
+            return hexData; // Return original data on error
+        }
     },
 
     /**
