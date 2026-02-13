@@ -249,7 +249,6 @@ Ext.define('Store.dashpanel.view.DTCHandler', {
                    '">' +
                    '<i class="fa fa-check-circle" style="font-size: 24px; color: #00a65a; margin-bottom: 8px;"></i>' +
                    '<div style="font-size: 13px; font-weight: 500;">No DTCs found</div>' +
-                   '<div style="font-size: 11px; color: #888; margin-top: 4px;">All systems operating normally</div>' +
                    '</div>';
         }
         
