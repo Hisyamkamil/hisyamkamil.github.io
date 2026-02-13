@@ -552,7 +552,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             var previousDTCList = dtcHandler.parseDTCData(previousDTCData);
             combinedHtml += me.createResponsiveDTCTable(previousDTCList);
         } else {
-            combinedHtml += me.createNoDTCMessage('No Previously Active DTCs');
+            combinedHtml += me.createNoDTCMessage("No Previously Active DTC's");
         }
         combinedHtml += '</div>';
         
