@@ -522,7 +522,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         if (dtcSensors.active) {
             var activeDTCData = me.extractDTCFromSensorValue(dtcSensors.active);
             var activeDTCList = dtcHandler.parseDTCData(activeDTCData);
-            combinedHtml += dtcHandler.createResponsiveDTCTable(activeDTCList);
+            combinedHtml += me.createResponsiveDTCTable(activeDTCList);
         } else {
             combinedHtml += me.createNoDTCMessage('No Active DTCs');
         }
@@ -550,7 +550,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         if (dtcSensors.previous) {
             var previousDTCData = me.extractDTCFromSensorValue(dtcSensors.previous);
             var previousDTCList = dtcHandler.parseDTCData(previousDTCData);
-            combinedHtml += dtcHandler.createResponsiveDTCTable(previousDTCList);
+            combinedHtml += me.createResponsiveDTCTable(previousDTCList);
         } else {
             combinedHtml += me.createNoDTCMessage('No Previously Active DTCs');
         }
@@ -602,6 +602,85 @@ Ext.define('Store.dashpanel.view.MainPanel', {
                '<p style="margin: 0; font-size: 11px;">All systems operating normally</p>' +
                '</div>';
     },
+    /**
+     * Create responsive DTC table for MainPanel's two-column layout
+     * @param {Array} dtcList - Array of DTC objects
+     * @returns {string} Responsive HTML table for MainPanel layout
+     */
+    createResponsiveDTCTable: function(dtcList) {
+        var me = this;
+        
+        if (!dtcList || dtcList.length === 0) {
+            return '<div style="' +
+                   'text-align: center; ' +
+                   'padding: 20px; ' +
+                   'color: #666; ' +
+                   'border: 1px solid #ddd; ' +
+                   'border-radius: 6px; ' +
+                   'background: #f9f9f9; ' +
+                   'margin: 5px 0;' +
+                   '">' +
+                   '<i class="fa fa-check-circle" style="font-size: 24px; color: #00a65a; margin-bottom: 8px;"></i>' +
+                   '<div style="font-size: 13px; font-weight: 500;">No DTCs found</div>' +
+                   '<div style="font-size: 11px; color: #888; margin-top: 4px;">All systems operating normally</div>' +
+                   '</div>';
+        }
+        
+        // Create table rows using DTCHandler for proper hex formatting and descriptions
+        var dtcHandler = me.getDTCHandlerInstance();
+        var tableRows = '';
+        
+        if (dtcHandler) {
+            Ext.each(dtcList, function(dtc, index) {
+                var rowStyle = index % 2 === 0 ? 'background: #ffffff;' : 'background: #f9f9f9;';
+                var description = dtcHandler.getDTCDescription(dtc.spn, dtc.fmi);
+                
+                // Convert SPN and FMI to hexadecimal with proper padding (matching DTCHandler format)
+                var spnHex = dtc.spn.toString(16).toUpperCase().padStart(5, '0');
+                var fmiHex = dtc.fmi.toString(16).toUpperCase().padStart(2, '0');
+                
+                tableRows += '<tr style="' + rowStyle + '">' +
+                        '<td style="padding: 6px 4px; text-align: center; border: 1px solid #ddd;">' + dtc.mcuSource + '</td>' +
+                        '<td style="padding: 6px 4px; text-align: center; border: 1px solid #ddd; font-family: monospace;">' + spnHex + '</td>' +
+                        '<td style="padding: 6px 4px; text-align: center; border: 1px solid #ddd; font-family: monospace;">' + fmiHex + '</td>' +
+                        '<td style="padding: 6px 4px; text-align: center; border: 1px solid #ddd; font-family: monospace;">' + dtc.oc + '</td>' +
+                        '<td style="padding: 6px 4px; text-align: left; border: 1px solid #ddd; color: #333;">' + description + '</td>' +
+                        '</tr>';
+            });
+        }
+        
+        return '<div style="overflow-x: auto; margin: 5px 0;">' +
+               '<table style="' +
+               'width: 100%; ' +
+               'border-collapse: collapse; ' +
+               'font-size: 10px; ' +
+               'border: 1px solid #ddd; ' +
+               'background: white; ' +
+               'border-radius: 4px; ' +
+               'overflow: hidden;' +
+               '">' +
+               me.getResponsiveTableHeaderHTML() +
+               '<tbody>' + tableRows + '</tbody>' +
+               '</table>' +
+               '</div>';
+    },
+
+    /**
+     * Get responsive table header HTML with better styling
+     * @returns {string} HTML table header
+     */
+    getResponsiveTableHeaderHTML: function() {
+        return '<thead>' +
+               '<tr style="background: linear-gradient(to bottom, #f8f9fa, #e9ecef); border-bottom: 2px solid #dee2e6;">' +
+               '<th style="padding: 8px 6px; text-align: center; border-right: 1px solid #dee2e6; font-weight: bold; font-size: 9px; color: #495057;">MCU</th>' +
+               '<th style="padding: 8px 6px; text-align: center; border-right: 1px solid #dee2e6; font-weight: bold; font-size: 9px; color: #495057;">SPN</th>' +
+               '<th style="padding: 8px 6px; text-align: center; border-right: 1px solid #dee2e6; font-weight: bold; font-size: 9px; color: #495057;">FMI</th>' +
+               '<th style="padding: 8px 6px; text-align: center; border-right: 1px solid #dee2e6; font-weight: bold; font-size: 9px; color: #495057;">OC</th>' +
+               '<th style="padding: 8px 6px; text-align: left; font-weight: bold; font-size: 9px; color: #495057;">Description</th>' +
+               '</tr>' +
+               '</thead>';
+    },
+
 
 
     /**
