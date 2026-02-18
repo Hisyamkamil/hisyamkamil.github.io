@@ -969,6 +969,120 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     },
 
     /**
+     * Process Tell Tale sensor with enhanced error handling
+     * @param {Object} sensorGroups - Sensor groups object
+     * @param {string} sensorName - Tell Tale sensor name
+     * @param {string} sensorValue - Tell Tale sensor value
+     */
+    processTellTaleSensor: function(sensorGroups, sensorName, sensorValue) {
+        var me = this;
+        
+        console.log('🚨 MainPanel: Processing Tell Tale sensor:', sensorName);
+        console.log('🚨 MainPanel: Tell Tale value:', sensorValue ? sensorValue.substring(0, 100) + '...' : 'Empty');
+        
+        if (!sensorGroups['Tell Tale Status']) {
+            sensorGroups['Tell Tale Status'] = [];
+        }
+        
+        // Validate input data
+        if (!sensorValue || typeof sensorValue !== 'string') {
+            console.warn('⚠️ MainPanel: Invalid Tell Tale sensor value received');
+            sensorGroups['Tell Tale Status'].push('<div style="text-align: center; padding: 20px; color: #ff8c00;">' +
+                                          '<i class="fa fa-exclamation-triangle"></i><br>' +
+                                          'Invalid Tell Tale sensor data</div>');
+            return;
+        }
+        
+        try {
+            var tellTaleHandler = me.getTellTaleHandlerInstance();
+            
+            if (tellTaleHandler) {
+                console.log('🔍 MainPanel: Processing Tell Tale data with TellTaleHandler');
+                
+                var tellTaleList = tellTaleHandler.parseTellTaleData(sensorValue);
+                var tellTaleHtml = tellTaleHandler.createTellTaleDisplay(tellTaleList);
+                
+                sensorGroups['Tell Tale Status'].push('<div class="dashpanel-telltale-container">' + tellTaleHtml + '</div>');
+                
+                var activeCount = tellTaleHandler.getActiveTellTaleCount(tellTaleList);
+                console.log('✅ MainPanel: Successfully added', activeCount, 'active tell tales to display');
+            } else {
+                // Fallback: Use simple tell tale display
+                console.warn('⚠️ MainPanel: TellTaleHandler not available, using fallback display');
+                me.createFallbackTellTaleDisplay(sensorGroups, sensorValue);
+            }
+            
+        } catch (e) {
+            console.error('❌ MainPanel: Error processing Tell Tale data:', e.message);
+            
+            // Try fallback method on error
+            try {
+                console.log('🔄 MainPanel: Attempting fallback Tell Tale processing');
+                me.createFallbackTellTaleDisplay(sensorGroups, sensorValue);
+            } catch (fallbackError) {
+                console.error('❌ MainPanel: Fallback also failed:', fallbackError.message);
+                
+                sensorGroups['Tell Tale Status'].push('<div style="text-align: center; padding: 20px; color: #d73027;">' +
+                                              '<i class="fa fa-exclamation-triangle"></i><br>' +
+                                              '<strong>Tell Tale Processing Error</strong><br>' +
+                                              '<small>' + e.message + '</small></div>');
+            }
+        }
+    },
+
+    /**
+     * Get TellTaleHandler singleton instance
+     * @returns {Object|null} TellTaleHandler instance or null
+     */
+    getTellTaleHandlerInstance: function() {
+        // Since TellTaleHandler is declared in requires, it should be available via Store namespace
+        if (Store && Store.dashpanel && Store.dashpanel.view && Store.dashpanel.view.TellTaleHandler) {
+            console.log('🔍 MainPanel: TellTaleHandler singleton loaded via requires');
+            return Store.dashpanel.view.TellTaleHandler;
+        }
+        
+        // Fallback: Try ExtJS class manager
+        try {
+            var TellTaleHandlerClass = Ext.ClassManager.get('Store.dashpanel.view.TellTaleHandler');
+            if (TellTaleHandlerClass) {
+                console.log('🔍 MainPanel: TellTaleHandler found via ClassManager');
+                return TellTaleHandlerClass;
+            }
+        } catch (e) {
+            console.warn('MainPanel: ClassManager lookup failed:', e.message);
+        }
+        
+        console.error('❌ MainPanel: TellTaleHandler not available. Check if TellTaleHandler.js file exists and is properly loaded.');
+        return null;
+    },
+
+    /**
+     * Create fallback Tell Tale display when TellTaleHandler is not available
+     * @param {Object} sensorGroups - Sensor groups object
+     * @param {string} sensorValue - Raw Tell Tale sensor value
+     */
+    createFallbackTellTaleDisplay: function(sensorGroups, sensorValue) {
+        var me = this;
+        
+        console.log('🔄 MainPanel: Creating fallback Tell Tale display');
+        
+        var fallbackHtml = '<div style="padding: 10px;">' +
+                          '<h4 style="margin: 0 0 10px 0; color: #0066cc;">' +
+                          '<i class="fa fa-dashboard"></i> Tell Tale Status' +
+                          '</h4>' +
+                          '<div style="background: #f9f9f9; padding: 15px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace; font-size: 11px; word-break: break-all;">' +
+                          '<strong>Raw Tell Tale Data:</strong><br>' + sensorValue.substring(0, 200) + (sensorValue.length > 200 ? '...' : '') +
+                          '</div>' +
+                          '<div style="margin-top: 10px; font-size: 10px; color: #666;">' +
+                          '<em>Note: TellTaleHandler not available. Showing raw sensor data.</em>' +
+                          '</div></div>';
+        
+        sensorGroups['Tell Tale Status'].push('<div class="dashpanel-telltale-container">' + fallbackHtml + '</div>');
+        
+        console.log('✅ MainPanel: Fallback Tell Tale display created');
+    },
+
+    /**
      * Process regular sensor
      * @param {Object} sensorGroups - Sensor groups object
      * @param {string} sensorName - Sensor name
