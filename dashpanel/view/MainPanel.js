@@ -1118,11 +1118,15 @@ Ext.define('Store.dashpanel.view.MainPanel', {
             if (groupName.toLowerCase() === 'tell tale status') {
                 console.log('🚨 MainPanel: Tell Tale sensor with group detected:', sensorName, 'Group:', groupName);
                 
-                // Extract Tell Tale data (should be in parts[5] or use the full sensor value)
-                var tellTaleData = parts[5] || sensorValue;
-                console.log('🚨 MainPanel: Tell Tale data:', tellTaleData ? tellTaleData.substring(0, 100) + '...' : 'Empty');
+                // Extract Tell Tale data (should be in parts[5] or use the digitalValue)
+                var rawTellTaleData = parts[5] || digitalValue;
+                console.log('🚨 MainPanel: Raw Tell Tale data:', rawTellTaleData);
                 
-                me.processTellTaleSensor(sensorGroups, sensorName, tellTaleData);
+                // Convert raw data to TellTaleHandler expected format: blockId:byte1:byte2:byte3:byte4:byte5:byte6:byte7:byte8
+                var formattedTellTaleData = me.formatTellTaleData(sensorName, rawTellTaleData);
+                console.log('🚨 MainPanel: Formatted Tell Tale data:', formattedTellTaleData);
+                
+                me.processTellTaleSensor(sensorGroups, sensorName, formattedTellTaleData);
                 return; // Exit early for Tell Tale sensors
             }
             
@@ -1250,6 +1254,70 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         
         // Final fallback to local config
         return me.config.icons[sensorType] || me.config.icons.default;
+    },
+
+    /**
+     * Format Tell Tale data from raw sensor value to TellTaleHandler expected format
+     * @param {string} sensorName - Sensor name to extract block ID from
+     * @param {string|number} rawValue - Raw Tell Tale numeric value
+     * @returns {string} Formatted Tell Tale data: blockId:byte1:byte2:byte3:byte4:byte5:byte6:byte7:byte8
+     */
+    formatTellTaleData: function(sensorName, rawValue) {
+        var me = this;
+        
+        try {
+            // Extract block ID from sensor name (e.g., "Tell Tale Block 0" -> 0)
+            var blockId = me.extractTellTaleBlockId(sensorName);
+            
+            // Convert raw numeric value to 64-bit integer (8 bytes)
+            var numValue = typeof rawValue === 'string' ? parseInt(rawValue, 10) : rawValue;
+            
+            if (isNaN(numValue)) {
+                console.warn('MainPanel: Invalid Tell Tale numeric value:', rawValue);
+                return '0:00:00:00:00:00:00:00:00'; // Default fallback
+            }
+            
+            // Convert to 8 bytes (64 bits) in little-endian format
+            var bytes = [];
+            for (var i = 0; i < 8; i++) {
+                bytes.push((numValue >>> (i * 8)) & 0xFF);
+            }
+            
+            // Format as hex strings with leading zeros
+            var hexBytes = bytes.map(function(byte) {
+                return byte.toString(16).toUpperCase().padStart(2, '0');
+            });
+            
+            // Create formatted string: blockId:byte1:byte2:byte3:byte4:byte5:byte6:byte7:byte8
+            var formatted = blockId + ':' + hexBytes.join(':');
+            
+            console.log('MainPanel: Formatted Tell Tale data - Raw:', rawValue, 'Block:', blockId, 'Result:', formatted);
+            return formatted;
+            
+        } catch (e) {
+            console.error('MainPanel: Error formatting Tell Tale data:', e);
+            return '0:00:00:00:00:00:00:00:00'; // Safe fallback
+        }
+    },
+
+    /**
+     * Extract Tell Tale block ID from sensor name
+     * @param {string} sensorName - Sensor name (e.g., "Tell Tale Block 0", "Tell Tale Status 1")
+     * @returns {number} Block ID (0-4)
+     */
+    extractTellTaleBlockId: function(sensorName) {
+        if (!sensorName) return 0;
+        
+        // Try to extract number from sensor name
+        var matches = sensorName.match(/(\d+)/);
+        if (matches) {
+            var blockId = parseInt(matches[1], 10);
+            // Ensure block ID is valid (0-4 according to FMS standard)
+            return (blockId >= 0 && blockId <= 4) ? blockId : 0;
+        }
+        
+        // Default to block 0 if no number found
+        return 0;
     },
 
     /**
