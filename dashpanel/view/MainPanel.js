@@ -2,9 +2,10 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     extend: 'Ext.panel.Panel',
     alias: 'widget.dashpanel.mainpanel',
     
-    // Ensure DTCHandler is loaded as a dependency
+    // Ensure DTCHandler and TellTaleHandler are loaded as dependencies
     requires: [
-        'Store.dashpanel.view.DTCHandler'
+        'Store.dashpanel.view.DTCHandler',
+        'Store.dashpanel.view.TellTaleHandler'
     ],
     
     // Configuration properties
@@ -1113,6 +1114,18 @@ Ext.define('Store.dashpanel.view.MainPanel', {
                 return; // Exit early for DTC sensors
             }
             
+            // Check if sensor belongs to Tell Tale Status group
+            if (groupName.toLowerCase() === 'tell tale status') {
+                console.log('🚨 MainPanel: Tell Tale sensor with group detected:', sensorName, 'Group:', groupName);
+                
+                // Extract Tell Tale data (should be in parts[5] or use the full sensor value)
+                var tellTaleData = parts[5] || sensorValue;
+                console.log('🚨 MainPanel: Tell Tale data:', tellTaleData ? tellTaleData.substring(0, 100) + '...' : 'Empty');
+                
+                me.processTellTaleSensor(sensorGroups, sensorName, tellTaleData);
+                return; // Exit early for Tell Tale sensors
+            }
+            
             var sensorType = me.determineSensorType(sensorName);
             var status = me.calculateSensorStatus(digitalValue, sensorType);
             
@@ -1439,23 +1452,25 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     },
 
     /**
-     * Check if sensor rows contain DTC table
+     * Check if sensor rows contain DTC table or Tell Tale display (requires full width)
      * @param {Array} sensorRows - Array of sensor rows
-     * @returns {boolean} True if contains DTC table
+     * @returns {boolean} True if contains DTC table or Tell Tale display
      */
     containsDTCTable: function(sensorRows) {
-        var containsDTC = false;
+        var containsSpecialDisplay = false;
         Ext.each(sensorRows, function(row) {
             if (row.indexOf('Active Diagnostic Trouble Codes') > -1 ||
                 row.indexOf('No Active DTCs') > -1 ||
                 row.indexOf('dashpanel-dtc-container') > -1 ||
                 row.indexOf('Active DTCs</h4>') > -1 ||
-                row.indexOf('Previous Active DTCs</h4>') > -1) {
-                containsDTC = true;
+                row.indexOf('Previous Active DTCs</h4>') > -1 ||
+                row.indexOf('dashpanel-telltale-container') > -1 ||
+                row.indexOf('Tell Tale Status') > -1) {
+                containsSpecialDisplay = true;
                 return false;
             }
         });
-        return containsDTC;
+        return containsSpecialDisplay;
     },
 
     /**
