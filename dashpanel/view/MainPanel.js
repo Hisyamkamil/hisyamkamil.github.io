@@ -1096,7 +1096,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         if (parts.length >= 5) {
             var humanValue = parts[0];
             var sensorId = parts[2]; // Sensor ID from API response
-            var digitalValue = parseFloat(parts[3]);
+            var digitalValue = parts[3]; // Keep original value for display
             var groupName = parts[4] || 'No Group';
             
             // Check if sensor belongs to DTC group
