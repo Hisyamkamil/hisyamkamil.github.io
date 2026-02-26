@@ -1712,15 +1712,31 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     },
 
     /**
-     * Extract unit from human value
+     * Extract unit from human value - improved for status sensors
      * @param {string} humValue - Human readable value
      * @returns {string} Unit string
      */
     extractUnit: function(humValue) {
         if (!humValue) return '';
         
-        var matches = humValue.toString().match(/([a-zA-Zа-яА-Я°%/]+)$/);
-        return matches ? matches[1] : '';
+        // Debug logging for unit extraction
+        console.log('🔍 MainPanel extractUnit input:', humValue);
+        
+        var humStr = humValue.toString();
+        
+        // For status-type sensors (text without numeric values), don't extract units
+        // Status texts like "Low idle", "High idle", "Active", "Inactive" should not have units
+        if (isNaN(parseFloat(humStr))) {
+            console.log('🔍 MainPanel extractUnit - Status text detected, no unit extracted');
+            return '';
+        }
+        
+        // For regular sensors, extract units from the end (e.g., "25.5°C" -> "°C")
+        var matches = humStr.match(/([a-zA-Zа-яА-Я°%/]+)$/);
+        var unit = matches ? matches[1] : '';
+        console.log('🔍 MainPanel extractUnit result:', unit);
+        
+        return unit;
     },
 
     /**
