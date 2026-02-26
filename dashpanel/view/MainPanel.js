@@ -1160,6 +1160,9 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         var sensorIcon = sensor.icon || me.getSensorIcon(sensor.name, sensor.type);
         var formattedValue = me.formatSensorValue(sensor.value);
         
+        // Debug logging for sensor display
+        console.log('🔍 MainPanel createSensorRow:', sensor.name, 'FormattedValue:', formattedValue, 'Status:', sensor.status);
+        
         // V3-style inline layout for precise spacing
         return '<div style="' +
                'display: flex; ' +
@@ -1369,11 +1372,13 @@ Ext.define('Store.dashpanel.view.MainPanel', {
     },
 
     /**
-     * Format sensor value
+     * Format sensor value - return as-is for status text, format numbers only
      * @param {*} value - Sensor value
      * @returns {string} Formatted value
      */
     formatSensorValue: function(value) {
+        // For status text (already formatted), return as-is
+        // Only format if it's actually a number type
         return typeof value === 'number' ? Ext.util.Format.number(value, '0.##') : value;
     },
 
