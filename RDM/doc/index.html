@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDM Token 2.1 Extension Documentation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #495057;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-left: 4px solid #007bff;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #6c757d;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+        .feature-card h4 {
+            margin-top: 0;
+            color: #28a745;
+        }
+        .api-endpoint {
+            background: #e9ecef;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            border-left: 3px solid #17a2b8;
+        }
+        .security-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .config-table th,
+        .config-table td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+        }
+        .config-table th {
+            background-color: #007bff;
+            color: white;
+        }
+        .config-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .status-active { color: #28a745; font-weight: bold; }
+        .status-pending { color: #ffc107; font-weight: bold; }
+        .status-expired { color: #dc3545; font-weight: bold; }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔑 RDM Token 2.1 Extension</h1>
+        
+        <p><strong>Version:</strong> 2.1.0<br>
+        <strong>Author:</strong> PT Mitra Solusi Telematika<br>
+        <strong>Compatible with:</strong> PILOT Extensions Runtime, Ext JS 7.7+</p>
+
+        <h2>📋 Overview</h2>
+        <p>The RDM Token 2.1 Extension provides comprehensive rental unit token lifecycle management with JWT-based security. It enables automatic and manual token activation, tracks token expiration, and integrates with RDM systems for unit control while maintaining strict security protocols.</p>
+
+        <h2>✨ Key Features</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>🎯 Token Management</h4>
+                <p>Complete token lifecycle management including creation, activation, renewal, and expiration tracking with real-time status updates.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🗺️ Location Monitoring</h4>
+                <p>Interactive map interface showing real-time unit locations with GPS tracking, geofence validation, and movement history.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📊 Dashboard Analytics</h4>
+                <p>Comprehensive metrics display including active tokens, expired units, pending approvals, and operational statistics.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🔐 JWT Security</h4>
+                <p>Advanced JWT-based token security with device signature validation, offline token validation, and cryptographic protection.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📋 Contract Integration</h4>
+                <p>Full contract management integration with automatic validation, expiration tracking, and customer data synchronization.</p>
+            </div>
+            <div class="feature-card">
+                <h4>✅ Approval Workflow</h4>
+                <p>Multi-level approval system for token requests with automated notifications and workflow management.</p>
+            </div>
+        </div>
+
+        <h2>🏗️ Architecture</h2>
+        <p>This extension follows PILOT Extension Pattern 1 - Full UI Extension with navigation tab and main content panel integration:</p>
+        <ul>
+            <li><strong>Navigation Tab:</strong> Left sidebar with multiple sections (Dashboard, Token Management, Location Monitoring, etc.)</li>
+            <li><strong>Main Panel:</strong> Card layout displaying different interfaces based on navigation selection</li>
+            <li><strong>Data Integration:</strong> Real-time synchronization with PILOT vehicle data and RDM API services</li>
+            <li><strong>Security Layer:</strong> JWT token validation and device signature verification</li>
+        </ul>
+
+        <h2>🔌 Data Sources</h2>
+        <h3>PILOT Vehicle Data</h3>
+        <div class="api-endpoint">GET /ax/tree.php?vehs=1&state=1</div>
+        <p>Loads rental units from PILOT system with hierarchical group structure. Response contains vehicle details including:</p>
+        <ul>
+            <li>Vehicle ID (vehid)</li>
+            <li>Unit Name (name)</li>
+            <li>VIN Number (vin)</li>
+            <li>Model & Year (model, year)</li>
+            <li>Device Serial & IMEI (serialnumber, imei)</li>
+            <li>Unit Status (status)</li>
+        </ul>
+
+        <h3>RDM Token API</h3>
+        <p>Complete API integration for token operations:</p>
+        
+        <div class="api-endpoint">POST /api/rdm/token/request</div>
+        <p>Creates new token requests with contract validation</p>
+
+        <div class="api-endpoint">GET /api/rdm/token/status/{serialNumber}</div>
+        <p>Retrieves current token status and remaining hours</p>
+
+        <div class="api-endpoint">POST /api/rdm/token/generate</div>
+        <p>Generates JWT tokens with device signature</p>
+
+        <div class="api-endpoint">POST /api/rdm/token/validate</div>
+        <p>Validates tokens for offline operation</p>
+
+        <div class="api-endpoint">GET /api/rdm/token/list</div>
+        <p>Lists all tokens with pagination and filtering</p>
+
+        <div class="api-endpoint">POST /api/rdm/token/topup</div>
+        <p>Adds additional hours to existing tokens</p>
+
+        <div class="api-endpoint">POST /api/rdm/token/renew</div>
+        <p>Renews token contracts with new periods</p>
+
+        <div class="api-endpoint">GET /api/rdm/token/reports</div>
+        <p>Generates activity reports and analytics</p>
+
+        <h3>Contract Data API</h3>
+        <div class="api-endpoint">GET /api/contracts/{serialNumber}</div>
+        <p>Retrieves contract information for validation including start/end dates, customer details, and geofence settings.</p>
+
+        <h2>🎛️ User Interface Components</h2>
+        <h3>Dashboard</h3>
+        <p>Overview metrics with real-time updates:</p>
+        <ul>
+            <li>Total Active Units counter</li>
+            <li>Active Tokens status</li>
+            <li>Expired Tokens alerts</li>
+            <li>Pending Approvals queue</li>
+        </ul>
+
+        <h3>Token Management</h3>
+        <p>Primary interface featuring:</p>
+        <ul>
+            <li><strong>Control Bar:</strong> Search, status filters, date range, advanced filtering</li>
+            <li><strong>Token Grid:</strong> Sortable table with action buttons (Toggle, Renew, Top Up, Change Unit)</li>
+            <li><strong>Create Request Modal:</strong> Form for new token requests with validation</li>
+            <li><strong>Token Details Panel:</strong> Comprehensive token information and manual entry</li>
+        </ul>
+
+        <h3>Location Monitoring</h3>
+        <p>Interactive mapping interface:</p>
+        <ul>
+            <li><strong>Unit List:</strong> Filterable list of units with status indicators</li>
+            <li><strong>Interactive Map:</strong> Real-time unit positions with markers</li>
+            <li><strong>Unit Details:</strong> Battery levels, remaining time, GPS coordinates, speed monitoring</li>
+        </ul>
+
+        <h2>🔒 Security Features</h2>
+        <div class="security-warning">
+            <strong>⚠️ Security Notice:</strong> This extension implements enterprise-grade security measures for token management.
+        </div>
+
+        <h3>JWT Token Structure</h3>
+        <ul>
+            <li><strong>Header:</strong> Algorithm specification and token type</li>
+            <li><strong>Payload:</strong> Timer value, contract expiration, device IMEI, system code</li>
+            <li><strong>Signature:</strong> Device-specific encrypted signature</li>
+        </ul>
+
+        <h3>Validation Requirements</h3>
+        <ul>
+            <li>User authentication for all token operations</li>
+            <li>Device ID and signature verification</li>
+            <li>Offline validation capability</li>
+            <li>Cryptographic security for all tokens</li>
+        </ul>
+
+        <h3>Safety Rules</h3>
+        <ul>
+            <li>Auto-disable only when unit is powered OFF</li>
+            <li>Emergency power button (5-minute activation)</li>
+            <li>Geofence validation before disable commands</li>
+            <li>Breakdown status prevents auto-disable</li>
+        </ul>
+
+        <h2>⚙️ Configuration</h2>
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>Setting</th>
+                    <th>Default Value</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Token Expiration Alert</td>
+                    <td>24 hours</td>
+                    <td>Warning threshold before token expires</td>
+                </tr>
+                <tr>
+                    <td>Auto-refresh Interval</td>
+                    <td>30 seconds</td>
+                    <td>Dashboard metrics update frequency</td>
+                </tr>
+                <tr>
+                    <td>Emergency Grace Period</td>
+                    <td>5 minutes</td>
+                    <td>Emergency power button duration</td>
+                </tr>
+                <tr>
+                    <td>JWT Token TTL</td>
+                    <td>Contract Period</td>
+                    <td>Token validity duration</td>
+                </tr>
+                <tr>
+                    <td>Geofence Validation</td>
+                    <td>Enabled</td>
+                    <td>Location-based operation control</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>📱 Status Indicators</h2>
+        <p>The extension uses color-coded status indicators:</p>
+        <ul>
+            <li><span class="status-active">Active:</span> Token is valid and operational</li>
+            <li><span class="status-pending">Pending:</span> Token request awaiting approval</li>
+            <li><span class="status-expired">Expired:</span> Token has reached expiration time</li>
+            <li><strong>Revoked:</strong> Token has been manually disabled</li>
+        </ul>
+
+        <h2>🔧 Installation Requirements</h2>
+        <ul>
+            <li><strong>PILOT Platform:</strong> Compatible with PILOT Extensions Runtime</li>
+            <li><strong>Ext JS Version:</strong> 7.7 or higher (provided by PILOT)</li>
+            <li><strong>API Access:</strong> RDM Token API endpoints must be accessible</li>
+            <li><strong>Permissions:</strong> Vehicle data access and token management rights</li>
+            <li><strong>Network:</strong> Internet connectivity for real-time updates</li>
+        </ul>
+
+        <h2>📊 Reporting Capabilities</h2>
+        <p>Built-in reporting features include:</p>
+        <ul>
+            <li>Token request history with filtering</li>
+            <li>Customer activity reports</li>
+            <li>Sales representative performance metrics</li>
+            <li>Geographic area analysis</li>
+            <li>Contract value summaries</li>
+            <li>Export capabilities (CSV format)</li>
+            <li>Audit trail logging</li>
+        </ul>
+
+        <h2>🚨 Error Handling</h2>
+        <p>The extension implements comprehensive error handling:</p>
+        <ul>
+            <li><strong>Network Errors:</strong> Graceful degradation with offline mode</li>
+            <li><strong>API Failures:</strong> User-friendly error messages with retry options</li>
+            <li><strong>Validation Errors:</strong> Real-time form validation with specific guidance</li>
+            <li><strong>Security Violations:</strong> Automated lockout and admin notifications</li>
+            <li><strong>Data Conflicts:</strong> Conflict resolution dialogs with user choices</li>
+        </ul>
+
+        <h2>🔄 Workflow Integration</h2>
+        <p>The extension integrates with existing PILOT workflows:</p>
+        <ul>
+            <li><strong>Vehicle Management:</strong> Seamless integration with PILOT vehicle data</li>
+            <li><strong>User Management:</strong> Respects PILOT user permissions and roles</li>
+            <li><strong>Notification System:</strong> Uses PILOT notification framework</li>
+            <li><strong>Audit Logging:</strong> Integrates with PILOT audit systems</li>
+        </ul>
+
+        <h2>📞 Support & Maintenance</h2>
+        <p>For technical support or feature requests, contact:</p>
+        <ul>
+            <li><strong>Developer:</strong> PT Mitra Solusi Telematika Development Team</li>
+            <li><strong>Documentation:</strong> This file provides comprehensive usage information</li>
+            <li><strong>Updates:</strong> Extension updates are deployed through PILOT admin interface</li>
+        </ul>
+
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 14px;">
+            <p><strong>Last Updated:</strong> March 2026<br>
+            <strong>Extension ID:</strong> rdmtoken<br>
+            <strong>Version:</strong> 2.1.0</p>
+        </div>
+    </div>
+</body>
+</html>
