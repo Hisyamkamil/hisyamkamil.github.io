@@ -1,0 +1,75 @@
+Ext.define('Store.rdmtoken.Module', {
+    extend: 'Ext.Component',
+
+    requires: [
+        'Store.rdmtoken.view.NavigationTab',
+        'Store.rdmtoken.view.MainPanel',
+        'Store.rdmtoken.controller.TokenController',
+        'Store.rdmtoken.store.TokenStore',
+        'Store.rdmtoken.store.UnitsStore',
+        'Store.rdmtoken.store.ContractsStore'
+    ],
+
+    initModule: function() {
+        console.log('RDM Token 2.1 Extension initialized');
+
+        // Add RDM top navigation
+        skeleton.topNavigation.add({
+            title: 'RDM',
+            iconCls: 'fa fa-cog'
+        });
+
+        // Initialize controller
+        var controller = Ext.create('Store.rdmtoken.controller.TokenController');
+
+        // 1. CREATE NAVIGATION TAB COMPONENT
+        var navTab = Ext.create('Store.rdmtoken.view.NavigationTab', {
+            title: 'RDM Token',
+            iconCls: 'fa fa-key',
+            iconAlign: 'top',
+            controller: controller
+        });
+
+        // 2. CREATE MAIN CONTENT COMPONENT  
+        var mainPanel = Ext.create('Store.rdmtoken.view.MainPanel', {
+            controller: controller
+        });
+
+        // 3. LINK COMPONENTS TOGETHER (MANDATORY)
+        navTab.map_frame = mainPanel;
+
+        // 4. ADD TO PILOT INTERFACE
+        skeleton.navigation.add(navTab);
+        skeleton.mapframe.add(mainPanel);
+
+        // 5. LOAD CUSTOM STYLES
+        this.loadStyles();
+
+        // 6. INITIALIZE GLOBAL STORES
+        this.initializeGlobalStores();
+
+        // 7. SET CONTROLLER REFERENCES
+        controller.setMainPanel(mainPanel);
+        controller.setNavigationTab(navTab);
+    },
+
+    loadStyles: function() {
+        var cssLink = document.createElement("link");
+        cssLink.setAttribute("rel", "stylesheet");
+        cssLink.setAttribute("type", "text/css");
+        cssLink.setAttribute("href", '/store/rdmtoken/style.css');
+        document.head.appendChild(cssLink);
+    },
+
+    initializeGlobalStores: function() {
+        // Initialize global stores for cross-component access
+        window.RDMStores = {
+            units: Ext.create('Store.rdmtoken.store.UnitsStore'),
+            tokens: Ext.create('Store.rdmtoken.store.TokenStore'),
+            contracts: Ext.create('Store.rdmtoken.store.ContractsStore')
+        };
+
+        // Auto-load token data
+        window.RDMStores.tokens.load();
+    }
+});
