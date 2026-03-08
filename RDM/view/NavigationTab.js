@@ -1,0 +1,120 @@
+/**
+ * Navigation Tab Component
+ * Left sidebar navigation with multiple RDM sections
+ */
+Ext.define('Store.rdmtoken.view.NavigationTab', {
+    extend: 'Ext.tab.Panel',
+    
+    config: {
+        controller: null
+    },
+
+    initComponent: function() {
+        this.items = [
+            {
+                title: 'Dashboard',
+                iconCls: 'fa fa-tachometer-alt',
+                itemId: 'dashboard',
+                listeners: {
+                    activate: this.onDashboardActivate.bind(this)
+                }
+            },
+            {
+                title: 'Token Management',
+                iconCls: 'fa fa-key',
+                itemId: 'tokenmanagement',
+                listeners: {
+                    activate: this.onTokenManagementActivate.bind(this)
+                }
+            },
+            {
+                title: 'Location Monitoring',
+                iconCls: 'fa fa-map-marker-alt',
+                itemId: 'locationmonitoring',
+                listeners: {
+                    activate: this.onLocationMonitoringActivate.bind(this)
+                }
+            },
+            {
+                title: 'Contract',
+                iconCls: 'fa fa-file-contract',
+                itemId: 'contract',
+                listeners: {
+                    activate: this.onContractActivate.bind(this)
+                }
+            },
+            {
+                title: 'Approval',
+                iconCls: 'fa fa-check-circle',
+                itemId: 'approval',
+                listeners: {
+                    activate: this.onApprovalActivate.bind(this)
+                }
+            },
+            {
+                title: 'Report',
+                iconCls: 'fa fa-chart-bar',
+                itemId: 'report',
+                listeners: {
+                    activate: this.onReportActivate.bind(this)
+                }
+            }
+        ];
+
+        this.callParent(arguments);
+    },
+
+    onDashboardActivate: function() {
+        if (this.map_frame) {
+            this.map_frame.getLayout().setActiveItem('dashboard');
+            if (this.getController()) {
+                this.getController().onDashboardActivate();
+            }
+        }
+    },
+
+    onTokenManagementActivate: function() {
+        if (this.map_frame) {
+            this.map_frame.getLayout().setActiveItem('tokenmanagement');
+            if (this.getController()) {
+                this.getController().onTokenManagementActivate();
+            }
+        }
+    },
+
+    onLocationMonitoringActivate: function() {
+        if (this.map_frame) {
+            this.map_frame.getLayout().setActiveItem('locationmonitoring');
+            if (this.getController()) {
+                this.getController().onLocationMonitoringActivate();
+            }
+        }
+    },
+
+    onContractActivate: function() {
+        if (this.map_frame) {
+            this.map_frame.getLayout().setActiveItem('contract');
+            if (this.getController()) {
+                this.getController().onContractActivate();
+            }
+        }
+    },
+
+    onApprovalActivate: function() {
+        if (this.map_frame) {
+            this.map_frame.getLayout().setActiveItem('approval');
+            if (this.getController()) {
+                this.getController().onApprovalActivate();
+            }
+        }
+    },
+
+    onReportActivate: function() {
+        if (this.map_frame) {
+            this.map_frame.getLayout().setActiveItem('report');
+            if (this.getController()) {
+                this.getController().onReportActivate();
+            }
+        }
+    }
+});
