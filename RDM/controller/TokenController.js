@@ -186,7 +186,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var modalHeight = Math.min(650, viewport.height - 60);
         
         var modal = Ext.create('Ext.window.Window', {
-            title: '<i class="fa fa-plus-circle"></i> Create Request Token',
+            title: '<i class="fa fa-key"></i> Create Request Token',
             modal: true,
             width: modalWidth,
             height: modalHeight,
@@ -195,7 +195,6 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             resizable: true,
             constrainHeader: true,
             maximizable: true,
-            cls: 'token-request-modal',
             items: [{
                 xtype: 'form',
                 itemId: 'tokenRequestForm',
@@ -479,19 +478,19 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 padding: '10 20',
                 style: 'background: #ffffff; border-top: 1px solid #dee2e6;',
                 items: [
-                    '->',
                     {
                         text: '<i class="fa fa-times"></i> Cancel',
                         handler: function() { modal.close(); },
                         scale: 'medium',
-                        width: 100,
+                        width: 120,
                         ui: 'default-toolbar'
                     },
+                    '->',
                     {
-                        text: '<i class="fa fa-check"></i> Submit Request',
+                        text: '<i class="fa fa-check"></i> Submit',
                         handler: this.onSubmitTokenRequest.bind(this, modal),
                         scale: 'medium',
-                        width: 140,
+                        width: 100,
                         ui: 'default-toolbar',
                         cls: 'x-btn-default-small-focus'
                     }
