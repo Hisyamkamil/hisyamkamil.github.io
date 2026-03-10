@@ -10,12 +10,21 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     tabRotation: 0,
     width: 250,
     
+    // Hide tab content panel - we only want the navigation tabs
+    bodyStyle: 'display: none !important;',
+    tabBar: {
+        // Make tab bar take full width when content is hidden
+        flex: 1
+    },
+    
     initComponent: function() {
+        // Hide tab content panels - using empty items with content commented out
         this.items = [
             {
                 title: 'Dashboard',
                 iconCls: 'fa fa-tachometer-alt',
                 itemId: 'dashboard',
+                // html: '', // Empty content - panel hidden via CSS
                 listeners: {
                     activate: this.onDashboardActivate.bind(this)
                 }
@@ -24,6 +33,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Token Management',
                 iconCls: 'fa fa-key',
                 itemId: 'tokenmanagement',
+                // html: '', // Empty content - panel hidden via CSS
                 listeners: {
                     activate: this.onTokenManagementActivate.bind(this)
                 }
@@ -43,6 +53,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Contract',
                 iconCls: 'fa fa-file-contract',
                 itemId: 'contract',
+                // html: '', // Empty content - panel hidden via CSS
                 listeners: {
                     activate: this.onContractActivate.bind(this)
                 }
@@ -51,6 +62,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Approval',
                 iconCls: 'fa fa-check-circle',
                 itemId: 'approval',
+                // html: '', // Empty content - panel hidden via CSS
                 listeners: {
                     activate: this.onApprovalActivate.bind(this)
                 }
@@ -59,6 +71,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Report',
                 iconCls: 'fa fa-chart-bar',
                 itemId: 'report',
+                // html: '', // Empty content - panel hidden via CSS
                 listeners: {
                     activate: this.onReportActivate.bind(this)
                 }
