@@ -12,15 +12,15 @@ Ext.define('Store.rdmtoken.config.ApiConfig', {
         // API endpoints based on api-gateway-import-corrected.json
         endpoints: {
             // Token management endpoints
-            tokenList: '/default/RDM/api/rdm/token/list',
-            tokenRequest: '/default/RDM/api/rdm/token/request',
-            tokenGenerate: '/default/RDM/api/rdm/token/generate',
-            tokenValidate: '/default/RDM/api/rdm/token/validate',
-            tokenStatus: '/default/RDM/api/rdm/token/status/{serialNumber}',
-            tokenTopup: '/default/RDM/api/rdm/token/topup',
-            tokenRenew: '/default/RDM/api/rdm/token/renew',
-            tokenReports: '/default/RDM/api/rdm/token/reports',
-            healthCheck: '/default/RDM/api/rdm/token/health'
+            tokenList: '/api/rdm/token/list',
+            tokenRequest: '/api/rdm/token/request',
+            tokenGenerate: '/api/rdm/token/generate',
+            tokenValidate: '/api/rdm/token/validate',
+            tokenStatus: '/api/rdm/token/status/{serialNumber}',
+            tokenTopup: '/api/rdm/token/topup',
+            tokenRenew: '/api/rdm/token/renew',
+            tokenReports: '/api/rdm/token/reports',
+            healthCheck: '/api/rdm/token/health'
         }
     },
     
