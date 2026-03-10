@@ -10,11 +10,24 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     tabRotation: 0,
     width: 250,
     
-    // Hide tab content panel - we only want the navigation tabs
-    bodyStyle: 'display: none !important;',
+    // ExtJS proper configuration to hide content panel
+    plain: true,
+    bodyPadding: 0,
+    bodyStyle: {
+        'border': 'none'
+    },
     tabBar: {
-        // Make tab bar take full width when content is hidden
+        plain: true,
         flex: 1
+    },
+    
+    // Override layout to only show tabs
+    afterRender: function() {
+        this.callParent(arguments);
+        // Hide the body element that contains tab content
+        if (this.body) {
+            this.body.setDisplayed(false);
+        }
     },
     
     initComponent: function() {
