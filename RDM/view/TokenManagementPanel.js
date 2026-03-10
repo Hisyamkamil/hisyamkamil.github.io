@@ -88,7 +88,7 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
             region: 'center',
             xtype: 'gridpanel',
             itemId: 'tokenGrid',
-            store: this.getTokenStore(),
+            store: null, // Will be set later after stores are initialized
             columns: [
                 {
                     text: 'Actions',
@@ -193,13 +193,14 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
 
     // Helper method to get token store
     getTokenStore: function() {
+        // Wait for global stores to be initialized
         if (window.RDMStores && window.RDMStores.tokens) {
+            console.log('Using global token store');
             return window.RDMStores.tokens;
         }
         
-        // Create store if not available (fallback)
-        console.warn('Global RDMStores not available, creating fallback token store');
-        return Ext.create('Store.rdmtoken.store.TokenStore');
+        console.warn('Global RDMStores not available, will retry...');
+        return null; // Don't create fallback, wait for global stores
     },
     
     // Method to bind store after component render
@@ -210,35 +211,51 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         var grid = this.down('#tokenGrid');
         var store = this.getTokenStore();
         
-        console.log('TokenManagementPanel afterRender - Grid:', !!grid, 'Store:', !!store);
+        console.log('TokenManagementPanel afterRender - Grid:', !!grid);
         
-        if (grid && store) {
-            if (grid.getStore() !== store) {
+        // Retry getting store if not available initially
+        var retryCount = 0;
+        var maxRetries = 10;
+        
+        var bindStore = function() {
+            var store = this.getTokenStore();
+            console.log('Attempt', retryCount + 1, '- Store available:', !!store);
+            
+            if (store && grid) {
                 console.log('Binding token store to grid...');
                 grid.setStore(store);
-            }
             
-            // Add store listeners for debugging
-            store.on('load', function(store, records, successful) {
-                console.log('Store load event - Success:', successful, 'Records:', records.length);
-                if (successful && records.length > 0) {
-                    console.log('First record data:', records[0].getData());
-                    console.log('Grid store after load:', grid.getStore().getCount());
-                    
-                    // Force grid refresh
-                    setTimeout(function() {
-                        console.log('Forcing grid view refresh...');
-                        grid.getView().refresh();
-                        grid.doLayout();
-                    }, 100);
+                // Add store listeners for debugging
+                store.on('load', function(store, records, successful) {
+                    console.log('Store load event - Success:', successful, 'Records:', records.length);
+                    if (successful && records.length > 0) {
+                        console.log('First record data:', records[0].getData());
+                        console.log('Grid store after load:', grid.getStore().getCount());
+                        
+                        // Force grid refresh
+                        setTimeout(function() {
+                            console.log('Forcing grid view refresh...');
+                            grid.getView().refresh();
+                            grid.doLayout();
+                        }, 100);
+                    }
+                });
+                
+                // Check if store already has data
+                if (store.getCount() > 0) {
+                    console.log('Store already has data:', store.getCount(), 'records');
+                    grid.getView().refresh();
                 }
-            });
-            
-            // Check if store already has data
-            if (store.getCount() > 0) {
-                console.log('Store already has data:', store.getCount(), 'records');
-                grid.getView().refresh();
+            } else if (retryCount < maxRetries) {
+                // Retry after 100ms
+                retryCount++;
+                setTimeout(bindStore.bind(this), 100);
+            } else {
+                console.error('Failed to get token store after', maxRetries, 'attempts');
             }
-        }
+        }.bind(this);
+        
+        // Start trying to bind the store
+        bindStore();
     }
 });
