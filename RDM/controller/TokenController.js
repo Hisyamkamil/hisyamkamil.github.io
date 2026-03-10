@@ -26,8 +26,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     onTokenManagementActivate: function() {
-        console.log('Token Management activated');
-        this.refreshTokenGrid();
+        console.log('Token Management activated - loading token data...');
+        this.loadTokenData();
     },
 
     onLocationMonitoringActivate: function() {
@@ -78,10 +78,36 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     // Token Management methods
-    refreshTokenGrid: function() {
+    loadTokenData: function() {
         if (window.RDMStores && window.RDMStores.tokens) {
-            window.RDMStores.tokens.reload();
+            console.log('Loading token data from API...');
+            window.RDMStores.tokens.load({
+                callback: function(records, operation, success) {
+                    if (success) {
+                        console.log('Token data loaded successfully:', records.length, 'tokens');
+                        
+                        // Find and refresh the grid
+                        var grid = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid]')[0];
+                        if (grid) {
+                            console.log('Refreshing token grid view...');
+                            grid.getView().refresh();
+                        }
+                    } else {
+                        console.error('Failed to load token data from API');
+                        if (operation && operation.getError()) {
+                            console.error('API Error:', operation.getError());
+                        }
+                    }
+                }
+            });
+        } else {
+            console.warn('Token store not available - stores may not be initialized');
         }
+    },
+
+    refreshTokenGrid: function() {
+        // Alias for loadTokenData for backward compatibility
+        this.loadTokenData();
     },
 
     onTokenSearch: function(searchValue) {
