@@ -10,34 +10,13 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     tabRotation: 0,
     width: 250,
     
-    // ExtJS proper configuration to hide content panel
-    plain: true,
-    bodyPadding: 0,
-    bodyStyle: {
-        'border': 'none'
-    },
-    tabBar: {
-        plain: true,
-        width: 250 // Fixed width instead of flex
-    },
-    
-    // Override layout to only show tabs
-    afterRender: function() {
-        this.callParent(arguments);
-        // Hide the body element that contains tab content
-        if (this.body) {
-            this.body.setDisplayed(false);
-        }
-    },
-    
     initComponent: function() {
-        // Hide tab content panels - using empty items with content commented out
         this.items = [
             {
                 title: 'Dashboard',
                 iconCls: 'fa fa-tachometer-alt',
                 itemId: 'dashboard',
-                // html: '', // Empty content - panel hidden via CSS
+                html: '<p>Dashboard content will be added here</p>',
                 listeners: {
                     activate: this.onDashboardActivate.bind(this)
                 }
@@ -46,7 +25,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Token Management',
                 iconCls: 'fa fa-key',
                 itemId: 'tokenmanagement',
-                // html: '', // Empty content - panel hidden via CSS
+                html: '<p>Token Management content will be added here</p>',
                 listeners: {
                     activate: this.onTokenManagementActivate.bind(this)
                 }
@@ -57,6 +36,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Location Monitoring',
                 iconCls: 'fa fa-map-marker-alt',
                 itemId: 'locationmonitoring',
+                html: '<p>Location Monitoring content will be added here</p>',
                 listeners: {
                     activate: this.onLocationMonitoringActivate.bind(this)
                 }
@@ -66,7 +46,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Contract',
                 iconCls: 'fa fa-file-contract',
                 itemId: 'contract',
-                // html: '', // Empty content - panel hidden via CSS
+                html: '<p>Contract content will be added here</p>',
                 listeners: {
                     activate: this.onContractActivate.bind(this)
                 }
@@ -75,7 +55,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Approval',
                 iconCls: 'fa fa-check-circle',
                 itemId: 'approval',
-                // html: '', // Empty content - panel hidden via CSS
+                html: '<p>Approval content will be added here</p>',
                 listeners: {
                     activate: this.onApprovalActivate.bind(this)
                 }
@@ -84,7 +64,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Report',
                 iconCls: 'fa fa-chart-bar',
                 itemId: 'report',
-                // html: '', // Empty content - panel hidden via CSS
+                html: '<p>Report content will be added here</p>',
                 listeners: {
                     activate: this.onReportActivate.bind(this)
                 }
