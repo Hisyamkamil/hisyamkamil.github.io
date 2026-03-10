@@ -258,21 +258,31 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                         padding: '15 20 15 20',
                         items: [
                             {
-                                xtype: 'textfield',
-                                fieldLabel: 'Customer Name *',
-                                name: 'customerName',
-                                allowBlank: false,
-                                emptyText: 'Enter customer name...',
-                                cls: 'required-field',
-                                margin: '0 0 10 0'
-                            },
-                            {
-                                xtype: 'textfield',
-                                fieldLabel: 'RO Number *',
-                                name: 'roNumber',
-                                allowBlank: false,
-                                emptyText: 'Enter RO number...',
-                                cls: 'required-field'
+                                xtype: 'container',
+                                layout: 'hbox',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Customer Name *',
+                                        name: 'customerName',
+                                        allowBlank: false,
+                                        emptyText: 'Enter customer name...',
+                                        cls: 'required-field'
+                                    },
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'RO Number *',
+                                        name: 'roNumber',
+                                        allowBlank: false,
+                                        emptyText: 'Enter RO number...',
+                                        cls: 'required-field',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
                             }
                         ]
                     },
@@ -475,25 +485,15 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                         handler: function() { modal.close(); },
                         scale: 'medium',
                         width: 100,
-                        cls: 'btn-cancel',
-                        style: {
-                            backgroundColor: '#6c757d',
-                            borderColor: '#6c757d',
-                            color: '#ffffff'
-                        }
+                        ui: 'default-toolbar'
                     },
                     {
                         text: '<i class="fa fa-check"></i> Submit Request',
-                        cls: 'btn-primary',
                         handler: this.onSubmitTokenRequest.bind(this, modal),
                         scale: 'medium',
                         width: 140,
-                        style: {
-                            backgroundColor: '#007bff',
-                            borderColor: '#007bff',
-                            color: '#ffffff',
-                            fontWeight: '600'
-                        }
+                        ui: 'default-toolbar',
+                        cls: 'x-btn-default-small-focus'
                     }
                 ]
             }]
