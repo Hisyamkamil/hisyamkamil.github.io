@@ -4,10 +4,6 @@
  */
 Ext.define('Store.rdmtoken.view.NavigationTab', {
     extend: 'Ext.tab.Panel',
-    
-    config: {
-        controller: null
-    },
 
     initComponent: function() {
         this.items = [
@@ -67,8 +63,8 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     onDashboardActivate: function() {
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('dashboard');
-            if (this.getController()) {
-                this.getController().onDashboardActivate();
+            if (window.RDMController) {
+                window.RDMController.onDashboardActivate();
             }
         }
     },
@@ -76,8 +72,8 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     onTokenManagementActivate: function() {
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('tokenmanagement');
-            if (this.getController()) {
-                this.getController().onTokenManagementActivate();
+            if (window.RDMController) {
+                window.RDMController.onTokenManagementActivate();
             }
         }
     },
@@ -85,8 +81,8 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     onLocationMonitoringActivate: function() {
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('locationmonitoring');
-            if (this.getController()) {
-                this.getController().onLocationMonitoringActivate();
+            if (window.RDMController) {
+                window.RDMController.onLocationMonitoringActivate();
             }
         }
     },
@@ -94,8 +90,8 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     onContractActivate: function() {
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('contract');
-            if (this.getController()) {
-                this.getController().onContractActivate();
+            if (window.RDMController) {
+                window.RDMController.onContractActivate();
             }
         }
     },
@@ -103,8 +99,8 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     onApprovalActivate: function() {
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('approval');
-            if (this.getController()) {
-                this.getController().onApprovalActivate();
+            if (window.RDMController) {
+                window.RDMController.onApprovalActivate();
             }
         }
     },
@@ -112,8 +108,8 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     onReportActivate: function() {
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('report');
-            if (this.getController()) {
-                this.getController().onReportActivate();
+            if (window.RDMController) {
+                window.RDMController.onReportActivate();
             }
         }
     }
