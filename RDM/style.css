@@ -1,0 +1,158 @@
+/**
+ * RDM Token 2.1 Extension Styles
+ * Custom styling for token management interface
+ */
+
+/* Token Management Panel Styles */
+.token-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.toggle-switch {
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.toggle-switch.toggle-on {
+    background-color: #28a745;
+}
+
+.toggle-switch.toggle-off {
+    background-color: #dc3545;
+}
+
+.action-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: bold;
+    color: white;
+    margin: 0 2px;
+}
+
+.action-btn.btn-success {
+    background-color: #28a745;
+}
+
+.action-btn.btn-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.action-btn.btn-info {
+    background-color: #17a2b8;
+}
+
+.action-btn:hover {
+    opacity: 0.8;
+}
+
+/* Dashboard Panel Styles */
+.metric-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 10px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.metric-card h3 {
+    margin: 0 0 10px 0;
+    font-size: 2em;
+    font-weight: bold;
+}
+
+.metric-card.active {
+    border-color: #28a745;
+    background: #d4edda;
+}
+
+.metric-card.expired {
+    border-color: #dc3545;
+    background: #f8d7da;
+}
+
+.metric-card.pending {
+    border-color: #ffc107;
+    background: #fff3cd;
+}
+
+/* Token Status Indicators */
+.status-active {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.status-expired {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.status-pending {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.status-revoked {
+    color: #6c757d;
+    font-weight: bold;
+}
+
+/* Form Styling */
+.rdm-form .x-form-item {
+    margin-bottom: 15px;
+}
+
+.rdm-form .x-form-item-label {
+    font-weight: 600;
+}
+
+/* Button Styling */
+.btn-primary {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3 !important;
+    border-color: #0056b3 !important;
+}
+
+/* Grid Styling */
+.rdm-token-grid .x-grid-row-alt {
+    background-color: #f8f9fa;
+}
+
+.rdm-token-grid .x-grid-row-selected {
+    background-color: #e3f2fd !important;
+}
+
+/* Loading States */
+.rdm-loading {
+    text-align: center;
+    padding: 20px;
+    color: #6c757d;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .token-actions {
+        flex-direction: column;
+        gap: 3px;
+    }
+    
+    .action-btn {
+        width: 100%;
+        margin: 1px 0;
+    }
+}
