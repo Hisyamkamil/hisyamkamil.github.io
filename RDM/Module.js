@@ -1,3 +1,7 @@
+/**
+ * RDM Token 2.1 Extension
+ * Entry point module - loads and initializes all components
+ */
 Ext.define('Store.rdmtoken.Module', {
     extend: 'Ext.Component',
 
@@ -12,12 +16,6 @@ Ext.define('Store.rdmtoken.Module', {
 
     initModule: function() {
         console.log('RDM Token 2.1 Extension initialized');
-
-        // Add RDM top navigation
-        skeleton.topNavigation.add({
-            title: 'RDM',
-            iconCls: 'fa fa-cog'
-        });
 
         // Initialize controller
         var controller = Ext.create('Store.rdmtoken.controller.TokenController');
