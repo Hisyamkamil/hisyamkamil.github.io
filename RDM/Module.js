@@ -24,14 +24,11 @@ Ext.define('Store.rdmtoken.Module', {
         var navTab = Ext.create('Store.rdmtoken.view.NavigationTab', {
             title: 'RDM Token',
             iconCls: 'fa fa-key',
-            iconAlign: 'top',
-            controller: controller
+            iconAlign: 'top'
         });
 
-        // 2. CREATE MAIN CONTENT COMPONENT  
-        var mainPanel = Ext.create('Store.rdmtoken.view.MainPanel', {
-            controller: controller
-        });
+        // 2. CREATE MAIN CONTENT COMPONENT
+        var mainPanel = Ext.create('Store.rdmtoken.view.MainPanel');
 
         // 3. LINK COMPONENTS TOGETHER (MANDATORY)
         navTab.map_frame = mainPanel;
@@ -46,9 +43,8 @@ Ext.define('Store.rdmtoken.Module', {
         // 6. INITIALIZE GLOBAL STORES
         this.initializeGlobalStores();
 
-        // 7. SET CONTROLLER REFERENCES
-        controller.setMainPanel(mainPanel);
-        controller.setNavigationTab(navTab);
+        // 7. STORE CONTROLLER GLOBALLY FOR ACCESS
+        window.RDMController = controller;
     },
 
     loadStyles: function() {
