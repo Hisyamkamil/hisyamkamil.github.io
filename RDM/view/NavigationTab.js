@@ -28,6 +28,8 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                     activate: this.onTokenManagementActivate.bind(this)
                 }
             },
+            // Temporarily disabled - Real Time Monitoring
+            /*
             {
                 title: 'Location Monitoring',
                 iconCls: 'fa fa-map-marker-alt',
@@ -36,6 +38,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                     activate: this.onLocationMonitoringActivate.bind(this)
                 }
             },
+            */
             {
                 title: 'Contract',
                 iconCls: 'fa fa-file-contract',
@@ -83,6 +86,8 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
         }
     },
 
+    // Temporarily disabled - Real Time Monitoring function
+    /*
     onLocationMonitoringActivate: function() {
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('locationmonitoring');
@@ -91,6 +96,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
             }
         }
     },
+    */
 
     onContractActivate: function() {
         if (this.map_frame) {
