@@ -6,6 +6,7 @@ Ext.define('Store.rdmtoken.Module', {
     extend: 'Ext.Component',
 
     requires: [
+        'Store.rdmtoken.config.ApiConfig',
         'Store.rdmtoken.view.NavigationTab',
         'Store.rdmtoken.view.MainPanel',
         'Store.rdmtoken.controller.TokenController',
