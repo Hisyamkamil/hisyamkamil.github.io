@@ -88,7 +88,7 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
             region: 'center',
             xtype: 'gridpanel',
             itemId: 'tokenGrid',
-            store: window.RDMStores ? window.RDMStores.tokens : null,
+            store: this.getTokenStore(),
             columns: [
                 {
                     text: 'Actions',
@@ -188,6 +188,37 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
     showCreateRequestModal: function() {
         if (this.getController()) {
             this.getController().showCreateRequestModal();
+        }
+    },
+
+    // Helper method to get token store
+    getTokenStore: function() {
+        if (window.RDMStores && window.RDMStores.tokens) {
+            return window.RDMStores.tokens;
+        }
+        
+        // Create store if not available (fallback)
+        console.warn('Global RDMStores not available, creating fallback token store');
+        return Ext.create('Store.rdmtoken.store.TokenStore');
+    },
+    
+    // Method to bind store after component render
+    afterRender: function() {
+        this.callParent(arguments);
+        
+        // Ensure store is properly bound
+        var grid = this.down('#tokenGrid');
+        var store = this.getTokenStore();
+        
+        if (grid && store && grid.getStore() !== store) {
+            console.log('Binding token store to grid...');
+            grid.setStore(store);
+            
+            // Refresh grid if store has data
+            if (store.getCount() > 0) {
+                console.log('Grid refreshed with', store.getCount(), 'records');
+                grid.getView().refresh();
+            }
         }
     }
 });
