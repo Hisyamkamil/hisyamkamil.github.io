@@ -14,18 +14,15 @@ Ext.define('Store.rdmtoken.view.MainPanel', {
 
     initComponent: function() {
         this.items = [
-            {
-                itemId: 'dashboard',
-                xtype: 'Store.rdmtoken.view.DashboardPanel'
-            },
-            {
-                itemId: 'tokenmanagement',
-                xtype: 'Store.rdmtoken.view.TokenManagementPanel'
-            },
-            {
-                itemId: 'locationmonitoring',
-                xtype: 'Store.rdmtoken.view.LocationMonitoringPanel'
-            },
+            Ext.apply(Ext.create('Store.rdmtoken.view.DashboardPanel'), {
+                itemId: 'dashboard'
+            }),
+            Ext.apply(Ext.create('Store.rdmtoken.view.TokenManagementPanel'), {
+                itemId: 'tokenmanagement'
+            }),
+            Ext.apply(Ext.create('Store.rdmtoken.view.LocationMonitoringPanel'), {
+                itemId: 'locationmonitoring'
+            }),
             {
                 itemId: 'contract',
                 xtype: 'panel',
