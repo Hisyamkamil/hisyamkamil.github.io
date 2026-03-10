@@ -4,6 +4,10 @@
  */
 Ext.define('Store.rdmtoken.controller.TokenController', {
     extend: 'Ext.Base',
+    
+    requires: [
+        'Store.rdmtoken.config.ApiConfig'
+    ],
 
     config: {
         mainPanel: null,
@@ -45,9 +49,13 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
 
     // Dashboard methods
     loadDashboardMetrics: function() {
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
         Ext.Ajax.request({
-            url: '/api/rdm/token/reports',
+            url: apiConfig.getUrl('tokenReports'),
             method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             success: this.onDashboardMetricsLoaded.bind(this),
             failure: function() {
                 console.warn('Failed to load dashboard metrics');
@@ -294,10 +302,14 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var form = modal.down('#tokenRequestForm');
         if (form.isValid()) {
             var values = form.getValues();
+            var apiConfig = Store.rdmtoken.config.ApiConfig;
             
             Ext.Ajax.request({
-                url: '/api/rdm/token/request',
+                url: apiConfig.getUrl('tokenRequest'),
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 jsonData: {
                     serialNumber: values.serialNumber,
                     imei: values.imei,
@@ -344,22 +356,30 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
 
     // JWT and Security methods
     generateJWTToken: function(tokenData) {
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
         return Ext.Ajax.request({
-            url: '/api/rdm/token/generate',
+            url: apiConfig.getUrl('tokenGenerate'),
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             jsonData: tokenData
         });
     },
 
     validateToken: function(jwtToken, deviceInfo) {
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
         return Ext.Ajax.request({
-            url: '/api/rdm/token/validate',
+            url: apiConfig.getUrl('tokenValidate'),
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             jsonData: {
                 jwtToken: jwtToken,
                 deviceImei: deviceInfo.imei,
                 serialNumber: deviceInfo.serialNumber,
-                currentTimestamp: new Date().getTime(),
+                currentTimestamp: new Date().toISOString(), // Use ISO format for AWS API
                 deviceSignature: this.generateDeviceSignature(deviceInfo)
             }
         });
@@ -404,35 +424,57 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
 
     performTokenAction: function(action, tokenId) {
         // Generic method to handle token actions
-        var actionUrls = {
-            'toggle': '/api/rdm/token/toggle',
-            'renew': '/api/rdm/token/renew',
-            'topup': '/api/rdm/token/topup',
-            'changeunit': '/api/rdm/token/changeunit'
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
+        var actionEndpoints = {
+            'renew': 'tokenRenew',
+            'topup': 'tokenTopup'
+            // Note: toggle and changeunit are not in the API spec, may need custom implementation
         };
 
-        var url = actionUrls[action];
-        if (!url) {
-            console.error('Unknown token action:', action);
+        var endpoint = actionEndpoints[action];
+        if (!endpoint) {
+            console.error('Unknown or unsupported token action:', action);
+            Ext.Msg.alert('Error', 'This action is not currently supported');
             return;
         }
 
-        Ext.Ajax.request({
-            url: url,
-            method: 'POST',
-            jsonData: { tokenId: tokenId },
-            success: function(response) {
-                var result = Ext.decode(response.responseText);
-                if (result.status === 200) {
-                    Ext.Msg.alert('Success', 'Token action completed successfully');
-                    this.refreshTokenGrid();
-                } else {
-                    Ext.Msg.alert('Error', result.message || 'Action failed');
+        // For renew and topup, we need more data - show appropriate modal
+        if (action === 'renew') {
+            this.showRenewTokenModal(tokenId);
+        } else if (action === 'topup') {
+            this.showTopupTokenModal(tokenId);
+        } else {
+            // Generic action (if any are added in future)
+            Ext.Ajax.request({
+                url: apiConfig.getUrl(endpoint),
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                jsonData: { tokenId: tokenId },
+                success: function(response) {
+                    var result = Ext.decode(response.responseText);
+                    if (result.status === 200) {
+                        Ext.Msg.alert('Success', 'Token action completed successfully');
+                        this.refreshTokenGrid();
+                    } else {
+                        Ext.Msg.alert('Error', result.body.message || 'Action failed');
+                    }
+                }.bind(this),
+                failure: function() {
+                    Ext.Msg.alert('Error', 'Network error occurred');
                 }
-            }.bind(this),
-            failure: function() {
-                Ext.Msg.alert('Error', 'Network error occurred');
-            }
-        });
+            });
+        }
+    },
+    
+    showRenewTokenModal: function(tokenId) {
+        // TODO: Implement renew token modal with required fields from API spec
+        Ext.Msg.alert('Info', 'Renew token functionality will be implemented');
+    },
+    
+    showTopupTokenModal: function(tokenId) {
+        // TODO: Implement topup token modal with required fields from API spec
+        Ext.Msg.alert('Info', 'Topup token functionality will be implemented');
     }
 });
