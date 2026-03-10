@@ -64,7 +64,7 @@ Ext.define('Store.rdmtoken.Module', {
             contracts: Ext.create('Store.rdmtoken.store.ContractsStore')
         };
 
-        // Auto-load token data
-        window.RDMStores.tokens.load();
+        // Don't auto-load - load data only when needed per tab activation
+        console.log('Global stores initialized (data will load on demand)');
     }
 });
