@@ -186,9 +186,37 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
     },
 
     showCreateRequestModal: function() {
-        if (this.getController()) {
-            this.getController().showCreateRequestModal();
+        // Direct access to controller through global reference or create one
+        var controller = this.findController();
+        if (controller) {
+            controller.showCreateRequestModal();
+        } else {
+            console.error('Controller not found for showCreateRequestModal');
+            Ext.Msg.alert('Error', 'Unable to open create request modal - controller not found');
         }
+    },
+
+    // Helper method to find the controller
+    findController: function() {
+        // First try to get from this panel's config
+        if (this.getController()) {
+            return this.getController();
+        }
+        
+        // Try global reference
+        if (window.rdmTokenController) {
+            return window.rdmTokenController;
+        }
+        
+        // Try to find from parent MainPanel
+        var mainPanel = Ext.ComponentQuery.query('Store\\.rdmtoken\\.view\\.MainPanel')[0];
+        if (mainPanel && mainPanel.controller) {
+            return mainPanel.controller;
+        }
+        
+        // Create temporary controller if none found
+        console.warn('Creating temporary controller for token operations');
+        return Ext.create('Store.rdmtoken.controller.TokenController');
     },
 
     // Helper method to get token store
