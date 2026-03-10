@@ -178,6 +178,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     showCreateRequestModal: function() {
+        console.log('=== SHOWING NEW CREATE REQUEST MODAL ===');
         var modal = Ext.create('Ext.window.Window', {
             title: 'Request Token',
             modal: true,
