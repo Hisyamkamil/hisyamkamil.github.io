@@ -4,18 +4,28 @@
  */
 Ext.define('Store.rdmtoken.store.TokenStore', {
     extend: 'Ext.data.Store',
+    
+    requires: [
+        'Store.rdmtoken.config.ApiConfig'
+    ],
 
     proxy: {
         type: 'ajax',
-        url: '/api/rdm/token/list',
+        url: Store.rdmtoken.config.ApiConfig.getUrl('tokenList'),
         reader: {
             type: 'json',
-            rootProperty: 'tokens',
-            totalProperty: 'totalRecords'
+            rootProperty: 'body.tokens',  // AWS API Gateway response format
+            totalProperty: 'body.totalRecords'
         },
         extraParams: {
             page: 1,
-            limit: 50
+            limit: 50,
+            status: 'all',
+            sortBy: 'issuedDate',
+            sortOrder: 'desc'
+        },
+        headers: {
+            'Content-Type': 'application/json'
         }
     },
 
