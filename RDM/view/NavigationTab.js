@@ -1,9 +1,18 @@
 /**
  * Navigation Tab Component
- * Left sidebar navigation with multiple RDM sections
+ * Left sidebar navigation with actual panel content
  */
 Ext.define('Store.rdmtoken.view.NavigationTab', {
     extend: 'Ext.tab.Panel',
+    
+    requires: [
+        'Store.rdmtoken.view.DashboardPanel',
+        'Store.rdmtoken.view.TokenManagementPanel',
+        'Store.rdmtoken.view.LocationMonitoringPanel',
+        'Store.rdmtoken.view.ContractPanel',
+        'Store.rdmtoken.view.ApprovalPanel',
+        'Store.rdmtoken.view.ReportPanel'
+    ],
     
     // Vertical navigation configuration
     tabPosition: 'left',
@@ -16,7 +25,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Dashboard',
                 iconCls: 'fa fa-tachometer-alt',
                 itemId: 'dashboard',
-                html: '<p>Dashboard content will be added here</p>',
+                xtype: 'Store.rdmtoken.view.DashboardPanel',
                 listeners: {
                     activate: this.onDashboardActivate.bind(this)
                 }
@@ -25,28 +34,25 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Token Management',
                 iconCls: 'fa fa-key',
                 itemId: 'tokenmanagement',
-                html: '<p>Token Management content will be added here</p>',
+                xtype: 'Store.rdmtoken.view.TokenManagementPanel',
                 listeners: {
                     activate: this.onTokenManagementActivate.bind(this)
                 }
             },
-            // Temporarily disabled - Real Time Monitoring
-            /*
             {
                 title: 'Location Monitoring',
                 iconCls: 'fa fa-map-marker-alt',
                 itemId: 'locationmonitoring',
-                html: '<p>Location Monitoring content will be added here</p>',
+                xtype: 'Store.rdmtoken.view.LocationMonitoringPanel',
                 listeners: {
                     activate: this.onLocationMonitoringActivate.bind(this)
                 }
             },
-            */
             {
                 title: 'Contract',
                 iconCls: 'fa fa-file-contract',
                 itemId: 'contract',
-                html: '<p>Contract content will be added here</p>',
+                xtype: 'Store.rdmtoken.view.ContractPanel',
                 listeners: {
                     activate: this.onContractActivate.bind(this)
                 }
@@ -55,7 +61,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Approval',
                 iconCls: 'fa fa-check-circle',
                 itemId: 'approval',
-                html: '<p>Approval content will be added here</p>',
+                xtype: 'Store.rdmtoken.view.ApprovalPanel',
                 listeners: {
                     activate: this.onApprovalActivate.bind(this)
                 }
@@ -64,7 +70,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Report',
                 iconCls: 'fa fa-chart-bar',
                 itemId: 'report',
-                html: '<p>Report content will be added here</p>',
+                xtype: 'Store.rdmtoken.view.ReportPanel',
                 listeners: {
                     activate: this.onReportActivate.bind(this)
                 }
@@ -75,59 +81,44 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     },
 
     onDashboardActivate: function() {
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('dashboard');
-            if (window.RDMController) {
-                window.RDMController.onDashboardActivate();
-            }
+        console.log('Dashboard tab activated');
+        if (window.RDMController) {
+            window.RDMController.onDashboardActivate();
         }
     },
 
     onTokenManagementActivate: function() {
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('tokenmanagement');
-            if (window.RDMController) {
-                window.RDMController.onTokenManagementActivate();
-            }
+        console.log('Token Management tab activated');
+        if (window.RDMController) {
+            window.RDMController.onTokenManagementActivate();
         }
     },
 
-    // Temporarily disabled - Real Time Monitoring function
-    /*
     onLocationMonitoringActivate: function() {
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('locationmonitoring');
-            if (window.RDMController) {
-                window.RDMController.onLocationMonitoringActivate();
-            }
+        console.log('Location Monitoring tab activated');
+        if (window.RDMController) {
+            window.RDMController.onLocationMonitoringActivate();
         }
     },
-    */
 
     onContractActivate: function() {
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('contract');
-            if (window.RDMController) {
-                window.RDMController.onContractActivate();
-            }
+        console.log('Contract tab activated');
+        if (window.RDMController) {
+            window.RDMController.onContractActivate();
         }
     },
 
     onApprovalActivate: function() {
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('approval');
-            if (window.RDMController) {
-                window.RDMController.onApprovalActivate();
-            }
+        console.log('Approval tab activated');
+        if (window.RDMController) {
+            window.RDMController.onApprovalActivate();
         }
     },
 
     onReportActivate: function() {
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('report');
-            if (window.RDMController) {
-                window.RDMController.onReportActivate();
-            }
+        console.log('Report tab activated');
+        if (window.RDMController) {
+            window.RDMController.onReportActivate();
         }
     }
 });
