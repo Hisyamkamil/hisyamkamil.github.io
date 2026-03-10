@@ -241,14 +241,4 @@
     max-height: calc(100vh - 140px);
 }
 
-/* Button styling for modal */
-.btn-cancel {
-    background-color: #6c757d !important;
-    border-color: #6c757d !important;
-    color: #ffffff !important;
-}
-
-.btn-cancel:hover {
-    background-color: #545b62 !important;
-    border-color: #545b62 !important;
-}
+/* Removed custom button colors - using ExtJS built-in styling */
