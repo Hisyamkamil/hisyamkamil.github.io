@@ -4,7 +4,12 @@
  */
 Ext.define('Store.rdmtoken.view.NavigationTab', {
     extend: 'Ext.tab.Panel',
-
+    
+    // Vertical navigation configuration
+    tabPosition: 'left',
+    tabRotation: 0,
+    width: 250,
+    
     initComponent: function() {
         this.items = [
             {
