@@ -210,13 +210,33 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         var grid = this.down('#tokenGrid');
         var store = this.getTokenStore();
         
-        if (grid && store && grid.getStore() !== store) {
-            console.log('Binding token store to grid...');
-            grid.setStore(store);
+        console.log('TokenManagementPanel afterRender - Grid:', !!grid, 'Store:', !!store);
+        
+        if (grid && store) {
+            if (grid.getStore() !== store) {
+                console.log('Binding token store to grid...');
+                grid.setStore(store);
+            }
             
-            // Refresh grid if store has data
+            // Add store listeners for debugging
+            store.on('load', function(store, records, successful) {
+                console.log('Store load event - Success:', successful, 'Records:', records.length);
+                if (successful && records.length > 0) {
+                    console.log('First record data:', records[0].getData());
+                    console.log('Grid store after load:', grid.getStore().getCount());
+                    
+                    // Force grid refresh
+                    setTimeout(function() {
+                        console.log('Forcing grid view refresh...');
+                        grid.getView().refresh();
+                        grid.doLayout();
+                    }, 100);
+                }
+            });
+            
+            // Check if store already has data
             if (store.getCount() > 0) {
-                console.log('Grid refreshed with', store.getCount(), 'records');
+                console.log('Store already has data:', store.getCount(), 'records');
                 grid.getView().refresh();
             }
         }
