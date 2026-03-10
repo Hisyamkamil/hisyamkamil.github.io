@@ -12,26 +12,19 @@ Ext.define('Store.rdmtoken.view.MainPanel', {
         'Store.rdmtoken.view.LocationMonitoringPanel'
     ],
 
-    config: {
-        controller: null
-    },
-
     initComponent: function() {
         this.items = [
             {
                 itemId: 'dashboard',
-                xtype: 'Store.rdmtoken.view.DashboardPanel',
-                controller: this.getController()
+                xtype: 'Store.rdmtoken.view.DashboardPanel'
             },
             {
                 itemId: 'tokenmanagement',
-                xtype: 'Store.rdmtoken.view.TokenManagementPanel',
-                controller: this.getController()
+                xtype: 'Store.rdmtoken.view.TokenManagementPanel'
             },
             {
                 itemId: 'locationmonitoring',
-                xtype: 'Store.rdmtoken.view.LocationMonitoringPanel',
-                controller: this.getController()
+                xtype: 'Store.rdmtoken.view.LocationMonitoringPanel'
             },
             {
                 itemId: 'contract',
