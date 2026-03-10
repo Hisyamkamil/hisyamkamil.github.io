@@ -474,25 +474,23 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             dockedItems: [{
                 xtype: 'toolbar',
                 dock: 'bottom',
+                cls: 'dark_form',
                 ui: 'footer',
-                padding: '10 20',
-                style: 'background: #ffffff; border-top: 1px solid #dee2e6;',
                 items: [
-                    {
-                        text: '<i class="fa fa-times"></i> Cancel',
-                        handler: function() { modal.close(); },
-                        scale: 'medium',
-                        width: 120,
-                        ui: 'default-toolbar'
-                    },
                     '->',
                     {
-                        text: '<i class="fa fa-check"></i> Submit',
+                        text: 'Cancel',
+                        iconCls: 'fa fa-times',
+                        handler: function() { modal.close(); },
+                        cls: 'x-btn-default-small',
+                        minWidth: 100
+                    },
+                    {
+                        text: 'Submit',
+                        iconCls: 'fa fa-save',
                         handler: this.onSubmitTokenRequest.bind(this, modal),
-                        scale: 'medium',
-                        width: 100,
-                        ui: 'default-toolbar',
-                        cls: 'x-btn-default-small-focus'
+                        cls: 'x-btn-default-small',
+                        minWidth: 100
                     }
                 ]
             }]
