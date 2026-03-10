@@ -158,20 +158,7 @@
 }
 
 /* Token Request Modal Styles */
-.token-request-modal .x-window-header {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-    color: white;
-    border-bottom: none;
-    padding: 12px 20px;
-}
-
-.token-request-modal .x-window-header .x-window-header-text {
-    color: white;
-    font-weight: 600;
-    font-size: 16px;
-}
-
-.token-request-modal .x-fieldset {
+.x-fieldset {
     border: 1px solid #dee2e6;
     border-radius: 8px;
     background: #ffffff;
