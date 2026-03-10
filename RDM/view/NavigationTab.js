@@ -1,9 +1,18 @@
 /**
  * Navigation Tab Component
- * Left sidebar navigation with MainPanel card switching
+ * Left sidebar navigation with actual panel components
  */
 Ext.define('Store.rdmtoken.view.NavigationTab', {
     extend: 'Ext.tab.Panel',
+    
+    requires: [
+        'Store.rdmtoken.view.DashboardPanel',
+        'Store.rdmtoken.view.TokenManagementPanel',
+        'Store.rdmtoken.view.LocationMonitoringPanel',
+        'Store.rdmtoken.view.ContractPanel',
+        'Store.rdmtoken.view.ApprovalPanel',
+        'Store.rdmtoken.view.ReportPanel'
+    ],
     
     // Vertical navigation configuration
     tabPosition: 'left',
@@ -16,7 +25,10 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Dashboard',
                 iconCls: 'fa fa-tachometer-alt',
                 itemId: 'dashboard',
-                html: '<p style="padding: 20px;">Dashboard - Click to view content</p>',
+                layout: 'fit',
+                items: [{
+                    xtype: 'Store.rdmtoken.view.DashboardPanel'
+                }],
                 listeners: {
                     activate: this.onDashboardActivate.bind(this)
                 }
@@ -106,7 +118,10 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Location Monitoring',
                 iconCls: 'fa fa-map-marker-alt',
                 itemId: 'locationmonitoring',
-                html: '<p style="padding: 20px;">Location Monitoring - Click to view content</p>',
+                layout: 'fit',
+                items: [{
+                    xtype: 'Store.rdmtoken.view.LocationMonitoringPanel'
+                }],
                 listeners: {
                     activate: this.onLocationMonitoringActivate.bind(this)
                 }
@@ -115,7 +130,10 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Contract',
                 iconCls: 'fa fa-file-contract',
                 itemId: 'contract',
-                html: '<p style="padding: 20px;">Contract - Click to view content</p>',
+                layout: 'fit',
+                items: [{
+                    xtype: 'Store.rdmtoken.view.ContractPanel'
+                }],
                 listeners: {
                     activate: this.onContractActivate.bind(this)
                 }
@@ -124,7 +142,10 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Approval',
                 iconCls: 'fa fa-check-circle',
                 itemId: 'approval',
-                html: '<p style="padding: 20px;">Approval - Click to view content</p>',
+                layout: 'fit',
+                items: [{
+                    xtype: 'Store.rdmtoken.view.ApprovalPanel'
+                }],
                 listeners: {
                     activate: this.onApprovalActivate.bind(this)
                 }
@@ -133,7 +154,10 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 title: 'Report',
                 iconCls: 'fa fa-chart-bar',
                 itemId: 'report',
-                html: '<p style="padding: 20px;">Report - Click to view content</p>',
+                layout: 'fit',
+                items: [{
+                    xtype: 'Store.rdmtoken.view.ReportPanel'
+                }],
                 listeners: {
                     activate: this.onReportActivate.bind(this)
                 }
