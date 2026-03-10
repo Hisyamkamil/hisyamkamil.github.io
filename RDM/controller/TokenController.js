@@ -179,117 +179,241 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
 
     showCreateRequestModal: function() {
         var modal = Ext.create('Ext.window.Window', {
-            title: 'Create Token Request',
+            title: 'Request Token',
             modal: true,
-            width: 600,
-            height: 700,
+            width: 700,
+            height: 800,
             layout: 'fit',
+            closable: true,
+            resizable: false,
             items: [{
                 xtype: 'form',
                 itemId: 'tokenRequestForm',
                 bodyPadding: 20,
+                autoScroll: true,
+                layout: 'anchor',
                 defaults: {
-                    xtype: 'textfield',
                     anchor: '100%',
-                    labelWidth: 150,
-                    margin: '0 0 10 0'
+                    labelWidth: 120,
+                    margin: '0 0 15 0'
                 },
                 items: [
+                    // Row 1: Serial Number and IMEI
                     {
-                        fieldLabel: 'Serial Number *',
-                        name: 'serialNumber',
-                        allowBlank: false,
-                        listeners: {
-                            change: this.onSerialNumberChange.bind(this)
-                        }
+                        xtype: 'container',
+                        layout: 'hbox',
+                        defaults: {
+                            flex: 1,
+                            margins: '0 5 0 0'
+                        },
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                fieldLabel: 'Serial Number *',
+                                name: 'serialNumber',
+                                allowBlank: false,
+                                emptyText: 'Enter serial number...',
+                                labelWidth: 120,
+                                listeners: {
+                                    change: this.onSerialNumberChange.bind(this)
+                                }
+                            },
+                            {
+                                xtype: 'textfield',
+                                fieldLabel: 'IMEI *',
+                                name: 'imei',
+                                allowBlank: false,
+                                emptyText: 'Enter imei...',
+                                labelWidth: 80,
+                                margins: '0 0 0 10'
+                            }
+                        ]
                     },
+                    // Row 2: Customer Name (full width)
                     {
-                        fieldLabel: 'IMEI *',
-                        name: 'imei',
-                        allowBlank: false,
-                        readOnly: true
-                    },
-                    {
+                        xtype: 'textfield',
                         fieldLabel: 'Customer Name *',
                         name: 'customerName',
-                        allowBlank: false
+                        allowBlank: false,
+                        emptyText: 'Enter customer name...'
                     },
+                    // Row 3: RO Number (full width)
                     {
+                        xtype: 'textfield',
                         fieldLabel: 'RO Number *',
                         name: 'roNumber',
-                        allowBlank: false
-                    },
-                    {
-                        xtype: 'datefield',
-                        fieldLabel: 'Contract Start *',
-                        name: 'contractStart',
-                        allowBlank: false
-                    },
-                    {
-                        xtype: 'datefield',
-                        fieldLabel: 'Contract Expired *',
-                        name: 'contractExpired',
-                        allowBlank: false
-                    },
-                    {
-                        xtype: 'datefield',
-                        fieldLabel: 'Period Start *',
-                        name: 'periodStart',
-                        allowBlank: false
-                    },
-                    {
-                        xtype: 'datefield',
-                        fieldLabel: 'Period Expired Token *',
-                        name: 'periodExpiredToken',
-                        allowBlank: false
-                    },
-                    {
-                        xtype: 'numberfield',
-                        fieldLabel: 'Duration (hours) *',
-                        name: 'duration',
                         allowBlank: false,
-                        minValue: 1
+                        emptyText: 'Enter RO number...'
                     },
+                    // Row 4: Contract Start and Contract Expired
                     {
-                        xtype: 'numberfield',
-                        fieldLabel: 'Additional Duration',
-                        name: 'additionalDuration',
-                        minValue: 0,
-                        value: 0
-                    },
-                    {
-                        xtype: 'numberfield',
-                        fieldLabel: 'Contract Value *',
-                        name: 'contractValue',
-                        allowBlank: false,
-                        decimalPrecision: 2
-                    },
-                    {
-                        xtype: 'combobox',
-                        fieldLabel: 'Geofence *',
-                        name: 'geofence',
-                        allowBlank: false,
-                        store: {
-                            data: [{value: 'default', text: 'Default Geofence'}]
+                        xtype: 'container',
+                        layout: 'hbox',
+                        defaults: {
+                            flex: 1,
+                            margins: '0 5 0 0'
                         },
-                        displayField: 'text',
-                        valueField: 'value'
+                        items: [
+                            {
+                                xtype: 'datefield',
+                                fieldLabel: 'Contract Start *',
+                                name: 'contractStart',
+                                allowBlank: false,
+                                format: 'd M Y',
+                                emptyText: 'DD MMM YYYY',
+                                labelWidth: 120
+                            },
+                            {
+                                xtype: 'datefield',
+                                fieldLabel: 'Contract Expired *',
+                                name: 'contractExpired',
+                                allowBlank: false,
+                                format: 'd M Y',
+                                emptyText: 'DD MMM YYYY',
+                                labelWidth: 120,
+                                margins: '0 0 0 10'
+                            }
+                        ]
                     },
+                    // Row 5: Period Start and Period Expired Token
                     {
-                        xtype: 'displayfield',
-                        fieldLabel: 'Last Time Location',
-                        name: 'lastTimeLocation',
-                        value: '02 Mar 2026 16:20:43'
+                        xtype: 'container',
+                        layout: 'hbox',
+                        defaults: {
+                            flex: 1,
+                            margins: '0 5 0 0'
+                        },
+                        items: [
+                            {
+                                xtype: 'datefield',
+                                fieldLabel: 'Period Start *',
+                                name: 'periodStart',
+                                allowBlank: false,
+                                format: 'd M Y',
+                                emptyText: 'DD MMM YYYY',
+                                labelWidth: 120
+                            },
+                            {
+                                xtype: 'datefield',
+                                fieldLabel: 'Period Expired Token *',
+                                name: 'periodExpiredToken',
+                                allowBlank: false,
+                                format: 'd M Y',
+                                emptyText: 'DD MMM YYYY',
+                                labelWidth: 140,
+                                margins: '0 0 0 10'
+                            }
+                        ]
+                    },
+                    // Row 6: Duration and Additional Duration
+                    {
+                        xtype: 'container',
+                        layout: 'hbox',
+                        defaults: {
+                            flex: 1,
+                            margins: '0 5 0 0'
+                        },
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                fieldLabel: 'Duration *',
+                                name: 'duration',
+                                allowBlank: false,
+                                emptyText: 'Enter duration...',
+                                labelWidth: 120
+                            },
+                            {
+                                xtype: 'textfield',
+                                fieldLabel: 'Additional Duration *',
+                                name: 'additionalDuration',
+                                allowBlank: false,
+                                emptyText: 'Enter additional duration...',
+                                labelWidth: 140,
+                                margins: '0 0 0 10'
+                            }
+                        ]
+                    },
+                    // Row 7: Contract Value and Geofence
+                    {
+                        xtype: 'container',
+                        layout: 'hbox',
+                        defaults: {
+                            flex: 1,
+                            margins: '0 5 0 0'
+                        },
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                fieldLabel: 'Contract Value *',
+                                name: 'contractValue',
+                                allowBlank: false,
+                                emptyText: 'Enter contract value...',
+                                labelWidth: 120
+                            },
+                            {
+                                xtype: 'combobox',
+                                fieldLabel: 'Geofence *',
+                                name: 'geofence',
+                                allowBlank: false,
+                                emptyText: 'Value',
+                                labelWidth: 80,
+                                margins: '0 0 0 10',
+                                store: {
+                                    data: [
+                                        {value: 'default', text: 'Default Geofence'},
+                                        {value: 'area1', text: 'Area 1'},
+                                        {value: 'area2', text: 'Area 2'}
+                                    ]
+                                },
+                                displayField: 'text',
+                                valueField: 'value',
+                                queryMode: 'local'
+                            }
+                        ]
+                    },
+                    // Row 8: Last Time Location (Date and Time)
+                    {
+                        xtype: 'fieldcontainer',
+                        fieldLabel: 'Last Time Location *',
+                        layout: 'hbox',
+                        defaults: {
+                            margins: '0 5 0 0'
+                        },
+                        items: [
+                            {
+                                xtype: 'textfield',
+                                name: 'lastLocationDate',
+                                value: '02 Mar 2026',
+                                readOnly: true,
+                                width: 120
+                            },
+                            {
+                                xtype: 'textfield',
+                                name: 'lastLocationTime',
+                                value: '16:20:43',
+                                readOnly: true,
+                                width: 100,
+                                margins: '0 0 0 5'
+                            }
+                        ]
                     }
                 ]
             }],
             buttons: [{
                 text: 'Cancel',
-                handler: function() { modal.close(); }
+                handler: function() { modal.close(); },
+                scale: 'medium',
+                width: 80
             }, {
                 text: 'Submit',
                 cls: 'btn-primary',
-                handler: this.onSubmitTokenRequest.bind(this, modal)
+                handler: this.onSubmitTokenRequest.bind(this, modal),
+                scale: 'medium',
+                width: 80,
+                style: {
+                    backgroundColor: '#FFA500',
+                    borderColor: '#FFA500'
+                }
             }]
         });
 
