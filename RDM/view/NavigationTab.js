@@ -18,7 +18,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
     },
     tabBar: {
         plain: true,
-        flex: 1
+        width: 250 // Fixed width instead of flex
     },
     
     // Override layout to only show tabs
