@@ -565,14 +565,20 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             console.log('Request Data:', requestData);
             console.log('API Config:', apiConfig);
             
+            // Show loading mask to prevent duplicate submissions
+            Ext.Msg.wait('Submitting token request...', 'Please wait');
+            
             Ext.Ajax.request({
                 url: apiUrl,
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 jsonData: requestData,
+                timeout: 30000, // 30 second timeout
                 success: function(response) {
+                    Ext.Msg.hide(); // Hide loading mask
                     console.log('=== API SUCCESS RESPONSE ===');
                     console.log('Raw Response:', response);
                     console.log('Response Text:', response.responseText);
