@@ -488,7 +488,9 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     {
                         text: 'Submit',
                         iconCls: 'fa fa-save',
-                        handler: this.onSubmitTokenRequest.bind(this, modal),
+                        handler: function() {
+                            this.onSubmitTokenRequest(modal);
+                        }.bind(this),
                         cls: 'x-btn-default-small',
                         minWidth: 100
                     }
