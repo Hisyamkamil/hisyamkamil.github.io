@@ -20,7 +20,12 @@ Ext.define('Store.rdmtoken.config.ApiConfig', {
             tokenTopup: '/api/rdm/token/topup',
             tokenRenew: '/api/rdm/token/renew',
             tokenReports: '/api/rdm/token/reports',
-            healthCheck: '/api/rdm/token/health'
+            healthCheck: '/api/rdm/token/health',
+            
+            // Contract management endpoints
+            contractList: '/api/rdm/contracts',
+            contractById: '/api/rdm/contracts/{contractId}',
+            contractCreate: '/api/rdm/contracts'
         }
     },
     
@@ -37,11 +42,13 @@ Ext.define('Store.rdmtoken.config.ApiConfig', {
      */
     getUrl: function(endpoint, params) {
         var baseUrl = this.getBaseUrl();
-        var endpointPath = this.getEndpoints()[endpoint];
+        var endpoints = this.getEndpoints();
+        var endpointPath = endpoints[endpoint];
         
         if (!endpointPath) {
             console.error('Unknown endpoint:', endpoint);
-            return baseUrl;
+            console.error('Available endpoints:', Object.keys(endpoints));
+            throw new Error('Unknown endpoint: ' + endpoint);
         }
         
         var fullUrl = baseUrl + endpointPath;
