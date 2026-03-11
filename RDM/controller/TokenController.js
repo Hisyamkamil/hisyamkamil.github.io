@@ -657,6 +657,26 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             }
         }
         
+        // Map durationHours to duration form field
+        if (contractData.durationHours) {
+            var durationField = form.down('field[name=duration]');
+            if (durationField) {
+                durationField.setValue(contractData.durationHours);
+                durationField.setReadOnly(true);
+                console.log('✓ Duration filled:', contractData.durationHours);
+            }
+        }
+        
+        // Map additionalDurationHours to additionalDuration form field
+        if (contractData.additionalDurationHours !== undefined) {
+            var additionalDurationField = form.down('field[name=additionalDuration]');
+            if (additionalDurationField) {
+                additionalDurationField.setValue(contractData.additionalDurationHours);
+                additionalDurationField.setReadOnly(true);
+                console.log('✓ Additional Duration filled:', contractData.additionalDurationHours);
+            }
+        }
+        
         console.log('✅ Form population complete with correct field mapping');
     },
 
