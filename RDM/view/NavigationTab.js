@@ -346,18 +346,18 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                     activate: this.onTokenManagementActivate.bind(this)
                 }
             },
-            {
-                title: 'Location Monitoring',
-                iconCls: 'fa fa-map-marker-alt',
-                itemId: 'locationmonitoring',
-                layout: 'fit',
-                items: [
-                    Ext.create('Store.rdmtoken.view.LocationMonitoringPanel')
-                ],
-                listeners: {
-                    activate: this.onLocationMonitoringActivate.bind(this)
-                }
-            },
+            // {
+            //     title: 'Location Monitoring',
+            //     iconCls: 'fa fa-map-marker-alt',
+            //     itemId: 'locationmonitoring',
+            //     layout: 'fit',
+            //     items: [
+            //         Ext.create('Store.rdmtoken.view.LocationMonitoringPanel')
+            //     ],
+            //     listeners: {
+            //         activate: this.onLocationMonitoringActivate.bind(this)
+            //     }
+            // },
             {
                 title: 'Contract',
                 iconCls: 'fa fa-file-contract',
@@ -479,31 +479,31 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 listeners: {
                     activate: this.onContractActivate.bind(this)
                 }
-            },
-            {
-                title: 'Approval',
-                iconCls: 'fa fa-check-circle',
-                itemId: 'approval',
-                layout: 'fit',
-                items: [
-                    Ext.create('Store.rdmtoken.view.ApprovalPanel')
-                ],
-                listeners: {
-                    activate: this.onApprovalActivate.bind(this)
-                }
-            },
-            {
-                title: 'Report',
-                iconCls: 'fa fa-chart-bar',
-                itemId: 'report',
-                layout: 'fit',
-                items: [
-                    Ext.create('Store.rdmtoken.view.ReportPanel')
-                ],
-                listeners: {
-                    activate: this.onReportActivate.bind(this)
-                }
             }
+            // {
+            //     title: 'Approval',
+            //     iconCls: 'fa fa-check-circle',
+            //     itemId: 'approval',
+            //     layout: 'fit',
+            //     items: [
+            //         Ext.create('Store.rdmtoken.view.ApprovalPanel')
+            //     ],
+            //     listeners: {
+            //         activate: this.onApprovalActivate.bind(this)
+            //     }
+            // },
+            // {
+            //     title: 'Report',
+            //     iconCls: 'fa fa-chart-bar',
+            //     itemId: 'report',
+            //     layout: 'fit',
+            //     items: [
+            //         Ext.create('Store.rdmtoken.view.ReportPanel')
+            //     ],
+            //     listeners: {
+            //         activate: this.onReportActivate.bind(this)
+            //     }
+            // }
         ];
 
         this.callParent(arguments);
@@ -529,15 +529,15 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
         }
     },
 
-    onLocationMonitoringActivate: function() {
-        console.log('Location Monitoring tab activated');
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('locationmonitoring');
-        }
-        if (window.RDMController) {
-            window.RDMController.onLocationMonitoringActivate();
-        }
-    },
+    // onLocationMonitoringActivate: function() {
+    //     console.log('Location Monitoring tab activated');
+    //     if (this.map_frame) {
+    //         this.map_frame.getLayout().setActiveItem('locationmonitoring');
+    //     }
+    //     if (window.RDMController) {
+    //         window.RDMController.onLocationMonitoringActivate();
+    //     }
+    // },
 
     onContractActivate: function() {
         console.log('Contract tab activated');
@@ -547,25 +547,25 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
         if (window.RDMController) {
             window.RDMController.onContractActivate();
         }
-    },
-
-    onApprovalActivate: function() {
-        console.log('Approval tab activated');
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('approval');
-        }
-        if (window.RDMController) {
-            window.RDMController.onApprovalActivate();
-        }
-    },
-
-    onReportActivate: function() {
-        console.log('Report tab activated');
-        if (this.map_frame) {
-            this.map_frame.getLayout().setActiveItem('report');
-        }
-        if (window.RDMController) {
-            window.RDMController.onReportActivate();
-        }
     }
+
+    // onApprovalActivate: function() {
+    //     console.log('Approval tab activated');
+    //     if (this.map_frame) {
+    //         this.map_frame.getLayout().setActiveItem('approval');
+    //     }
+    //     if (window.RDMController) {
+    //         window.RDMController.onApprovalActivate();
+    //     }
+    // },
+
+    // onReportActivate: function() {
+    //     console.log('Report tab activated');
+    //     if (this.map_frame) {
+    //         this.map_frame.getLayout().setActiveItem('report');
+    //     }
+    //     if (window.RDMController) {
+    //         window.RDMController.onReportActivate();
+    //     }
+    // }
 });
