@@ -363,9 +363,119 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 iconCls: 'fa fa-file-contract',
                 itemId: 'contract',
                 layout: 'fit',
-                items: [
-                    Ext.create('Store.rdmtoken.view.ContractPanel')
-                ],
+                items: [{
+                    xtype: 'treepanel',
+                    title: 'Select Vehicle for Contract Management',
+                    tools: [{
+                        xtype: 'button',
+                        iconCls: 'fa fa-rotate',
+                        tooltip: 'Refresh Vehicle List',
+                        handler: function () {
+                            this.up('treepanel').getStore().load();
+                        }
+                    }],
+                    rootVisible: false,
+                    useArrows: true,
+                    border: false,
+                    // Create tree store that loads vehicle data from PILOT API
+                    store: Ext.create('Ext.data.TreeStore', {
+                        proxy: {
+                            type: 'ajax',
+                            url: '/ax/tree.php?vehs=1&state=1'
+                        },
+                        root: {
+                            text: 'Vehicles',
+                            expanded: true
+                        },
+                        autoLoad: true
+                    }),
+                    // Define columns for the vehicle tree
+                    columns: [{
+                        text: 'Vehicle',
+                        xtype: 'treecolumn',
+                        dataIndex: 'name',
+                        flex: 2,
+                        renderer: function(value) {
+                            return value || 'Unknown';
+                        }
+                    }, {
+                        text: 'Serial Number',
+                        dataIndex: 'vin',
+                        flex: 1,
+                        renderer: function(value, metaData, record) {
+                            // Only show for leaf nodes (vehicles), not for folder nodes
+                            if (record.get('leaf') === true || record.get('typeid') === 1) {
+                                return value || 'N/A';
+                            }
+                            return ''; // Empty for folder nodes
+                        }
+                    }, {
+                        text: 'IMEI',
+                        dataIndex: 'uniqid',
+                        flex: 1,
+                        renderer: function(value, metaData, record) {
+                            // Only show for leaf nodes (vehicles), not for folder nodes
+                            if (record.get('leaf') === true || record.get('typeid') === 1) {
+                                return value || 'N/A';
+                            }
+                            return ''; // Empty for folder nodes
+                        }
+                    }, {
+                        text: 'Contract Status',
+                        dataIndex: 'contract_status',
+                        flex: 1,
+                        renderer: function(value, metaData, record) {
+                            // Only show for leaf nodes (vehicles), not for folder nodes
+                            if (!(record.get('leaf') === true || record.get('typeid') === 1)) {
+                                return ''; // Empty for folder nodes
+                            }
+                            
+                            // Determine contract status
+                            var contractStatus = value || 'no_contract'; // Default to no contract
+                            
+                            // Render status with appropriate colors
+                            switch(contractStatus) {
+                                case 'active':
+                                    return '<span style="color: #28a745; font-weight: bold;">Active Contract</span>';
+                                case 'expired':
+                                    return '<span style="color: #dc3545; font-weight: bold;">Expired Contract</span>';
+                                case 'terminated':
+                                    return '<span style="color: #6c757d; font-weight: bold;">Terminated</span>';
+                                default:
+                                    return '<span style="color: #17a2b8;">No Contract</span>';
+                            }
+                        }
+                    }],
+                    // Handle vehicle selection for contract management
+                    listeners: {
+                        selectionchange: function(selectionModel, selected) {
+                            if (selected.length > 0) {
+                                var record = selected[0];
+                                var vehicleData = record.getData();
+                                
+                                // Store selected vehicle globally for contract management
+                                window.RDMSelectedVehicleForContract = {
+                                    id: vehicleData.id,
+                                    name: vehicleData.name,
+                                    vin: vehicleData.vin,
+                                    uniqid: vehicleData.uniqid, // IMEI
+                                    model: vehicleData.model,
+                                    year: vehicleData.year,
+                                    contractStatus: vehicleData.contract_status
+                                };
+                                
+                                console.log('Vehicle selected for Contract Management:', {
+                                    name: vehicleData.name,
+                                    vin: vehicleData.vin,
+                                    contractStatus: vehicleData.contract_status
+                                });
+                            } else {
+                                // Clear selection
+                                window.RDMSelectedVehicleForContract = null;
+                            }
+                        }
+                    }
+                }],
                 listeners: {
                     activate: this.onContractActivate.bind(this)
                 }
