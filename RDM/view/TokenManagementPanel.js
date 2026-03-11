@@ -4,6 +4,7 @@
  */
 Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
     extend: 'Ext.panel.Panel',
+    xtype: 'rdmtokenmanagementpanel',
     layout: 'border',
 
     config: {
@@ -52,7 +53,7 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                             {value: 'active', label: 'Active'},
                             {value: 'expired', label: 'Expired'},
                             {value: 'pending', label: 'Pending'},
-                            {value: 'revoked', label: 'Revoked'}
+                            {value: 'cancelled', label: 'Cancelled'}
                         ]
                     },
                     listeners: {
@@ -167,8 +168,8 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                 html += '<button class="action-btn btn-info" onclick="rdmToken.renewToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px;">Renew</button>';
                 break;
                 
-            case 'revoked':
-                // Revoked tokens have no available actions
+            case 'cancelled':
+                // Cancelled tokens have no available actions
                 html += '<span style="color: #6c757d; font-style: italic; font-size: 11px;">No actions available</span>';
                 break;
                 
@@ -187,7 +188,7 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
             'active': {color: '#28a745', text: 'Active'},
             'expired': {color: '#dc3545', text: 'Expired'},
             'pending': {color: '#ffc107', text: 'Pending'},
-            'revoked': {color: '#6c757d', text: 'Revoked'}
+            'cancelled': {color: '#6c757d', text: 'Cancelled'}
         };
         
         var config = statusConfig[value] || {color: '#6c757d', text: value};
