@@ -49,31 +49,119 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
 
     // Dashboard methods
     loadDashboardMetrics: function() {
+        console.log('Loading dashboard metrics...');
+        
         var apiConfig = Store.rdmtoken.config.ApiConfig;
         Ext.Ajax.request({
-            url: apiConfig.getUrl('tokenReports'),
+            url: apiConfig.getUrl('tokenDashboard'),
             method: 'GET',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
+            timeout: 15000,
             success: this.onDashboardMetricsLoaded.bind(this),
-            failure: function() {
-                console.warn('Failed to load dashboard metrics');
-            }
+            failure: function(response) {
+                console.error('Failed to load dashboard metrics:', response);
+                this.showDashboardError();
+            }.bind(this)
         });
     },
 
     onDashboardMetricsLoaded: function(response) {
+        console.log('Dashboard metrics loaded successfully');
+        
         try {
             var result = Ext.decode(response.responseText);
-            if (result.status === 200 && result.body.summary) {
-                var dashboardPanel = this.findDashboardPanel();
-                if (dashboardPanel && dashboardPanel.updateMetricCards) {
-                    dashboardPanel.updateMetricCards(result.body.summary);
-                }
+            console.log('Dashboard API Response:', result);
+            
+            if (result.status === 200 && result.body && result.body.overview) {
+                var overview = result.body.overview;
+                
+                // Extract the 4 key metrics
+                var dashboardData = {
+                    totalRequestedTokens: overview.totalRequestedTokens || 0,
+                    totalActiveTokens: overview.totalActiveTokens || 0,
+                    totalExpiredTokens: overview.totalExpiredTokens || 0,
+                    pendingApprovals: overview.pendingApprovals || 0
+                };
+                
+                console.log('Key Dashboard Metrics:', dashboardData);
+                
+                // Update dashboard UI
+                this.updateDashboardUI(dashboardData);
+                
+            } else {
+                console.error('Invalid dashboard response format:', result);
+                this.showDashboardError();
             }
         } catch (e) {
             console.error('Error parsing dashboard metrics:', e);
+            this.showDashboardError();
+        }
+    },
+
+    updateDashboardUI: function(dashboardData) {
+        var dashboardPanel = this.findDashboardPanel();
+        if (dashboardPanel) {
+            // Update metric cards with new data
+            if (dashboardPanel.updateMetricCards) {
+                dashboardPanel.updateMetricCards(dashboardData);
+                console.log('✅ Dashboard UI updated successfully');
+            } else {
+                // Fallback: update individual metric components
+                this.updateMetricComponents(dashboardData);
+            }
+        } else {
+            console.warn('Dashboard panel not found');
+        }
+    },
+
+    updateMetricComponents: function(data) {
+        // Update individual metric display components
+        var requestedCard = Ext.ComponentQuery.query('[itemId=totalRequestedTokens]')[0];
+        var activeCard = Ext.ComponentQuery.query('[itemId=totalActiveTokens]')[0];
+        var expiredCard = Ext.ComponentQuery.query('[itemId=totalExpiredTokens]')[0];
+        var pendingCard = Ext.ComponentQuery.query('[itemId=pendingApprovals]')[0];
+
+        if (requestedCard) this.updateMetricCard(requestedCard, data.totalRequestedTokens, 'Total Requested');
+        if (activeCard) this.updateMetricCard(activeCard, data.totalActiveTokens, 'Active Tokens');
+        if (expiredCard) this.updateMetricCard(expiredCard, data.totalExpiredTokens, 'Expired Tokens');
+        if (pendingCard) this.updateMetricCard(pendingCard, data.pendingApprovals, 'Pending Approvals');
+
+        console.log('✅ Metric components updated individually');
+    },
+
+    updateMetricCard: function(card, value, label) {
+        if (card && card.update) {
+            var html = this.generateMetricCardHtml(value, label);
+            card.update(html);
+        }
+    },
+
+    generateMetricCardHtml: function(value, label) {
+        return [
+            '<div class="metric-card">',
+            '<div class="metric-value">' + (value || 0) + '</div>',
+            '<div class="metric-label">' + label + '</div>',
+            '</div>'
+        ].join('');
+    },
+
+    showDashboardError: function() {
+        var dashboardPanel = this.findDashboardPanel();
+        if (dashboardPanel) {
+            // Show error state with fallback data
+            var fallbackData = {
+                totalRequestedTokens: 0,
+                totalActiveTokens: 0,
+                totalExpiredTokens: 0,
+                pendingApprovals: 0
+            };
+            this.updateDashboardUI(fallbackData);
+            
+            // Optional: Show error message
+            Ext.Msg.alert('Dashboard Warning', 'Could not load latest dashboard data. Showing default values.');
         }
     },
 
