@@ -304,30 +304,244 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         this.loadTokenData();
     },
 
-    onTokenSearch: function(searchValue) {
-        var store = window.RDMStores.tokens;
-        if (!store) return;
+    // Enhanced filtering methods for comprehensive search and filter functionality
+    applyFilters: function() {
+        console.log('Applying filters from UI...');
         
-        store.clearFilter();
-        if (searchValue) {
-            store.filterBy(function(record) {
-                var searchFields = ['requestor', 'tokenNumber', 'roNumber', 'customerName'];
-                return searchFields.some(function(fieldName) {
-                    var fieldValue = record.get(fieldName);
-                    return fieldValue && fieldValue.toLowerCase().indexOf(searchValue.toLowerCase()) !== -1;
-                });
-            });
+        // Get current filter values from TokenManagementPanel
+        var tokenPanel = Ext.ComponentQuery.query('Store\\.rdmtoken\\.view\\.TokenManagementPanel')[0];
+        if (!tokenPanel) {
+            console.warn('TokenManagementPanel not found');
+            return;
         }
+        
+        var filters = tokenPanel.getCurrentFilters ? tokenPanel.getCurrentFilters() : {};
+        console.log('Current UI filters:', filters);
+        
+        // Convert UI filters to API parameters
+        var apiFilters = this.convertUIFiltersToAPI(filters);
+        console.log('API filters:', apiFilters);
+        
+        // Reload data with filters
+        this.loadTokenData(apiFilters);
+    },
+
+    convertUIFiltersToAPI: function(uiFilters) {
+        var apiFilters = {
+            page: 1, // Reset to first page when applying filters
+            limit: 20
+        };
+        
+        // Status filter
+        if (uiFilters.status && uiFilters.status !== 'all') {
+            apiFilters.status = uiFilters.status;
+        }
+        
+        // Date filters
+        if (uiFilters.startDate) {
+            apiFilters.startDate = uiFilters.startDate;
+        }
+        if (uiFilters.endDate) {
+            apiFilters.endDate = uiFilters.endDate;
+        }
+        
+        // Multi-field search - convert to specific API parameters
+        if (uiFilters.search) {
+            var searchTerm = uiFilters.search.toLowerCase();
+            // Since API supports individual field searches, we'll use the search term for multiple fields
+            // This is a limitation of the current API design - ideally it would support general search
+            // For now, we'll search by customer name as it's most commonly searched
+            apiFilters.customerName = uiFilters.search;
+        }
+        
+        return apiFilters;
+    },
+
+    applyAdvancedFilters: function(advancedFilterWindow) {
+        console.log('Applying advanced filters...');
+        
+        if (!advancedFilterWindow) {
+            console.error('Advanced filter window not provided');
+            return;
+        }
+        
+        // Get values from advanced filter modal
+        var customerNameField = advancedFilterWindow.down('#customerNameFilter');
+        var requestorField = advancedFilterWindow.down('#requestorFilter');
+        var serialNumberField = advancedFilterWindow.down('#serialNumberFilter');
+        var roNumberField = advancedFilterWindow.down('#roNumberFilter');
+        var requestTypeField = advancedFilterWindow.down('#requestTypeFilter');
+        var sortByField = advancedFilterWindow.down('#sortByFilter');
+        var sortOrderField = advancedFilterWindow.down('#sortOrderFilter');
+        
+        // Also get basic filters from main panel
+        var basicFilters = this.getCurrentBasicFilters();
+        
+        // Build advanced filter parameters
+        var advancedFilters = Object.assign({}, basicFilters, {
+            page: 1,
+            limit: 20
+        });
+        
+        if (customerNameField && customerNameField.getValue()) {
+            advancedFilters.customerName = customerNameField.getValue();
+        }
+        if (requestorField && requestorField.getValue()) {
+            advancedFilters.requestor = requestorField.getValue();
+        }
+        if (serialNumberField && serialNumberField.getValue()) {
+            advancedFilters.serialNumber = serialNumberField.getValue();
+        }
+        if (roNumberField && roNumberField.getValue()) {
+            advancedFilters.roNumber = roNumberField.getValue();
+        }
+        if (requestTypeField && requestTypeField.getValue() !== 'all') {
+            advancedFilters.requestType = requestTypeField.getValue();
+        }
+        if (sortByField && sortByField.getValue()) {
+            advancedFilters.sortBy = sortByField.getValue();
+        }
+        if (sortOrderField && sortOrderField.getValue()) {
+            advancedFilters.sortOrder = sortOrderField.getValue();
+        }
+        
+        console.log('Advanced filters:', advancedFilters);
+        
+        // Apply advanced filters
+        this.loadTokenData(advancedFilters);
+        
+        // Show feedback to user
+        Ext.toast({
+            html: 'Advanced filters applied successfully',
+            title: 'Filters Applied',
+            width: 250,
+            align: 't'
+        });
+    },
+
+    getCurrentBasicFilters: function() {
+        var filters = {};
+        
+        // Get basic filters from main toolbar
+        var tokenPanel = Ext.ComponentQuery.query('Store\\.rdmtoken\\.view\\.TokenManagementPanel')[0];
+        if (tokenPanel) {
+            var searchField = tokenPanel.down('#searchField');
+            var statusFilter = tokenPanel.down('#statusFilter');
+            var startDateFilter = tokenPanel.down('#startDateFilter');
+            var endDateFilter = tokenPanel.down('#endDateFilter');
+            
+            if (searchField && searchField.getValue()) {
+                filters.customerName = searchField.getValue(); // Use search as customer name filter
+            }
+            if (statusFilter && statusFilter.getValue() !== 'all') {
+                filters.status = statusFilter.getValue();
+            }
+            if (startDateFilter && startDateFilter.getValue()) {
+                filters.startDate = Ext.Date.format(startDateFilter.getValue(), 'Y-m-d');
+            }
+            if (endDateFilter && endDateFilter.getValue()) {
+                filters.endDate = Ext.Date.format(endDateFilter.getValue(), 'Y-m-d');
+            }
+        }
+        
+        return filters;
+    },
+
+    // Updated methods for backward compatibility
+    onTokenSearch: function(searchValue) {
+        // For client-side filtering if needed, but prefer server-side
+        console.log('Token search triggered:', searchValue);
+        
+        // Use server-side filtering instead of client-side
+        var filters = { page: 1, limit: 20 };
+        if (searchValue) {
+            // Search across multiple fields by making separate API calls or using the most relevant field
+            filters.customerName = searchValue; // Primary search field
+            // Note: API doesn't support multi-field search, so we use customer name
+            // In a real implementation, we might make multiple calls or enhance the API
+        }
+        
+        this.loadTokenData(filters);
     },
 
     onStatusFilter: function(statusValue) {
-        var store = window.RDMStores.tokens;
-        if (!store) return;
+        console.log('Status filter triggered:', statusValue);
         
-        store.clearFilter();
+        // Use server-side filtering
+        var filters = { page: 1, limit: 20 };
         if (statusValue && statusValue !== 'all') {
-            store.filter('status', statusValue);
+            filters.status = statusValue;
         }
+        
+        // Preserve other active filters
+        var currentFilters = this.getCurrentBasicFilters();
+        delete currentFilters.status; // Remove old status filter
+        Object.assign(filters, currentFilters);
+        
+        this.loadTokenData(filters);
+    },
+
+    // Pagination methods
+    loadNextPage: function() {
+        this.loadTokenPage(this.getCurrentPage() + 1);
+    },
+
+    loadPreviousPage: function() {
+        var currentPage = this.getCurrentPage();
+        if (currentPage > 1) {
+            this.loadTokenPage(currentPage - 1);
+        }
+    },
+
+    loadTokenPage: function(pageNumber) {
+        var currentFilters = this.getCurrentBasicFilters();
+        currentFilters.page = pageNumber;
+        currentFilters.limit = 20;
+        
+        console.log('Loading page:', pageNumber, 'with filters:', currentFilters);
+        this.loadTokenData(currentFilters);
+    },
+
+    getCurrentPage: function() {
+        // This should be stored from the last API response pagination info
+        return this.currentPage || 1;
+    },
+
+    // Enhanced pagination info handling
+    updatePaginationInfo: function(pagination) {
+        console.log('Pagination info received:', pagination);
+        
+        // Store current pagination state
+        this.currentPage = pagination.page || 1;
+        this.totalPages = pagination.totalPages || 1;
+        this.totalRecords = pagination.totalRecords || 0;
+        this.recordsPerPage = pagination.recordsPerPage || 20;
+        
+        // Update pagination UI components if they exist
+        this.updatePaginationUI(pagination);
+    },
+
+    updatePaginationUI: function(pagination) {
+        // Update pagination toolbar if implemented
+        var paginationToolbar = Ext.ComponentQuery.query('[itemId=tokenPaginationToolbar]')[0];
+        if (paginationToolbar) {
+            // Update pagination controls
+            var pageField = paginationToolbar.down('#currentPageField');
+            var totalPagesLabel = paginationToolbar.down('#totalPagesLabel');
+            var totalRecordsLabel = paginationToolbar.down('#totalRecordsLabel');
+            
+            if (pageField) pageField.setValue(pagination.page);
+            if (totalPagesLabel) totalPagesLabel.update('of ' + pagination.totalPages);
+            if (totalRecordsLabel) totalRecordsLabel.update(pagination.totalRecords + ' total records');
+        }
+        
+        // Show pagination info in status bar or as toast
+        Ext.toast({
+            html: `Page ${pagination.page} of ${pagination.totalPages} (${pagination.totalRecords} total records)`,
+            title: 'Data Loaded',
+            width: 300,
+            align: 'b'
+        });
     },
 
     showTokenDetails: function(record) {
