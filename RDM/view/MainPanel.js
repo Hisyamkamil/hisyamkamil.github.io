@@ -9,7 +9,10 @@ Ext.define('Store.rdmtoken.view.MainPanel', {
     requires: [
         'Store.rdmtoken.view.DashboardPanel',
         'Store.rdmtoken.view.TokenManagementPanel',
-        'Store.rdmtoken.view.LocationMonitoringPanel'
+        'Store.rdmtoken.view.LocationMonitoringPanel',
+        'Store.rdmtoken.view.ContractPanel',
+        'Store.rdmtoken.view.ApprovalPanel',
+        'Store.rdmtoken.view.ReportPanel'
     ],
 
     initComponent: function() {
@@ -23,24 +26,15 @@ Ext.define('Store.rdmtoken.view.MainPanel', {
             Ext.apply(Ext.create('Store.rdmtoken.view.LocationMonitoringPanel'), {
                 itemId: 'locationmonitoring'
             }),
-            {
-                itemId: 'contract',
-                xtype: 'panel',
-                title: 'Contract Management',
-                html: '<div style="padding: 20px; text-align: center;"><h2>Contract Management Interface</h2><p>Contract management features will be implemented here.</p></div>'
-            },
-            {
-                itemId: 'approval',
-                xtype: 'panel',
-                title: 'Token Approval Workflow',
-                html: '<div style="padding: 20px; text-align: center;"><h2>Approval Workflow</h2><p>Token approval features will be implemented here.</p></div>'
-            },
-            {
-                itemId: 'report',
-                xtype: 'panel',
-                title: 'Reports & Analytics',
-                html: '<div style="padding: 20px; text-align: center;"><h2>Reports & Analytics</h2><p>Reporting features will be implemented here.</p></div>'
-            }
+            Ext.apply(Ext.create('Store.rdmtoken.view.ContractPanel'), {
+                itemId: 'contract'
+            }),
+            Ext.apply(Ext.create('Store.rdmtoken.view.ApprovalPanel'), {
+                itemId: 'approval'
+            }),
+            Ext.apply(Ext.create('Store.rdmtoken.view.ReportPanel'), {
+                itemId: 'report'
+            })
         ];
 
         this.callParent(arguments);
