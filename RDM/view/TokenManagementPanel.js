@@ -27,11 +27,16 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
             items: [
                 {
                     xtype: 'textfield',
-                    emptyText: 'Search tokens...',
-                    width: 200,
+                    emptyText: 'Search by token, customer, requestor, RO...',
+                    width: 250,
                     itemId: 'searchField',
+                    enableKeyEvents: true,
                     listeners: {
-                        change: this.onTokenSearch.bind(this)
+                        keyup: {
+                            fn: this.onTokenSearch.bind(this),
+                            buffer: 300 // Debounce search
+                        },
+                        specialkey: this.onSearchSpecialKey.bind(this)
                     }
                 },
                 {
@@ -43,10 +48,11 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                     itemId: 'statusFilter',
                     store: {
                         data: [
-                            {value: 'all', label: 'All'},
+                            {value: 'all', label: 'All Status'},
                             {value: 'active', label: 'Active'},
                             {value: 'expired', label: 'Expired'},
-                            {value: 'pending', label: 'Pending'}
+                            {value: 'pending', label: 'Pending'},
+                            {value: 'revoked', label: 'Revoked'}
                         ]
                     },
                     listeners: {
@@ -57,18 +63,31 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                     xtype: 'datefield',
                     emptyText: 'Start Date',
                     width: 120,
-                    itemId: 'startDateFilter'
+                    itemId: 'startDateFilter',
+                    listeners: {
+                        change: this.onDateFilter.bind(this)
+                    }
                 },
                 {
                     xtype: 'datefield',
                     emptyText: 'End Date',
                     width: 120,
-                    itemId: 'endDateFilter'
+                    itemId: 'endDateFilter',
+                    listeners: {
+                        change: this.onDateFilter.bind(this)
+                    }
                 },
                 {
                     xtype: 'button',
                     text: 'Advanced Filter',
-                    iconCls: 'fa fa-filter'
+                    iconCls: 'fa fa-filter',
+                    handler: this.showAdvancedFilter.bind(this)
+                },
+                {
+                    xtype: 'button',
+                    text: 'Clear',
+                    iconCls: 'fa fa-times',
+                    handler: this.clearAllFilters.bind(this)
                 },
                 '->',
                 {
@@ -91,6 +110,12 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
             store: null, // Will be set later after stores are initialized
             columns: [
                 {
+                    text: 'Status',
+                    dataIndex: 'status',
+                    width: 100,
+                    renderer: this.statusRenderer.bind(this)
+                },
+                {
                     text: 'Actions',
                     width: 200,
                     renderer: this.actionColumnRenderer.bind(this)
@@ -99,11 +124,6 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                 {text: 'Token Number', dataIndex: 'tokenNumber', flex: 1},
                 {text: 'RO Number', dataIndex: 'roNumber', flex: 1},
                 {text: 'Customer Name', dataIndex: 'customerName', flex: 1},
-                {
-                    text: 'Status',
-                    dataIndex: 'status',
-                    renderer: this.statusRenderer.bind(this)
-                },
                 {
                     text: 'Remaining Hours',
                     dataIndex: 'remainingHours',
@@ -301,5 +321,219 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         
         // Start trying to bind the store
         bindStore();
+    },
+
+    // Search and filter event handlers
+    onTokenSearch: function(field, newValue) {
+        console.log('Token search triggered:', newValue);
+        if (this.getController()) {
+            this.getController().applyFilters();
+        }
+    },
+
+    onSearchSpecialKey: function(field, e) {
+        if (e.getKey() === e.ENTER) {
+            console.log('Enter key pressed in search field');
+            if (this.getController()) {
+                this.getController().applyFilters();
+            }
+        }
+    },
+
+    onStatusFilter: function(combo, newValue) {
+        console.log('Status filter changed:', newValue);
+        if (this.getController()) {
+            this.getController().applyFilters();
+        }
+    },
+
+    onDateFilter: function(field, newValue) {
+        console.log('Date filter changed:', field.getItemId(), newValue);
+        if (this.getController()) {
+            this.getController().applyFilters();
+        }
+    },
+
+    showAdvancedFilter: function() {
+        console.log('Show advanced filter clicked');
+        
+        // Create advanced filter modal
+        var advancedFilterWindow = Ext.create('Ext.window.Window', {
+            title: 'Advanced Filters',
+            modal: true,
+            width: 500,
+            height: 400,
+            layout: 'form',
+            items: [
+                {
+                    xtype: 'fieldset',
+                    title: 'Filter Criteria',
+                    items: [
+                        {
+                            xtype: 'textfield',
+                            fieldLabel: 'Customer Name',
+                            itemId: 'customerNameFilter',
+                            emptyText: 'Enter customer name...'
+                        },
+                        {
+                            xtype: 'textfield',
+                            fieldLabel: 'Requestor',
+                            itemId: 'requestorFilter',
+                            emptyText: 'Enter requestor name...'
+                        },
+                        {
+                            xtype: 'textfield',
+                            fieldLabel: 'Serial Number',
+                            itemId: 'serialNumberFilter',
+                            emptyText: 'Enter serial number...'
+                        },
+                        {
+                            xtype: 'textfield',
+                            fieldLabel: 'RO Number',
+                            itemId: 'roNumberFilter',
+                            emptyText: 'Enter RO number...'
+                        },
+                        {
+                            xtype: 'combobox',
+                            fieldLabel: 'Request Type',
+                            itemId: 'requestTypeFilter',
+                            displayField: 'label',
+                            valueField: 'value',
+                            store: {
+                                data: [
+                                    {value: 'all', label: 'All Types'},
+                                    {value: 'new', label: 'New'},
+                                    {value: 'renew', label: 'Renew'},
+                                    {value: 'topup', label: 'Top Up'}
+                                ]
+                            },
+                            value: 'all'
+                        },
+                        {
+                            xtype: 'combobox',
+                            fieldLabel: 'Sort By',
+                            itemId: 'sortByFilter',
+                            displayField: 'label',
+                            valueField: 'value',
+                            store: {
+                                data: [
+                                    {value: 'requestDate', label: 'Request Date'},
+                                    {value: 'periodStart', label: 'Period Start'},
+                                    {value: 'customerName', label: 'Customer Name'},
+                                    {value: 'serialNumber', label: 'Serial Number'}
+                                ]
+                            },
+                            value: 'requestDate'
+                        },
+                        {
+                            xtype: 'combobox',
+                            fieldLabel: 'Sort Order',
+                            itemId: 'sortOrderFilter',
+                            displayField: 'label',
+                            valueField: 'value',
+                            store: {
+                                data: [
+                                    {value: 'desc', label: 'Descending'},
+                                    {value: 'asc', label: 'Ascending'}
+                                ]
+                            },
+                            value: 'desc'
+                        }
+                    ]
+                }
+            ],
+            buttons: [
+                {
+                    text: 'Apply Filters',
+                    iconCls: 'fa fa-check',
+                    handler: function() {
+                        console.log('Apply advanced filters');
+                        var controller = this.up('window').panel.getController();
+                        if (controller) {
+                            controller.applyAdvancedFilters(advancedFilterWindow);
+                        }
+                        advancedFilterWindow.close();
+                    }
+                },
+                {
+                    text: 'Reset',
+                    iconCls: 'fa fa-refresh',
+                    handler: function() {
+                        console.log('Reset advanced filters');
+                        var form = this.up('window').down('fieldset');
+                        if (form) {
+                            form.getForm().reset();
+                        }
+                    }
+                },
+                {
+                    text: 'Cancel',
+                    iconCls: 'fa fa-times',
+                    handler: function() {
+                        this.up('window').close();
+                    }
+                }
+            ]
+        });
+        
+        // Store reference to main panel for controller access
+        advancedFilterWindow.panel = this;
+        advancedFilterWindow.show();
+    },
+
+    clearAllFilters: function() {
+        console.log('Clear all filters clicked');
+        
+        // Reset all filter fields
+        var searchField = this.down('#searchField');
+        var statusFilter = this.down('#statusFilter');
+        var startDateFilter = this.down('#startDateFilter');
+        var endDateFilter = this.down('#endDateFilter');
+        
+        if (searchField) searchField.setValue('');
+        if (statusFilter) statusFilter.setValue('all');
+        if (startDateFilter) startDateFilter.setValue(null);
+        if (endDateFilter) endDateFilter.setValue(null);
+        
+        // Apply filters to reload data
+        if (this.getController()) {
+            this.getController().applyFilters();
+        }
+        
+        // Show user feedback
+        Ext.toast({
+            html: 'All filters have been cleared',
+            title: 'Filters Reset',
+            width: 200,
+            align: 't'
+        });
+    },
+
+    // Helper method to get current filter values
+    getCurrentFilters: function() {
+        var filters = {};
+        
+        var searchField = this.down('#searchField');
+        var statusFilter = this.down('#statusFilter');
+        var startDateFilter = this.down('#startDateFilter');
+        var endDateFilter = this.down('#endDateFilter');
+        
+        if (searchField && searchField.getValue()) {
+            filters.search = searchField.getValue();
+        }
+        
+        if (statusFilter && statusFilter.getValue() !== 'all') {
+            filters.status = statusFilter.getValue();
+        }
+        
+        if (startDateFilter && startDateFilter.getValue()) {
+            filters.startDate = Ext.Date.format(startDateFilter.getValue(), 'Y-m-d');
+        }
+        
+        if (endDateFilter && endDateFilter.getValue()) {
+            filters.endDate = Ext.Date.format(endDateFilter.getValue(), 'Y-m-d');
+        }
+        
+        return filters;
     }
 });
