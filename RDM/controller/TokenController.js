@@ -166,31 +166,137 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     // Token Management methods
-    loadTokenData: function() {
-        if (window.RDMStores && window.RDMStores.tokens) {
-            console.log('Loading token data from API...');
-            window.RDMStores.tokens.load({
-                callback: function(records, operation, success) {
-                    if (success) {
-                        console.log('Token data loaded successfully:', records.length, 'tokens');
-                        
-                        // Find and refresh the grid
-                        var grid = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid]')[0];
-                        if (grid) {
-                            console.log('Refreshing token grid view...');
-                            grid.getView().refresh();
-                        }
-                    } else {
-                        console.error('Failed to load token data from API');
-                        if (operation && operation.getError()) {
-                            console.error('API Error:', operation.getError());
-                        }
-                    }
-                }
-            });
-        } else {
-            console.warn('Token store not available - stores may not be initialized');
+    loadTokenData: function(filters) {
+        console.log('Loading token data from API...');
+        
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
+        
+        // Build query parameters for token request listing
+        var params = {
+            page: 1,
+            limit: 20,
+            status: 'all'
+        };
+        
+        // Apply filters if provided
+        if (filters) {
+            if (filters.status) params.status = filters.status;
+            if (filters.customerName) params.customerName = filters.customerName;
+            if (filters.requestor) params.requestor = filters.requestor;
+            if (filters.serialNumber) params.serialNumber = filters.serialNumber;
+            if (filters.startDate) params.startDate = filters.startDate;
+            if (filters.endDate) params.endDate = filters.endDate;
+            if (filters.page) params.page = filters.page;
+            if (filters.limit) params.limit = filters.limit;
         }
+        
+        // Build query string
+        var queryString = Object.keys(params).map(function(key) {
+            return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+        }).join('&');
+        
+        var apiUrl = apiConfig.getUrl('tokenRequest') + '?' + queryString;
+        console.log('Token API URL:', apiUrl);
+        
+        Ext.Ajax.request({
+            url: apiUrl,
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                console.log('Token data loaded successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Token API Response:', result);
+                    
+                    if (result.status === 200 && result.body && result.body.tokenRequests) {
+                        this.processTokenData(result.body);
+                    } else {
+                        console.error('Invalid token response format:', result);
+                    }
+                } catch (e) {
+                    console.error('Error parsing token response:', e);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load token data:', response);
+                this.handleTokenLoadFailure(response);
+            }.bind(this)
+        });
+    },
+
+    processTokenData: function(data) {
+        console.log('Processing token data:', data.tokenRequests.length, 'records');
+        
+        // Update grid with token data
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid]')[0];
+        if (grid && grid.getStore()) {
+            var store = grid.getStore();
+            
+            // Convert API response to grid format
+            var gridData = data.tokenRequests.map(function(request) {
+                return {
+                    id: request.id,
+                    requestId: request.requestId,
+                    tokenNumber: request.requestId, // Use requestId as token number
+                    requestorName: request.requestorName,
+                    requestor: request.requestorName,
+                    customerName: request.customerName,
+                    roNumber: request.roNumber,
+                    serialNumber: request.serialNumber,
+                    status: request.status,
+                    tokenStatus: request.tokenStatus,
+                    requestDate: request.requestDate,
+                    periodStart: request.periodStartDate,
+                    periodEnd: request.periodEndDate,
+                    expirationDate: request.tokenExpiryDate,
+                    remainingHours: request.remainingHours,
+                    durationHours: request.durationHours,
+                    contractValue: request.contractValue,
+                    unitDetails: request.unitDetails,
+                    actions: request.actions
+                };
+            });
+            
+            store.loadData(gridData);
+            console.log('✅ Grid data updated with', gridData.length, 'token records');
+            
+            // Update pagination info if available
+            if (data.pagination) {
+                this.updatePaginationInfo(data.pagination);
+            }
+        }
+        
+        // Update filters info if available
+        if (data.filters) {
+            this.updateFiltersInfo(data.filters);
+        }
+    },
+
+    handleTokenLoadFailure: function(response) {
+        console.error('Token load failure:', response);
+        
+        // Show error message
+        Ext.Msg.alert('Error', 'Failed to load token data. Please try again.');
+        
+        // Clear grid if it exists
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid]')[0];
+        if (grid && grid.getStore()) {
+            grid.getStore().removeAll();
+        }
+    },
+
+    updatePaginationInfo: function(pagination) {
+        console.log('Pagination info:', pagination);
+        // Update pagination controls if implemented
+    },
+
+    updateFiltersInfo: function(filters) {
+        console.log('Filters info:', filters);
+        // Update filter components if implemented
     },
 
     refreshTokenGrid: function() {
