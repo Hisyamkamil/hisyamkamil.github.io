@@ -1109,7 +1109,20 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             }
         }
         
-        console.log('✅ Form population complete with correct field mapping');
+        // Auto-fill geofence based on geofenceDetails coordinates from contract
+        if (contractData.geofenceDetails) {
+            var geofenceField = form.down('field[name=geofence]');
+            if (geofenceField && geofenceField.getStore()) {
+                var geofenceValue = this.mapCoordinatesToGeofenceArea(contractData.geofenceDetails);
+                if (geofenceValue) {
+                    geofenceField.setValue(geofenceValue);
+                    geofenceField.setReadOnly(true);
+                    console.log('✓ Geofence auto-filled:', geofenceValue, 'from coordinates:', contractData.geofenceDetails);
+                }
+            }
+        }
+        
+        console.log('✅ Form population complete with correct field mapping and geofence auto-fill');
     },
 
     getCurrentContractId: function(modal) {
@@ -1764,5 +1777,58 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     showTopupTokenModal: function(tokenId) {
         // Delegate to main topUpToken method
         this.topUpToken(tokenId);
+    },
+
+    /**
+     * Map geofence coordinates from contract API to predefined geofence area names
+     * @param {Object} geofenceDetails - Coordinate bounds from contract API
+     * @returns {String|null} - Geofence area value for form field
+     */
+    mapCoordinatesToGeofenceArea: function(geofenceDetails) {
+        if (!geofenceDetails || !geofenceDetails.latMax || !geofenceDetails.latMin ||
+            !geofenceDetails.lngMax || !geofenceDetails.lngMin) {
+            console.warn('Invalid geofence coordinates:', geofenceDetails);
+            return 'default';
+        }
+
+        var lat = (geofenceDetails.latMax + geofenceDetails.latMin) / 2;
+        var lng = (geofenceDetails.lngMax + geofenceDetails.lngMin) / 2;
+
+        console.log('Mapping coordinates to geofence area:', {
+            centerLat: lat,
+            centerLng: lng,
+            bounds: geofenceDetails
+        });
+
+        // Define coordinate ranges for each predefined geofence area
+        // These ranges should match your actual mining site locations
+        var geofenceAreas = {
+            'mining_area_1': {
+                latMin: -6.4, latMax: -6.1,
+                lngMin: 106.6, lngMax: 106.9
+            },
+            'mining_area_2': {
+                latMin: -6.7, latMax: -6.4,
+                lngMin: 106.9, lngMax: 107.2
+            },
+            'processing_area': {
+                latMin: -6.1, latMax: -5.8,
+                lngMin: 106.5, lngMax: 106.8
+            }
+        };
+
+        // Check which area contains the center coordinates
+        for (var areaId in geofenceAreas) {
+            var area = geofenceAreas[areaId];
+            if (lat >= area.latMin && lat <= area.latMax &&
+                lng >= area.lngMin && lng <= area.lngMax) {
+                console.log('✓ Coordinates mapped to geofence area:', areaId);
+                return areaId;
+            }
+        }
+
+        // If no specific area matches, return default
+        console.log('✓ Using default geofence area (no match found)');
+        return 'default';
     }
 });
