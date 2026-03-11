@@ -97,15 +97,37 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                         selectionchange: function(tree, selected) {
                             if (selected.length > 0) {
                                 var record = selected[0];
+                                var vehicleData = record.getData();
+                                
+                                // Store selected vehicle globally for auto-fill functionality
+                                window.RDMSelectedVehicle = {
+                                    id: vehicleData.id,
+                                    name: vehicleData.name,
+                                    vin: vehicleData.vin,
+                                    uniqid: vehicleData.uniqid, // IMEI
+                                    model: vehicleData.model,
+                                    year: vehicleData.year,
+                                    info: vehicleData.info,
+                                    group: vehicleData.group
+                                };
+                                
+                                console.log('Vehicle selected for RDM Token:', {
+                                    name: vehicleData.name,
+                                    vin: vehicleData.vin,
+                                    imei: vehicleData.uniqid
+                                });
+                                
                                 // Update main panel with selected vehicle info
                                 if (tree.up('navigationtab').map_frame) {
                                     var tokenPanel = tree.up('navigationtab').map_frame.down('[itemId=tokenmanagement]');
                                     if (tokenPanel) {
                                         // Update the TokenManagementPanel with vehicle info
                                         console.log('Vehicle selected from nav tree:', record.get('name'), 'ID:', record.get('id'));
-                                        // You can call a method on the TokenManagementPanel to update it
                                     }
                                 }
+                            } else {
+                                // Clear selection
+                                window.RDMSelectedVehicle = null;
                             }
                         }
                     }
