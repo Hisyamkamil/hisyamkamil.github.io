@@ -14,10 +14,10 @@ Ext.define('Store.rdmtoken.view.DashboardPanel', {
         this.layout = 'column';
         this.padding = 20;
         this.items = [
-            this.createMetricCard('Total Active Units', '0', 'fa fa-truck'),
-            this.createMetricCard('Active Tokens', '0', 'fa fa-key'),
-            this.createMetricCard('Expired Tokens', '0', 'fa fa-clock'),
-            this.createMetricCard('Pending Approvals', '0', 'fa fa-hourglass-half')
+            this.createMetricCard('Total Requested Tokens', '0', 'fa fa-list-alt', 'totalRequestedTokens'),
+            this.createMetricCard('Active Tokens', '0', 'fa fa-key', 'totalActiveTokens'),
+            this.createMetricCard('Expired Tokens', '0', 'fa fa-clock', 'totalExpiredTokens'),
+            this.createMetricCard('Pending Approvals', '0', 'fa fa-hourglass-half', 'pendingApprovals')
         ];
 
         this.listeners = {
@@ -27,14 +27,15 @@ Ext.define('Store.rdmtoken.view.DashboardPanel', {
         this.callParent(arguments);
     },
 
-    createMetricCard: function(title, value, iconCls) {
+    createMetricCard: function(title, value, iconCls, metricKey) {
         return {
             xtype: 'panel',
             columnWidth: 0.25,
             margin: '0 10 0 0',
             bodyPadding: 20,
             cls: 'metric-card',
-            itemId: 'metric-' + title.toLowerCase().replace(/\s+/g, '-'),
+            itemId: metricKey, // Use metric key directly for easy lookup
+            metricKey: metricKey, // Store the key for reference
             html: [
                 '<div style="text-align: center;">',
                 '<i class="' + iconCls + '" style="font-size: 48px; color: #007bff; margin-bottom: 10px;"></i>',
@@ -46,16 +47,23 @@ Ext.define('Store.rdmtoken.view.DashboardPanel', {
     },
 
     loadDashboardMetrics: function() {
+        console.log('DashboardPanel: Loading dashboard metrics...');
+        
         if (this.getController()) {
             this.getController().loadDashboardMetrics();
         } else {
-            // Fallback direct API call
+            console.warn('No controller available, using fallback API call');
+            // Fallback direct API call using ApiConfig
+            var apiConfig = Store.rdmtoken.config.ApiConfig;
             Ext.Ajax.request({
-                url: '/api/rdm/token/reports',
+                url: apiConfig.getUrl('tokenDashboard'),
                 method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 success: this.onMetricsLoaded.bind(this),
-                failure: function() {
-                    console.warn('Failed to load dashboard metrics');
+                failure: function(response) {
+                    console.error('Failed to load dashboard metrics:', response);
                 }
             });
         }
@@ -64,33 +72,45 @@ Ext.define('Store.rdmtoken.view.DashboardPanel', {
     onMetricsLoaded: function(response) {
         try {
             var result = Ext.decode(response.responseText);
-            if (result.status === 200 && result.body.summary) {
-                this.updateMetricCards(result.body.summary);
+            console.log('DashboardPanel: Metrics loaded:', result);
+            
+            if (result.status === 200 && result.body && result.body.overview) {
+                this.updateMetricCards(result.body.overview);
+            } else {
+                console.error('Invalid dashboard response format');
             }
         } catch (e) {
             console.error('Error parsing dashboard metrics:', e);
         }
     },
 
-    updateMetricCards: function(summary) {
-        // Update metric cards with real data
-        var activeUnitsCard = this.down('#metric-total-active-units');
-        var activeTokensCard = this.down('#metric-active-tokens');
-        var expiredTokensCard = this.down('#metric-expired-tokens');
-        var pendingApprovalsCard = this.down('#metric-pending-approvals');
+    updateMetricCards: function(overview) {
+        console.log('DashboardPanel: Updating metric cards with data:', overview);
+        
+        // Update metric cards using the correct field mapping
+        var requestedCard = this.down('#totalRequestedTokens');
+        var activeCard = this.down('#totalActiveTokens');
+        var expiredCard = this.down('#totalExpiredTokens');
+        var pendingCard = this.down('#pendingApprovals');
 
-        if (activeUnitsCard) {
-            this.updateCardValue(activeUnitsCard, summary.totalActiveUnits || '0');
+        if (requestedCard) {
+            this.updateCardValue(requestedCard, overview.totalRequestedTokens || 0);
+            console.log('✓ Updated Total Requested Tokens:', overview.totalRequestedTokens);
         }
-        if (activeTokensCard) {
-            this.updateCardValue(activeTokensCard, summary.totalActiveTokens || '0');
+        if (activeCard) {
+            this.updateCardValue(activeCard, overview.totalActiveTokens || 0);
+            console.log('✓ Updated Active Tokens:', overview.totalActiveTokens);
         }
-        if (expiredTokensCard) {
-            this.updateCardValue(expiredTokensCard, summary.totalExpiredTokens || '0');
+        if (expiredCard) {
+            this.updateCardValue(expiredCard, overview.totalExpiredTokens || 0);
+            console.log('✓ Updated Expired Tokens:', overview.totalExpiredTokens);
         }
-        if (pendingApprovalsCard) {
-            this.updateCardValue(pendingApprovalsCard, summary.totalPendingTokens || '0');
+        if (pendingCard) {
+            this.updateCardValue(pendingCard, overview.pendingApprovals || 0);
+            console.log('✓ Updated Pending Approvals:', overview.pendingApprovals);
         }
+        
+        console.log('✅ All dashboard metric cards updated successfully');
     },
 
     updateCardValue: function(card, newValue) {
