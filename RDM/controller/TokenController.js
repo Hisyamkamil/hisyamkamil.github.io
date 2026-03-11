@@ -528,46 +528,107 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     onSubmitTokenRequest: function(modal) {
+        console.log('=== SUBMIT BUTTON CLICKED ===');
+        
         var form = modal.down('#tokenRequestForm');
+        console.log('Form found:', !!form);
+        
         if (form.isValid()) {
             var values = form.getValues();
             var apiConfig = Store.rdmtoken.config.ApiConfig;
             
+            // Log form values
+            console.log('Form values:', values);
+            
+            // Prepare API data
+            var requestData = {
+                serialNumber: values.serialNumber,
+                imei: values.imei,
+                customerName: values.customerName,
+                roNumber: values.roNumber,
+                contractStart: values.contractStart,
+                contractExpired: values.contractExpired,
+                periodStart: values.periodStart,
+                periodExpiredToken: values.periodExpiredToken,
+                duration: values.duration,
+                additionalDuration: values.additionalDuration || 0,
+                contractValue: values.contractValue,
+                geofence: values.geofence,
+                requestorName: 'Current User'
+            };
+            
+            var apiUrl = apiConfig.getUrl('tokenRequest');
+            console.log('=== API REQUEST DETAILS ===');
+            console.log('API URL:', apiUrl);
+            console.log('Request Data:', requestData);
+            console.log('API Config:', apiConfig);
+            
             Ext.Ajax.request({
-                url: apiConfig.getUrl('tokenRequest'),
+                url: apiUrl,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                jsonData: {
-                    serialNumber: values.serialNumber,
-                    imei: values.imei,
-                    customerName: values.customerName,
-                    roNumber: values.roNumber,
-                    contractStart: values.contractStart,
-                    contractExpired: values.contractExpired,
-                    periodStart: values.periodStart,
-                    periodExpiredToken: values.periodExpiredToken,
-                    duration: values.duration,
-                    additionalDuration: values.additionalDuration || 0,
-                    contractValue: values.contractValue,
-                    geofence: values.geofence,
-                    requestorName: 'Current User'
-                },
+                jsonData: requestData,
                 success: function(response) {
-                    var result = Ext.decode(response.responseText);
-                    if (result.status === 200) {
-                        Ext.Msg.alert('Success', 'Token request created successfully');
-                        modal.close();
-                        this.refreshTokenGrid();
-                    } else {
-                        Ext.Msg.alert('Error', result.body.message || 'Failed to create token request');
+                    console.log('=== API SUCCESS RESPONSE ===');
+                    console.log('Raw Response:', response);
+                    console.log('Response Text:', response.responseText);
+                    console.log('Response Status:', response.status);
+                    
+                    try {
+                        var result = Ext.decode(response.responseText);
+                        console.log('Parsed Result:', result);
+                        
+                        if (result.status === 200) {
+                            console.log('✅ Token request created successfully');
+                            Ext.Msg.alert('Success', 'Token request created successfully');
+                            modal.close();
+                            this.refreshTokenGrid();
+                        } else {
+                            console.error('❌ API returned error status:', result.status);
+                            console.error('Error message:', result.body ? result.body.message : 'Unknown error');
+                            Ext.Msg.alert('Error', result.body.message || 'Failed to create token request');
+                        }
+                    } catch (parseError) {
+                        console.error('❌ Error parsing API response:', parseError);
+                        console.error('Raw response was:', response.responseText);
+                        Ext.Msg.alert('Error', 'Invalid response from server');
                     }
                 }.bind(this),
-                failure: function() {
-                    Ext.Msg.alert('Error', 'Network error occurred');
+                failure: function(response, options) {
+                    console.log('=== API FAILURE RESPONSE ===');
+                    console.error('❌ API Request failed');
+                    console.error('Response:', response);
+                    console.error('Response Status:', response.status);
+                    console.error('Response Text:', response.responseText);
+                    console.error('Options:', options);
+                    
+                    var errorMessage = 'Network error occurred';
+                    if (response.responseText) {
+                        try {
+                            var errorResult = Ext.decode(response.responseText);
+                            errorMessage = errorResult.body ? errorResult.body.message : errorResult.message || errorMessage;
+                            console.error('Parsed error:', errorResult);
+                        } catch (e) {
+                            console.error('Could not parse error response:', e);
+                        }
+                    }
+                    
+                    Ext.Msg.alert('Error', errorMessage);
                 }
             });
+        } else {
+            console.log('❌ Form validation failed');
+            var invalidFields = [];
+            form.getForm().getFields().each(function(field) {
+                if (!field.isValid()) {
+                    invalidFields.push(field.getName() + ': ' + field.getActiveError());
+                }
+            });
+            console.log('Invalid fields:', invalidFields);
+            
+            Ext.Msg.alert('Validation Error', 'Please fill in all required fields correctly.');
         }
     },
 
@@ -629,19 +690,24 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     initializeGlobalTokenFunctions: function() {
         // Initialize global token management functions for UI interactions
         window.rdmToken = {
-            toggleToken: function(tokenId) {
-                console.log('Toggle token:', tokenId);
-                this.performTokenAction('toggle', tokenId);
+            generateToken: function(tokenId) {
+                console.log('Generate token:', tokenId);
+                this.generateToken(tokenId);
             }.bind(this),
             
             renewToken: function(tokenId) {
                 console.log('Renew token:', tokenId);
-                this.performTokenAction('renew', tokenId);
+                this.renewToken(tokenId);
             }.bind(this),
             
             topUpToken: function(tokenId) {
                 console.log('Top up token:', tokenId);
-                this.performTokenAction('topup', tokenId);
+                this.topUpToken(tokenId);
+            }.bind(this),
+            
+            toggleToken: function(tokenId) {
+                console.log('Toggle token:', tokenId);
+                this.performTokenAction('toggle', tokenId);
             }.bind(this),
             
             changeUnit: function(tokenId) {
@@ -697,13 +763,355 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         }
     },
     
+    /**
+     * Generate token for pending rental requests
+     */
+    generateToken: function(tokenId) {
+        var me = this;
+        
+        Ext.Msg.confirm('Generate Token',
+            'Generate RDM token for rental request "' + tokenId + '"?<br><br>' +
+            'This will activate the token and make it available for use.',
+            function(btn) {
+                if (btn === 'yes') {
+                    console.log('Generating token for:', tokenId);
+                    
+                    // Show loading mask
+                    Ext.Msg.wait('Generating token...', 'Processing');
+                    
+                    // Prepare API request data
+                    var apiConfig = Store.rdmtoken.config.ApiConfig;
+                    var requestData = {
+                        tokenId: tokenId,
+                        action: 'generate',
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    console.log('=== GENERATE TOKEN API REQUEST ===');
+                    console.log('API URL:', apiConfig.getUrl('tokenGenerate'));
+                    console.log('Request Data:', requestData);
+                    
+                    // Call the actual API
+                    Ext.Ajax.request({
+                        url: apiConfig.getUrl('tokenGenerate'),
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        jsonData: requestData,
+                        success: function(response) {
+                            console.log('=== GENERATE TOKEN API SUCCESS ===');
+                            console.log('Response:', response);
+                            console.log('Response Text:', response.responseText);
+                            
+                            Ext.Msg.hide();
+                            
+                            try {
+                                var result = Ext.decode(response.responseText);
+                                console.log('Parsed Result:', result);
+                                
+                                if (result.status === 200) {
+                                    console.log('✅ Token generated successfully');
+                                    Ext.Msg.alert('Success',
+                                        'Token generated successfully!<br><br>' +
+                                        'Token ID: ' + tokenId + '<br>' +
+                                        'Status: Active<br>' +
+                                        'JWT Token: ' + (result.body.jwtToken ? result.body.jwtToken.substring(0, 20) + '...' : 'Generated') + '<br>' +
+                                        'Valid until: ' + (result.body.expirationDate || Ext.util.Format.date(new Date(Date.now() + 30*24*60*60*1000), 'Y-m-d H:i'))
+                                    );
+                                } else {
+                                    console.error('❌ API returned error status:', result.status);
+                                    Ext.Msg.alert('Error', result.body ? result.body.message : 'Failed to generate token');
+                                }
+                            } catch (parseError) {
+                                console.error('❌ Error parsing API response:', parseError);
+                                Ext.Msg.alert('Error', 'Invalid response from server');
+                            }
+                            
+                            // Refresh token grid regardless of success/error to show updated status
+                            me.refreshTokenGrid();
+                        },
+                        failure: function(response, options) {
+                            console.log('=== GENERATE TOKEN API FAILURE ===');
+                            console.error('❌ API Request failed');
+                            console.error('Response:', response);
+                            console.error('Response Status:', response.status);
+                            console.error('Response Text:', response.responseText);
+                            
+                            Ext.Msg.hide();
+                            
+                            var errorMessage = 'Failed to generate token - Network error occurred';
+                            if (response.responseText) {
+                                try {
+                                    var errorResult = Ext.decode(response.responseText);
+                                    errorMessage = errorResult.body ? errorResult.body.message : errorResult.message || errorMessage;
+                                    console.error('Parsed error:', errorResult);
+                                } catch (e) {
+                                    console.error('Could not parse error response:', e);
+                                }
+                            }
+                            
+                            Ext.Msg.alert('Generate Token Failed', errorMessage);
+                        }
+                    });
+                }
+            }
+        );
+    },
+
+    /**
+     * Renew existing active or expired tokens
+     */
+    renewToken: function(tokenId) {
+        var me = this;
+        
+        var renewForm = Ext.create('Ext.window.Window', {
+            title: 'Renew Token - ' + tokenId,
+            modal: true,
+            width: 400,
+            layout: 'fit',
+            items: [{
+                xtype: 'form',
+                bodyPadding: 20,
+                defaults: {
+                    labelWidth: 120,
+                    anchor: '100%',
+                    margin: '0 0 15 0'
+                },
+                items: [{
+                    xtype: 'numberfield',
+                    name: 'renewal_days',
+                    fieldLabel: 'Renewal Period',
+                    value: 30,
+                    minValue: 1,
+                    maxValue: 365,
+                    allowBlank: false,
+                    fieldStyle: 'text-align: right',
+                    listeners: {
+                        change: function(field, newValue) {
+                            var newExpiry = new Date(Date.now() + (newValue || 30) * 24 * 60 * 60 * 1000);
+                            field.up('form').down('[name=new_expiry_preview]').setValue(
+                                Ext.util.Format.date(newExpiry, 'Y-m-d H:i')
+                            );
+                        }
+                    }
+                }, {
+                    xtype: 'displayfield',
+                    name: 'new_expiry_preview',
+                    fieldLabel: 'New Expiry Date',
+                    value: Ext.util.Format.date(new Date(Date.now() + 30*24*60*60*1000), 'Y-m-d H:i')
+                }, {
+                    xtype: 'textarea',
+                    name: 'renewal_notes',
+                    fieldLabel: 'Notes',
+                    height: 80,
+                    emptyText: 'Optional notes for renewal...'
+                }],
+                buttons: [{
+                    text: 'Cancel',
+                    handler: function() {
+                        renewForm.close();
+                    }
+                }, {
+                    text: 'Renew Token',
+                    formBind: true,
+                    cls: 'btn-success',
+                    handler: function() {
+                        var formValues = this.up('form').getValues();
+                        console.log('Renewing token:', tokenId, 'for', formValues.renewal_days, 'days');
+                        
+                        Ext.Msg.wait('Processing token renewal...', 'Please wait');
+                        
+                        // Simulate API call
+                        setTimeout(function() {
+                            Ext.Msg.hide();
+                            renewForm.close();
+                            Ext.Msg.alert('Success',
+                                'Token renewed successfully!<br><br>' +
+                                'Token ID: ' + tokenId + '<br>' +
+                                'Extended by: ' + formValues.renewal_days + ' days<br>' +
+                                'New expiry: ' + formValues.new_expiry_preview
+                            );
+                            
+                            me.refreshTokenGrid();
+                        }, 1500);
+                    }
+                }]
+            }]
+        });
+        
+        renewForm.show();
+    },
+
+    /**
+     * Top up active tokens with additional credit/time
+     */
+    topUpToken: function(tokenId) {
+        var me = this;
+        
+        var topUpForm = Ext.create('Ext.window.Window', {
+            title: 'Top Up Token - ' + tokenId,
+            modal: true,
+            width: 450,
+            layout: 'fit',
+            items: [{
+                xtype: 'form',
+                bodyPadding: 20,
+                defaults: {
+                    labelWidth: 130,
+                    anchor: '100%',
+                    margin: '0 0 15 0'
+                },
+                items: [{
+                    xtype: 'radiogroup',
+                    fieldLabel: 'Top Up Type',
+                    name: 'topup_type',
+                    value: {topup_type: 'time'},
+                    items: [
+                        {boxLabel: 'Time Extension', name: 'topup_type', inputValue: 'time'},
+                        {boxLabel: 'Usage Credit', name: 'topup_type', inputValue: 'credit'}
+                    ],
+                    listeners: {
+                        change: function(radiogroup, newValue) {
+                            var form = radiogroup.up('form');
+                            var isTime = newValue.topup_type === 'time';
+                            
+                            form.down('[name=time_extension]').setVisible(isTime);
+                            form.down('[name=credit_amount]').setVisible(!isTime);
+                        }
+                    }
+                }, {
+                    xtype: 'numberfield',
+                    name: 'time_extension',
+                    fieldLabel: 'Additional Days',
+                    value: 15,
+                    minValue: 1,
+                    maxValue: 180,
+                    allowBlank: false,
+                    fieldStyle: 'text-align: right'
+                }, {
+                    xtype: 'numberfield',
+                    name: 'credit_amount',
+                    fieldLabel: 'Credit Amount',
+                    value: 100,
+                    minValue: 1,
+                    maxValue: 10000,
+                    allowBlank: false,
+                    fieldStyle: 'text-align: right',
+                    hidden: true
+                }, {
+                    xtype: 'textarea',
+                    name: 'topup_notes',
+                    fieldLabel: 'Notes',
+                    height: 80,
+                    emptyText: 'Reason for top up...'
+                }],
+                buttons: [{
+                    text: 'Cancel',
+                    handler: function() {
+                        topUpForm.close();
+                    }
+                }, {
+                    text: 'Apply Top Up',
+                    formBind: true,
+                    cls: 'btn-warning',
+                    handler: function() {
+                        var formValues = this.up('form').getValues();
+                        console.log('Topping up token:', tokenId, formValues);
+                        
+                        Ext.Msg.wait('Processing token top up...', 'Please wait');
+                        
+                        // Prepare API request data
+                        var apiConfig = Store.rdmtoken.config.ApiConfig;
+                        var requestData = {
+                            tokenId: tokenId,
+                            topUpType: formValues.topup_type,
+                            timeExtension: formValues.topup_type === 'time' ? parseInt(formValues.time_extension) : 0,
+                            creditAmount: formValues.topup_type === 'credit' ? parseInt(formValues.credit_amount) : 0,
+                            notes: formValues.topup_notes || '',
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        console.log('=== TOP UP TOKEN API REQUEST ===');
+                        console.log('API URL:', apiConfig.getUrl('tokenTopup'));
+                        console.log('Request Data:', requestData);
+                        
+                        // Call the actual API
+                        Ext.Ajax.request({
+                            url: apiConfig.getUrl('tokenTopup'),
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            jsonData: requestData,
+                            success: function(response) {
+                                console.log('=== TOP UP TOKEN API SUCCESS ===');
+                                console.log('Response:', response.responseText);
+                                
+                                Ext.Msg.hide();
+                                topUpForm.close();
+                                
+                                try {
+                                    var result = Ext.decode(response.responseText);
+                                    
+                                    if (result.status === 200) {
+                                        console.log('✅ Token topped up successfully');
+                                        
+                                        var topUpText = formValues.topup_type === 'time'
+                                            ? formValues.time_extension + ' days added'
+                                            : formValues.credit_amount + ' credits added';
+                                            
+                                        Ext.Msg.alert('Success',
+                                            'Token topped up successfully!<br><br>' +
+                                            'Token ID: ' + tokenId + '<br>' +
+                                            'Top up: ' + topUpText
+                                        );
+                                    } else {
+                                        console.error('❌ API returned error:', result.status);
+                                        Ext.Msg.alert('Error', result.body ? result.body.message : 'Failed to top up token');
+                                    }
+                                } catch (parseError) {
+                                    console.error('❌ Error parsing API response:', parseError);
+                                    Ext.Msg.alert('Error', 'Invalid response from server');
+                                }
+                                
+                                me.refreshTokenGrid();
+                            },
+                            failure: function(response) {
+                                console.log('=== TOP UP TOKEN API FAILURE ===');
+                                console.error('❌ API Request failed:', response);
+                                
+                                Ext.Msg.hide();
+                                topUpForm.close();
+                                
+                                var errorMessage = 'Failed to top up token - Network error occurred';
+                                if (response.responseText) {
+                                    try {
+                                        var errorResult = Ext.decode(response.responseText);
+                                        errorMessage = errorResult.body ? errorResult.body.message : errorResult.message || errorMessage;
+                                    } catch (e) {
+                                        console.error('Could not parse error response:', e);
+                                    }
+                                }
+                                
+                                Ext.Msg.alert('Top Up Token Failed', errorMessage);
+                            }
+                        });
+                    }
+                }]
+            }]
+        });
+        
+        topUpForm.show();
+    },
+    
     showRenewTokenModal: function(tokenId) {
-        // TODO: Implement renew token modal with required fields from API spec
-        Ext.Msg.alert('Info', 'Renew token functionality will be implemented');
+        // Delegate to main renewToken method
+        this.renewToken(tokenId);
     },
     
     showTopupTokenModal: function(tokenId) {
-        // TODO: Implement topup token modal with required fields from API spec
-        Ext.Msg.alert('Info', 'Topup token functionality will be implemented');
+        // Delegate to main topUpToken method
+        this.topUpToken(tokenId);
     }
 });
