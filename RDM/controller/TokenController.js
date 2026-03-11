@@ -551,10 +551,20 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     fetchContractBySerialNumber: function(serialNumber, modal) {
         console.log('Fetching contract for serial number:', serialNumber);
         
+        // Access singleton correctly
         var apiConfig = Store.rdmtoken.config.ApiConfig;
-        var apiUrl = apiConfig.getUrl('contractList') + '?serialNumber=' + encodeURIComponent(serialNumber);
+        if (!apiConfig) {
+            console.error('ApiConfig singleton not available');
+            return;
+        }
         
-        console.log('Contract API URL:', apiUrl);
+        try {
+            var apiUrl = apiConfig.getUrl('contractList') + '?serialNumber=' + encodeURIComponent(serialNumber);
+            console.log('Contract API URL:', apiUrl);
+        } catch (e) {
+            console.error('Error getting contract URL:', e);
+            return;
+        }
         
         Ext.Ajax.request({
             url: apiUrl,
