@@ -604,38 +604,56 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var form = modal.down('#tokenRequestForm');
         if (!form) return;
         
-        // Auto-fill contract fields
+        // Auto-fill contract fields with correct API field mapping
         if (contractData.customerName) {
             var customerField = form.down('field[name=customerName]');
-            customerField.setValue(contractData.customerName);
-            customerField.setReadOnly(true);
+            if (customerField) {
+                customerField.setValue(contractData.customerName);
+                customerField.setReadOnly(true);
+                console.log('✓ Customer Name filled:', contractData.customerName);
+            }
         }
         
-        if (contractData.roNumber) {
+        // Map rentalOrderNumber to roNumber form field
+        if (contractData.rentalOrderNumber) {
             var roField = form.down('field[name=roNumber]');
-            roField.setValue(contractData.roNumber);
-            roField.setReadOnly(true);
+            if (roField) {
+                roField.setValue(contractData.rentalOrderNumber);
+                roField.setReadOnly(true);
+                console.log('✓ RO Number filled:', contractData.rentalOrderNumber);
+            }
         }
         
-        if (contractData.contractStart) {
+        // Map contractStartDate to contractStart form field
+        if (contractData.contractStartDate) {
             var startField = form.down('field[name=contractStart]');
-            startField.setValue(new Date(contractData.contractStart));
-            startField.setReadOnly(true);
+            if (startField) {
+                startField.setValue(new Date(contractData.contractStartDate));
+                startField.setReadOnly(true);
+                console.log('✓ Contract Start filled:', contractData.contractStartDate);
+            }
         }
         
-        if (contractData.contractExpired) {
+        // Map contractEndDate to contractExpired form field
+        if (contractData.contractEndDate) {
             var expiredField = form.down('field[name=contractExpired]');
-            expiredField.setValue(new Date(contractData.contractExpired));
-            expiredField.setReadOnly(true);
+            if (expiredField) {
+                expiredField.setValue(new Date(contractData.contractEndDate));
+                expiredField.setReadOnly(true);
+                console.log('✓ Contract End filled:', contractData.contractEndDate);
+            }
         }
         
         if (contractData.contractValue) {
             var valueField = form.down('field[name=contractValue]');
-            valueField.setValue(contractData.contractValue);
-            valueField.setReadOnly(true);
+            if (valueField) {
+                valueField.setValue(contractData.contractValue);
+                valueField.setReadOnly(true);
+                console.log('✓ Contract Value filled:', contractData.contractValue);
+            }
         }
         
-        console.log('Form populated with contract data');
+        console.log('✅ Form population complete with correct field mapping');
     },
 
     onSerialNumberChange: function(field, newValue) {
