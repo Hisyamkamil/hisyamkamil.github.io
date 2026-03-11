@@ -26,9 +26,9 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 iconCls: 'fa fa-tachometer-alt',
                 itemId: 'dashboard',
                 layout: 'fit',
-                items: [{
-                    xtype: 'Store.rdmtoken.view.DashboardPanel'
-                }],
+                items: [
+                    Ext.create('Store.rdmtoken.view.DashboardPanel')
+                ],
                 listeners: {
                     activate: this.onDashboardActivate.bind(this)
                 }
@@ -119,9 +119,9 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 iconCls: 'fa fa-map-marker-alt',
                 itemId: 'locationmonitoring',
                 layout: 'fit',
-                items: [{
-                    xtype: 'Store.rdmtoken.view.LocationMonitoringPanel'
-                }],
+                items: [
+                    Ext.create('Store.rdmtoken.view.LocationMonitoringPanel')
+                ],
                 listeners: {
                     activate: this.onLocationMonitoringActivate.bind(this)
                 }
@@ -131,9 +131,9 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 iconCls: 'fa fa-file-contract',
                 itemId: 'contract',
                 layout: 'fit',
-                items: [{
-                    xtype: 'Store.rdmtoken.view.ContractPanel'
-                }],
+                items: [
+                    Ext.create('Store.rdmtoken.view.ContractPanel')
+                ],
                 listeners: {
                     activate: this.onContractActivate.bind(this)
                 }
@@ -143,9 +143,9 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 iconCls: 'fa fa-check-circle',
                 itemId: 'approval',
                 layout: 'fit',
-                items: [{
-                    xtype: 'Store.rdmtoken.view.ApprovalPanel'
-                }],
+                items: [
+                    Ext.create('Store.rdmtoken.view.ApprovalPanel')
+                ],
                 listeners: {
                     activate: this.onApprovalActivate.bind(this)
                 }
@@ -155,9 +155,9 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 iconCls: 'fa fa-chart-bar',
                 itemId: 'report',
                 layout: 'fit',
-                items: [{
-                    xtype: 'Store.rdmtoken.view.ReportPanel'
-                }],
+                items: [
+                    Ext.create('Store.rdmtoken.view.ReportPanel')
+                ],
                 listeners: {
                     activate: this.onReportActivate.bind(this)
                 }
