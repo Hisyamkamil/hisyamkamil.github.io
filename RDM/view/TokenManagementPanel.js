@@ -124,23 +124,38 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
     },
 
     actionColumnRenderer: function(value, metaData, record) {
-        var actions = record.get('actions') || {};
-        var html = '<div class="token-actions">';
+        var me = this;
+        var status = record.get('status');
+        var tokenId = record.get('id') || record.get('tokenNumber');
+        var html = '<div class="token-actions" style="display: flex; gap: 5px; align-items: center;">';
         
-        // Toggle switch
-        var toggleStatus = actions.toggleStatus || 'enabled';
-        var toggleClass = toggleStatus === 'enabled' ? 'toggle-on' : 'toggle-off';
-        html += '<span class="toggle-switch ' + toggleClass + '" onclick="rdmToken.toggleToken(\'' + record.get('id') + '\')"></span>';
-        
-        // Action buttons
-        if (actions.canRenew) {
-            html += '<button class="action-btn btn-success" onclick="rdmToken.renewToken(\'' + record.get('id') + '\')">Renew</button>';
-        }
-        if (actions.canTopUp) {
-            html += '<button class="action-btn btn-warning" onclick="rdmToken.topUpToken(\'' + record.get('id') + '\')">Top Up</button>';
-        }
-        if (actions.canChangeUnit) {
-            html += '<button class="action-btn btn-info" onclick="rdmToken.changeUnit(\'' + record.get('id') + '\')">Change Unit</button>';
+        // Conditional actions based on token status
+        switch(status) {
+            case 'pending':
+                // Pending tokens can only be generated
+                html += '<button class="action-btn btn-primary" onclick="rdmToken.generateToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px;">Generate Token</button>';
+                break;
+                
+            case 'active':
+                // Active tokens can be topped up or renewed
+                html += '<button class="action-btn btn-success" onclick="rdmToken.renewToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px;">Renew</button>';
+                html += '<button class="action-btn btn-warning" onclick="rdmToken.topUpToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px; margin-left: 3px;">Top Up</button>';
+                break;
+                
+            case 'expired':
+                // Expired tokens can be renewed
+                html += '<button class="action-btn btn-info" onclick="rdmToken.renewToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px;">Renew</button>';
+                break;
+                
+            case 'revoked':
+                // Revoked tokens have no available actions
+                html += '<span style="color: #6c757d; font-style: italic; font-size: 11px;">No actions available</span>';
+                break;
+                
+            default:
+                // Default fallback for unknown status
+                html += '<span style="color: #6c757d; font-style: italic; font-size: 11px;">Status unknown</span>';
+                break;
         }
         
         html += '</div>';
@@ -263,8 +278,9 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                         // Force grid refresh
                         setTimeout(function() {
                             console.log('Forcing grid view refresh...');
-                            grid.getView().refresh();
-                            grid.doLayout();
+                            if (grid.getView()) {
+                                grid.getView().refresh();
+                            }
                         }, 100);
                     }
                 });
