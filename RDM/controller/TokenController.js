@@ -178,15 +178,48 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     showCreateRequestModal: function() {
-        console.log('=== SHOWING NEW CREATE REQUEST MODAL ===');
+        console.log('=== SHOWING CREATE REQUEST MODAL ===');
         
+        // Check if we have selected vehicle data for auto-fill
+        var selectedVehicle = window.RDMSelectedVehicle;
+        if (selectedVehicle && selectedVehicle.vin) {
+            console.log('Selected vehicle found, showing auto-fill modal:', selectedVehicle);
+            this.showCreateRequestModalWithVehicle(selectedVehicle);
+        } else {
+            console.log('No vehicle selected, showing empty modal');
+            this.showCreateRequestModalEmpty();
+        }
+    },
+
+    showCreateRequestModalWithVehicle: function(vehicleData) {
+        console.log('=== AUTO-FILL MODAL WITH VEHICLE DATA ===');
+        console.log('Vehicle data:', vehicleData);
+        
+        // Create the modal first, then fetch contract data
+        var modal = this.createTokenRequestModal(true, vehicleData);
+        modal.show();
+        
+        // Fetch contract data for auto-fill
+        this.fetchContractBySerialNumber(vehicleData.vin, modal);
+    },
+
+    showCreateRequestModalEmpty: function() {
+        console.log('=== EMPTY CREATE REQUEST MODAL ===');
+        
+        var modal = this.createTokenRequestModal(false, null);
+        modal.show();
+    },
+
+    createTokenRequestModal: function(isAutoFill, vehicleData) {
         // Get viewport dimensions for responsive sizing
         var viewport = Ext.getBody().getViewSize();
         var modalWidth = Math.min(750, viewport.width - 40);
         var modalHeight = Math.min(650, viewport.height - 60);
         
+        var titleSuffix = isAutoFill ? ' - ' + (vehicleData.model || 'Selected Vehicle') : '';
+        
         var modal = Ext.create('Ext.window.Window', {
-            title: '<i class="fa fa-key"></i> Create Request Token',
+            title: '<i class="fa fa-key"></i> Create Request Token' + titleSuffix,
             modal: true,
             width: modalWidth,
             height: modalHeight,
@@ -498,7 +531,101 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             }]
         });
 
-        modal.show();
+        // Auto-fill vehicle data if available
+        if (isAutoFill && vehicleData) {
+            // Pre-populate vehicle fields
+            var form = modal.down('#tokenRequestForm');
+            if (vehicleData.vin) {
+                form.down('field[name=serialNumber]').setValue(vehicleData.vin);
+                form.down('field[name=serialNumber]').setReadOnly(true);
+            }
+            if (vehicleData.uniqid) {
+                form.down('field[name=imei]').setValue(vehicleData.uniqid);
+                form.down('field[name=imei]').setReadOnly(true);
+            }
+        }
+
+        return modal;
+    },
+
+    fetchContractBySerialNumber: function(serialNumber, modal) {
+        console.log('Fetching contract for serial number:', serialNumber);
+        
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
+        var apiUrl = apiConfig.getUrl('contractList') + '?serialNumber=' + encodeURIComponent(serialNumber);
+        
+        console.log('Contract API URL:', apiUrl);
+        
+        Ext.Ajax.request({
+            url: apiUrl,
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                console.log('Contract fetch success:', response.responseText);
+                
+                try {
+                    var result = Ext.decode(response.responseText);
+                    if (result.status === 200 && result.body && result.body.contracts && result.body.contracts.length > 0) {
+                        var contract = result.body.contracts[0]; // Use first contract
+                        console.log('Contract found:', contract);
+                        this.populateFormWithContract(modal, contract);
+                    } else {
+                        console.warn('No contract found for serial number:', serialNumber);
+                        // Form remains with vehicle data only
+                    }
+                } catch (e) {
+                    console.error('Error parsing contract response:', e);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to fetch contract data:', response);
+                // Form remains with vehicle data only
+            }
+        });
+    },
+
+    populateFormWithContract: function(modal, contractData) {
+        console.log('Populating form with contract data:', contractData);
+        
+        var form = modal.down('#tokenRequestForm');
+        if (!form) return;
+        
+        // Auto-fill contract fields
+        if (contractData.customerName) {
+            var customerField = form.down('field[name=customerName]');
+            customerField.setValue(contractData.customerName);
+            customerField.setReadOnly(true);
+        }
+        
+        if (contractData.roNumber) {
+            var roField = form.down('field[name=roNumber]');
+            roField.setValue(contractData.roNumber);
+            roField.setReadOnly(true);
+        }
+        
+        if (contractData.contractStart) {
+            var startField = form.down('field[name=contractStart]');
+            startField.setValue(new Date(contractData.contractStart));
+            startField.setReadOnly(true);
+        }
+        
+        if (contractData.contractExpired) {
+            var expiredField = form.down('field[name=contractExpired]');
+            expiredField.setValue(new Date(contractData.contractExpired));
+            expiredField.setReadOnly(true);
+        }
+        
+        if (contractData.contractValue) {
+            var valueField = form.down('field[name=contractValue]');
+            valueField.setValue(contractData.contractValue);
+            valueField.setReadOnly(true);
+        }
+        
+        console.log('Form populated with contract data');
     },
 
     onSerialNumberChange: function(field, newValue) {
@@ -542,20 +669,20 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             // Log form values
             console.log('Form values:', values);
             
-            // Prepare API data
+            // Prepare API data with correct formatting
             var requestData = {
                 serialNumber: values.serialNumber,
                 imei: values.imei,
                 customerName: values.customerName,
                 roNumber: values.roNumber,
-                contractStart: values.contractStart,
-                contractExpired: values.contractExpired,
-                periodStart: values.periodStart,
-                periodExpiredToken: values.periodExpiredToken,
-                duration: values.duration,
-                additionalDuration: values.additionalDuration || 0,
-                contractValue: values.contractValue,
-                geofence: values.geofence,
+                // Convert dates to ISO 8601 format with .000Z suffix
+                contractStart: this.formatDateToISO(values.contractStart),
+                contractExpired: this.formatDateToISO(values.contractExpired),
+                periodStart: this.formatDateToISO(values.periodStart),
+                periodExpiredToken: this.formatDateToISO(values.periodExpiredToken),
+                // Ensure numeric values
+                duration: parseInt(values.duration) + parseInt(values.additionalDuration || 0),
+                contractValue: parseFloat(values.contractValue),
                 requestorName: 'Current User'
             };
             
@@ -688,6 +815,30 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var data = deviceInfo.imei + deviceInfo.serialNumber + new Date().getTime();
         // In real implementation, use proper cryptographic signature
         return btoa(data);
+    },
+
+    /**
+     * Format date to ISO 8601 format required by API
+     */
+    formatDateToISO: function(dateValue) {
+        if (!dateValue) return null;
+        
+        var date;
+        if (dateValue instanceof Date) {
+            date = dateValue;
+        } else if (typeof dateValue === 'string') {
+            date = new Date(dateValue);
+        } else {
+            return null;
+        }
+        
+        // Ensure valid date
+        if (isNaN(date.getTime())) {
+            return null;
+        }
+        
+        // Format to ISO string with .000Z suffix
+        return date.toISOString();
     },
 
     // Helper methods
