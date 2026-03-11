@@ -308,19 +308,28 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     applyFilters: function() {
         console.log('Applying filters from UI...');
         
-        // Get current filter values from TokenManagementPanel
-        var tokenPanel = Ext.ComponentQuery.query('Store\\.rdmtoken\\.view\\.TokenManagementPanel')[0];
+        // Get current filter values from TokenManagementPanel using xtype selector
+        var tokenPanel = Ext.ComponentQuery.query('rdmtokenmanagementpanel')[0];
         if (!tokenPanel) {
-            console.warn('TokenManagementPanel not found');
+            console.warn('TokenManagementPanel not found, trying alternative selectors...');
+            // Fallback selectors
+            tokenPanel = Ext.ComponentQuery.query('panel[xtype=rdmtokenmanagementpanel]')[0] ||
+                        Ext.ComponentQuery.query('Store\\.rdmtoken\\.view\\.TokenManagementPanel')[0];
+        }
+        
+        if (!tokenPanel) {
+            console.error('TokenManagementPanel still not found - check if panel is rendered');
             return;
         }
+        
+        console.log('TokenManagementPanel found:', tokenPanel.getXType());
         
         var filters = tokenPanel.getCurrentFilters ? tokenPanel.getCurrentFilters() : {};
         console.log('Current UI filters:', filters);
         
         // Convert UI filters to API parameters
         var apiFilters = this.convertUIFiltersToAPI(filters);
-        console.log('API filters:', apiFilters);
+        console.log('API filters to be sent to server:', apiFilters);
         
         // Reload data with filters
         this.loadTokenData(apiFilters);
@@ -422,28 +431,43 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     getCurrentBasicFilters: function() {
         var filters = {};
         
-        // Get basic filters from main toolbar
-        var tokenPanel = Ext.ComponentQuery.query('Store\\.rdmtoken\\.view\\.TokenManagementPanel')[0];
-        if (tokenPanel) {
-            var searchField = tokenPanel.down('#searchField');
-            var statusFilter = tokenPanel.down('#statusFilter');
-            var startDateFilter = tokenPanel.down('#startDateFilter');
-            var endDateFilter = tokenPanel.down('#endDateFilter');
-            
-            if (searchField && searchField.getValue()) {
-                filters.customerName = searchField.getValue(); // Use search as customer name filter
-            }
-            if (statusFilter && statusFilter.getValue() !== 'all') {
-                filters.status = statusFilter.getValue();
-            }
-            if (startDateFilter && startDateFilter.getValue()) {
-                filters.startDate = Ext.Date.format(startDateFilter.getValue(), 'Y-m-d');
-            }
-            if (endDateFilter && endDateFilter.getValue()) {
-                filters.endDate = Ext.Date.format(endDateFilter.getValue(), 'Y-m-d');
-            }
+        // Get basic filters from main toolbar using correct selector
+        var tokenPanel = Ext.ComponentQuery.query('rdmtokenmanagementpanel')[0];
+        if (!tokenPanel) {
+            console.warn('TokenManagementPanel not found in getCurrentBasicFilters');
+            return filters;
         }
         
+        var searchField = tokenPanel.down('#searchField');
+        var statusFilter = tokenPanel.down('#statusFilter');
+        var startDateFilter = tokenPanel.down('#startDateFilter');
+        var endDateFilter = tokenPanel.down('#endDateFilter');
+        
+        console.log('Filter components found:', {
+            searchField: !!searchField,
+            statusFilter: !!statusFilter,
+            startDateFilter: !!startDateFilter,
+            endDateFilter: !!endDateFilter
+        });
+        
+        if (searchField && searchField.getValue()) {
+            filters.customerName = searchField.getValue(); // Use search as customer name filter
+            console.log('Search filter:', filters.customerName);
+        }
+        if (statusFilter && statusFilter.getValue() !== 'all') {
+            filters.status = statusFilter.getValue();
+            console.log('Status filter:', filters.status);
+        }
+        if (startDateFilter && startDateFilter.getValue()) {
+            filters.startDate = Ext.Date.format(startDateFilter.getValue(), 'Y-m-d');
+            console.log('Start date filter:', filters.startDate);
+        }
+        if (endDateFilter && endDateFilter.getValue()) {
+            filters.endDate = Ext.Date.format(endDateFilter.getValue(), 'Y-m-d');
+            console.log('End date filter:', filters.endDate);
+        }
+        
+        console.log('Final basic filters:', filters);
         return filters;
     },
 
