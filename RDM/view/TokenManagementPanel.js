@@ -194,18 +194,6 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         return '<span style="color: ' + config.color + '; font-weight: bold;">' + config.text + '</span>';
     },
 
-    onTokenSearch: function(field, newValue) {
-        if (this.getController()) {
-            this.getController().onTokenSearch(newValue);
-        }
-    },
-
-    onStatusFilter: function(combo, newValue) {
-        if (this.getController()) {
-            this.getController().onStatusFilter(newValue);
-        }
-    },
-
     onTokenSelectionChange: function(model, selected) {
         if (selected.length > 0) {
             this.showTokenDetails(selected[0]);
@@ -213,15 +201,15 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
     },
 
     showTokenDetails: function(record) {
-        if (this.getController()) {
-            this.getController().showTokenDetails(record);
+        var controller = this.findController();
+        if (controller) {
+            controller.showTokenDetails(record);
         } else {
             console.log('Selected token:', record.getData());
         }
     },
 
     showCreateRequestModal: function() {
-        // Direct access to controller through global reference or create one
         var controller = this.findController();
         if (controller) {
             controller.showCreateRequestModal();
@@ -326,31 +314,43 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
     // Search and filter event handlers
     onTokenSearch: function(field, newValue) {
         console.log('Token search triggered:', newValue);
-        if (this.getController()) {
-            this.getController().applyFilters();
+        var controller = this.findController();
+        if (controller) {
+            controller.applyFilters();
+        } else {
+            console.error('No controller found for token search');
         }
     },
 
     onSearchSpecialKey: function(field, e) {
         if (e.getKey() === e.ENTER) {
             console.log('Enter key pressed in search field');
-            if (this.getController()) {
-                this.getController().applyFilters();
+            var controller = this.findController();
+            if (controller) {
+                controller.applyFilters();
+            } else {
+                console.error('No controller found for search special key');
             }
         }
     },
 
     onStatusFilter: function(combo, newValue) {
         console.log('Status filter changed:', newValue);
-        if (this.getController()) {
-            this.getController().applyFilters();
+        var controller = this.findController();
+        if (controller) {
+            controller.applyFilters();
+        } else {
+            console.error('No controller found for status filter');
         }
     },
 
     onDateFilter: function(field, newValue) {
         console.log('Date filter changed:', field.getItemId(), newValue);
-        if (this.getController()) {
-            this.getController().applyFilters();
+        var controller = this.findController();
+        if (controller) {
+            controller.applyFilters();
+        } else {
+            console.error('No controller found for date filter');
         }
     },
 
@@ -363,81 +363,94 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
             modal: true,
             width: 500,
             height: 400,
-            layout: 'form',
+            layout: 'fit',
             items: [
                 {
-                    xtype: 'fieldset',
-                    title: 'Filter Criteria',
+                    xtype: 'form',
+                    bodyPadding: 20,
                     items: [
                         {
-                            xtype: 'textfield',
-                            fieldLabel: 'Customer Name',
-                            itemId: 'customerNameFilter',
-                            emptyText: 'Enter customer name...'
-                        },
-                        {
-                            xtype: 'textfield',
-                            fieldLabel: 'Requestor',
-                            itemId: 'requestorFilter',
-                            emptyText: 'Enter requestor name...'
-                        },
-                        {
-                            xtype: 'textfield',
-                            fieldLabel: 'Serial Number',
-                            itemId: 'serialNumberFilter',
-                            emptyText: 'Enter serial number...'
-                        },
-                        {
-                            xtype: 'textfield',
-                            fieldLabel: 'RO Number',
-                            itemId: 'roNumberFilter',
-                            emptyText: 'Enter RO number...'
-                        },
-                        {
-                            xtype: 'combobox',
-                            fieldLabel: 'Request Type',
-                            itemId: 'requestTypeFilter',
-                            displayField: 'label',
-                            valueField: 'value',
-                            store: {
-                                data: [
-                                    {value: 'all', label: 'All Types'},
-                                    {value: 'new', label: 'New'},
-                                    {value: 'renew', label: 'Renew'},
-                                    {value: 'topup', label: 'Top Up'}
-                                ]
-                            },
-                            value: 'all'
-                        },
-                        {
-                            xtype: 'combobox',
-                            fieldLabel: 'Sort By',
-                            itemId: 'sortByFilter',
-                            displayField: 'label',
-                            valueField: 'value',
-                            store: {
-                                data: [
-                                    {value: 'requestDate', label: 'Request Date'},
-                                    {value: 'periodStart', label: 'Period Start'},
-                                    {value: 'customerName', label: 'Customer Name'},
-                                    {value: 'serialNumber', label: 'Serial Number'}
-                                ]
-                            },
-                            value: 'requestDate'
-                        },
-                        {
-                            xtype: 'combobox',
-                            fieldLabel: 'Sort Order',
-                            itemId: 'sortOrderFilter',
-                            displayField: 'label',
-                            valueField: 'value',
-                            store: {
-                                data: [
-                                    {value: 'desc', label: 'Descending'},
-                                    {value: 'asc', label: 'Ascending'}
-                                ]
-                            },
-                            value: 'desc'
+                            xtype: 'fieldset',
+                            title: 'Filter Criteria',
+                            items: [
+                                {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'Customer Name',
+                                    itemId: 'customerNameFilter',
+                                    emptyText: 'Enter customer name...',
+                                    anchor: '100%'
+                                },
+                                {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'Requestor',
+                                    itemId: 'requestorFilter',
+                                    emptyText: 'Enter requestor name...',
+                                    anchor: '100%'
+                                },
+                                {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'Serial Number',
+                                    itemId: 'serialNumberFilter',
+                                    emptyText: 'Enter serial number...',
+                                    anchor: '100%'
+                                },
+                                {
+                                    xtype: 'textfield',
+                                    fieldLabel: 'RO Number',
+                                    itemId: 'roNumberFilter',
+                                    emptyText: 'Enter RO number...',
+                                    anchor: '100%'
+                                },
+                                {
+                                    xtype: 'combobox',
+                                    fieldLabel: 'Request Type',
+                                    itemId: 'requestTypeFilter',
+                                    displayField: 'label',
+                                    valueField: 'value',
+                                    store: {
+                                        data: [
+                                            {value: 'all', label: 'All Types'},
+                                            {value: 'new', label: 'New'},
+                                            {value: 'renew', label: 'Renew'},
+                                            {value: 'topup', label: 'Top Up'}
+                                        ]
+                                    },
+                                    value: 'all',
+                                    anchor: '100%'
+                                },
+                                {
+                                    xtype: 'combobox',
+                                    fieldLabel: 'Sort By',
+                                    itemId: 'sortByFilter',
+                                    displayField: 'label',
+                                    valueField: 'value',
+                                    store: {
+                                        data: [
+                                            {value: 'requestDate', label: 'Request Date'},
+                                            {value: 'periodStart', label: 'Period Start'},
+                                            {value: 'customerName', label: 'Customer Name'},
+                                            {value: 'serialNumber', label: 'Serial Number'}
+                                        ]
+                                    },
+                                    value: 'requestDate',
+                                    anchor: '100%'
+                                },
+                                {
+                                    xtype: 'combobox',
+                                    fieldLabel: 'Sort Order',
+                                    itemId: 'sortOrderFilter',
+                                    displayField: 'label',
+                                    valueField: 'value',
+                                    store: {
+                                        data: [
+                                            {value: 'desc', label: 'Descending'},
+                                            {value: 'asc', label: 'Ascending'}
+                                        ]
+                                    },
+                                    value: 'desc',
+                                    anchor: '100%'
+                                }
+                            ]
                         }
                     ]
                 }
@@ -448,9 +461,11 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                     iconCls: 'fa fa-check',
                     handler: function() {
                         console.log('Apply advanced filters');
-                        var controller = this.up('window').panel.getController();
+                        var controller = this.up('window').panel.findController();
                         if (controller) {
                             controller.applyAdvancedFilters(advancedFilterWindow);
+                        } else {
+                            console.error('No controller found for advanced filters');
                         }
                         advancedFilterWindow.close();
                     }
@@ -496,8 +511,11 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         if (endDateFilter) endDateFilter.setValue(null);
         
         // Apply filters to reload data
-        if (this.getController()) {
-            this.getController().applyFilters();
+        var controller = this.findController();
+        if (controller) {
+            controller.applyFilters();
+        } else {
+            console.error('No controller found for clear filters');
         }
         
         // Show user feedback
