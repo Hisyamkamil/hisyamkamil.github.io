@@ -20,6 +20,7 @@ Ext.define('Store.rdmtoken.config.ApiConfig', {
             tokenTopup: '/api/rdm/token/topup',
             tokenRenew: '/api/rdm/token/renew',
             tokenReports: '/api/rdm/token/reports',
+            tokenDashboard: '/api/rdm/token/dashboard',
             healthCheck: '/api/rdm/token/health',
             
             // Contract management endpoints
