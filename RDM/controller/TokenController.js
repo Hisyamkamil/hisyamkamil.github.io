@@ -17,6 +17,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     constructor: function(config) {
         this.callParent([config]);
         this.initializeGlobalTokenFunctions();
+        this.initializeGlobalContractFunctions();
     },
 
     // Navigation event handlers
@@ -36,7 +37,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     onContractActivate: function() {
-        console.log('Contract activated');
+        console.log('Contract activated - loading contract data...');
+        this.loadContractData();
     },
 
     onApprovalActivate: function() {
@@ -1830,5 +1832,337 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         // If no specific area matches, return default
         console.log('✓ Using default geofence area (no match found)');
         return 'default';
+    },
+
+    // ===== CONTRACT MANAGEMENT METHODS =====
+
+    /**
+     * Load contract data with optional filters
+     */
+    loadContractData: function(filters) {
+        console.log('Loading contract data from API...');
+        
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
+        
+        // Build query parameters for contract listing
+        var params = {
+            page: 1,
+            limit: 20,
+            status: 'all'
+        };
+        
+        // Apply filters if provided
+        if (filters) {
+            if (filters.status && filters.status !== 'all') params.status = filters.status;
+            if (filters.customerName) params.customerName = filters.customerName;
+            if (filters.serialNumber) params.serialNumber = filters.serialNumber;
+            if (filters.salesRepresentative) params.salesRepresentative = filters.salesRepresentative;
+            if (filters.page) params.page = filters.page;
+            if (filters.limit) params.limit = filters.limit;
+        }
+        
+        // Build query string
+        var queryString = Object.keys(params).map(function(key) {
+            return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+        }).join('&');
+        
+        var apiUrl = apiConfig.getUrl('contractList') + '?' + queryString;
+        console.log('Contract API URL:', apiUrl);
+        
+        Ext.Ajax.request({
+            url: apiUrl,
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                console.log('Contract data loaded successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Contract API Response:', result);
+                    
+                    if (result.status === 200 && result.body && result.body.contracts) {
+                        this.processContractData(result.body);
+                    } else {
+                        console.error('Invalid contract response format:', result);
+                    }
+                } catch (e) {
+                    console.error('Error parsing contract response:', e);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load contract data:', response);
+                this.handleContractLoadFailure(response);
+            }.bind(this)
+        });
+    },
+
+    processContractData: function(data) {
+        console.log('Processing contract data:', data.contracts.length, 'records');
+        
+        // Update grid with contract data
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=contractGrid]')[0];
+        if (grid && grid.getStore()) {
+            var store = grid.getStore();
+            
+            // Convert API response to grid format
+            var gridData = data.contracts.map(function(contract) {
+                return {
+                    id: contract.id,
+                    unitId: contract.unitId,
+                    customerName: contract.customerName,
+                    customerCode: contract.customerCode,
+                    salesRepresentative: contract.salesRepresentative,
+                    rentalOrderNumber: contract.rentalOrderNumber,
+                    contractStartDate: contract.contractStartDate,
+                    contractEndDate: contract.contractEndDate,
+                    contractValue: contract.contractValue,
+                    durationHours: contract.durationHours,
+                    additionalDurationHours: contract.additionalDurationHours,
+                    geofenceDetails: contract.geofenceDetails,
+                    status: contract.status,
+                    unitDetails: contract.unitDetails,
+                    createdAt: contract.createdAt,
+                    updatedAt: contract.updatedAt
+                };
+            });
+            
+            store.loadData(gridData);
+            console.log('✅ Contract grid data updated with', gridData.length, 'contract records');
+            
+            // Update pagination info if available
+            if (data.pagination) {
+                this.updateContractPaginationInfo(data.pagination);
+            }
+        }
+    },
+
+    handleContractLoadFailure: function(response) {
+        console.error('Contract load failure:', response);
+        
+        // Show error message
+        Ext.Msg.alert('Error', 'Failed to load contract data. Please try again.');
+        
+        // Clear grid if it exists
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=contractGrid]')[0];
+        if (grid && grid.getStore()) {
+            grid.getStore().removeAll();
+        }
+    },
+
+    updateContractPaginationInfo: function(pagination) {
+        console.log('Contract pagination info:', pagination);
+        // Update pagination controls if implemented
+    },
+
+    /**
+     * Apply filters for contract data
+     */
+    applyContractFilters: function() {
+        console.log('Applying contract filters from UI...');
+        
+        // Get current filter values from ContractPanel using xtype selector
+        var contractPanel = Ext.ComponentQuery.query('rdmcontractpanel')[0];
+        if (!contractPanel) {
+            console.warn('ContractPanel not found, trying alternative selectors...');
+            contractPanel = Ext.ComponentQuery.query('panel[xtype=rdmcontractpanel]')[0];
+        }
+        
+        if (!contractPanel) {
+            console.error('ContractPanel still not found - check if panel is rendered');
+            return;
+        }
+        
+        console.log('ContractPanel found:', contractPanel.getXType());
+        
+        var filters = contractPanel.getCurrentFilters ? contractPanel.getCurrentFilters() : {};
+        console.log('Current UI contract filters:', filters);
+        
+        // Convert UI filters to API parameters
+        var apiFilters = this.convertUIContractFiltersToAPI(filters);
+        console.log('API contract filters to be sent to server:', apiFilters);
+        
+        // Reload data with filters
+        this.loadContractData(apiFilters);
+    },
+
+    convertUIContractFiltersToAPI: function(uiFilters) {
+        var apiFilters = {
+            page: 1, // Reset to first page when applying filters
+            limit: 20
+        };
+        
+        // Status filter
+        if (uiFilters.status && uiFilters.status !== 'all') {
+            apiFilters.status = uiFilters.status;
+        }
+        
+        // Search filter - use for customer name search
+        if (uiFilters.search) {
+            apiFilters.customerName = uiFilters.search;
+        }
+        
+        // Sales representative filter
+        if (uiFilters.salesRepresentative) {
+            apiFilters.salesRepresentative = uiFilters.salesRepresentative;
+        }
+        
+        return apiFilters;
+    },
+
+    /**
+     * Show contract details modal
+     */
+    showContractDetails: function(record) {
+        console.log('Contract details:', record.getData());
+        this.openContractDetailsWindow(record);
+    },
+
+    openContractDetailsWindow: function(record) {
+        var contractData = record.getData();
+        var unitDetails = contractData.unitDetails || {};
+        
+        var window = Ext.create('Ext.window.Window', {
+            title: 'Contract Details - ' + (contractData.rentalOrderNumber || 'Contract'),
+            modal: true,
+            width: 700,
+            height: 500,
+            layout: 'fit',
+            items: [{
+                xtype: 'panel',
+                bodyPadding: 20,
+                autoScroll: true,
+                html: this.generateContractDetailsHtml(contractData, unitDetails)
+            }],
+            buttons: [{
+                text: 'Edit Contract',
+                iconCls: 'fa fa-edit',
+                handler: function() {
+                    window.close();
+                    this.showCreateContractModal(record);
+                }.bind(this)
+            }, {
+                text: 'Close',
+                handler: function() { window.close(); }
+            }]
+        });
+        window.show();
+    },
+
+    generateContractDetailsHtml: function(contractData, unitDetails) {
+        return [
+            '<div style="max-width: 600px;">',
+            '<h2 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">Contract Details</h2>',
+            
+            '<div style="margin: 20px 0;">',
+            '<h3 style="color: #007bff;">Contract Information</h3>',
+            '<table style="width: 100%; border-collapse: collapse;">',
+            '<tr><td style="padding: 8px; font-weight: bold; width: 150px;">Contract ID:</td><td style="padding: 8px;">' + contractData.id + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Customer:</td><td style="padding: 8px;">' + (contractData.customerName || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Customer Code:</td><td style="padding: 8px;">' + (contractData.customerCode || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">RO Number:</td><td style="padding: 8px;">' + (contractData.rentalOrderNumber || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Sales Rep:</td><td style="padding: 8px;">' + (contractData.salesRepresentative || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Status:</td><td style="padding: 8px;">' + this.renderContractStatus(contractData.status) + '</td></tr>',
+            '</table>',
+            '</div>',
+            
+            '<div style="margin: 20px 0;">',
+            '<h3 style="color: #007bff;">Unit Details</h3>',
+            '<table style="width: 100%; border-collapse: collapse;">',
+            '<tr><td style="padding: 8px; font-weight: bold; width: 150px;">Serial Number:</td><td style="padding: 8px;">' + (unitDetails.serialNumber || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Unit Name:</td><td style="padding: 8px;">' + (unitDetails.unitName || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Model:</td><td style="padding: 8px;">' + (unitDetails.model || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Year:</td><td style="padding: 8px;">' + (unitDetails.year || 'N/A') + '</td></tr>',
+            '</table>',
+            '</div>',
+            
+            '<div style="margin: 20px 0;">',
+            '<h3 style="color: #007bff;">Financial & Timeline</h3>',
+            '<table style="width: 100%; border-collapse: collapse;">',
+            '<tr><td style="padding: 8px; font-weight: bold; width: 150px;">Contract Value:</td><td style="padding: 8px;">Rp ' + (contractData.contractValue ? Ext.util.Format.number(contractData.contractValue, '0,0') : 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Start Date:</td><td style="padding: 8px;">' + (contractData.contractStartDate ? Ext.util.Format.date(new Date(contractData.contractStartDate), 'd M Y') : 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">End Date:</td><td style="padding: 8px;">' + (contractData.contractEndDate ? Ext.util.Format.date(new Date(contractData.contractEndDate), 'd M Y') : 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Duration Hours:</td><td style="padding: 8px;">' + (contractData.durationHours || 0) + ' hours</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Additional Hours:</td><td style="padding: 8px;">' + (contractData.additionalDurationHours || 0) + ' hours</td></tr>',
+            '</table>',
+            '</div>',
+            
+            '<div style="margin: 20px 0;">',
+            '<h3 style="color: #007bff;">Geofence Information</h3>',
+            '<p style="background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff;">' + this.formatGeofenceDetails(contractData.geofenceDetails) + '</p>',
+            '</div>',
+            '</div>'
+        ].join('');
+    },
+
+    renderContractStatus: function(status) {
+        var statusConfig = {
+            'active': {color: '#28a745', text: 'Active'},
+            'expired': {color: '#dc3545', text: 'Expired'},
+            'terminated': {color: '#6c757d', text: 'Terminated'}
+        };
+        
+        var config = statusConfig[status] || {color: '#6c757d', text: status || 'Unknown'};
+        return '<span style="color: ' + config.color + '; font-weight: bold;">' + config.text + '</span>';
+    },
+
+    formatGeofenceDetails: function(geofenceDetails) {
+        if (!geofenceDetails) {
+            return 'No geofence defined';
+        }
+        
+        return [
+            'Latitude: ' + geofenceDetails.latMin + ' to ' + geofenceDetails.latMax,
+            'Longitude: ' + geofenceDetails.lngMin + ' to ' + geofenceDetails.lngMax
+        ].join('<br>');
+    },
+
+    /**
+     * Show create/edit contract modal
+     */
+    showCreateContractModal: function(record) {
+        var isEdit = !!record;
+        console.log(isEdit ? 'Edit contract modal' : 'Create contract modal');
+        
+        Ext.Msg.alert('Contract Management',
+            (isEdit ? 'Edit contract functionality' : 'Create new contract functionality') +
+            ' will be implemented in future version.');
+    },
+
+    /**
+     * Initialize global contract functions
+     */
+    initializeGlobalContractFunctions: function() {
+        // Initialize global contract management functions for UI interactions
+        window.rdmContract = {
+            viewContract: function(contractId) {
+                console.log('View contract:', contractId);
+                var grid = Ext.ComponentQuery.query('gridpanel[itemId=contractGrid]')[0];
+                if (grid) {
+                    var record = grid.getStore().getById(contractId);
+                    if (record) {
+                        this.showContractDetails(record);
+                    }
+                }
+            }.bind(this),
+            
+            editContract: function(contractId) {
+                console.log('Edit contract:', contractId);
+                var grid = Ext.ComponentQuery.query('gridpanel[itemId=contractGrid]')[0];
+                if (grid) {
+                    var record = grid.getStore().getById(contractId);
+                    if (record) {
+                        this.showCreateContractModal(record);
+                    }
+                }
+            }.bind(this),
+            
+            renewContract: function(contractId) {
+                console.log('Renew contract:', contractId);
+                Ext.Msg.alert('Contract Renewal', 'Contract renewal functionality will be implemented in future version.');
+            }.bind(this)
+        };
     }
 });
