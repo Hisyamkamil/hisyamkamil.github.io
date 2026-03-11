@@ -604,6 +604,10 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var form = modal.down('#tokenRequestForm');
         if (!form) return;
         
+        // Store contract ID in modal for submission
+        modal.contractId = contractData.id;
+        console.log('✓ Contract ID stored:', contractData.id);
+        
         // Auto-fill contract fields with correct API field mapping
         if (contractData.customerName) {
             var customerField = form.down('field[name=customerName]');
@@ -656,6 +660,10 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         console.log('✅ Form population complete with correct field mapping');
     },
 
+    getCurrentContractId: function(modal) {
+        return modal.contractId || null;
+    },
+
     onSerialNumberChange: function(field, newValue) {
         if (newValue && window.RDMStores && window.RDMStores.units) {
             this.loadUnitDetails(newValue, field.up('form'));
@@ -697,21 +705,25 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             // Log form values
             console.log('Form values:', values);
             
-            // Prepare API data with correct formatting
+            // Get contractId from the fetched contract data
+            var contractId = this.getCurrentContractId(modal);
+            if (!contractId) {
+                console.error('Contract ID not found - cannot submit token request');
+                Ext.Msg.alert('Error', 'Contract information not found. Please select a vehicle with an existing contract.');
+                return;
+            }
+            
+            // Prepare API data according to specification (contractId-based format)
             var requestData = {
                 serialNumber: values.serialNumber,
                 imei: values.imei,
-                customerName: values.customerName,
-                roNumber: values.roNumber,
-                // Convert dates to ISO 8601 format with .000Z suffix
-                contractStart: this.formatDateToISO(values.contractStart),
-                contractExpired: this.formatDateToISO(values.contractExpired),
+                contractId: contractId,
                 periodStart: this.formatDateToISO(values.periodStart),
                 periodExpiredToken: this.formatDateToISO(values.periodExpiredToken),
                 // Ensure numeric values
                 duration: parseInt(values.duration) + parseInt(values.additionalDuration || 0),
-                contractValue: parseFloat(values.contractValue),
-                requestorName: 'Current User'
+                additionalDuration: parseInt(values.additionalDuration || 0),
+                requestorName: values.requestorName || 'Current User'
             };
             
             var apiUrl = apiConfig.getUrl('tokenRequest');
