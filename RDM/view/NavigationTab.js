@@ -89,21 +89,34 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                                     text: 'Serial Number',
                                     dataIndex: 'vin',
                                     flex: 1,
-                                    renderer: function(value) {
-                                        return value || 'N/A';
+                                    renderer: function(value, metaData, record) {
+                                        // Only show for leaf nodes (vehicles), not for folder nodes
+                                        if (record.get('leaf') === true || record.get('typeid') === 1) {
+                                            return value || 'N/A';
+                                        }
+                                        return ''; // Empty for folder nodes
                                     }
                                 }, {
                                     text: 'IMEI',
                                     dataIndex: 'uniqid',
                                     flex: 1,
-                                    renderer: function(value) {
-                                        return value || 'N/A';
+                                    renderer: function(value, metaData, record) {
+                                        // Only show for leaf nodes (vehicles), not for folder nodes
+                                        if (record.get('leaf') === true || record.get('typeid') === 1) {
+                                            return value || 'N/A';
+                                        }
+                                        return ''; // Empty for folder nodes
                                     }
                                 }, {
                                     text: 'Status',
                                     dataIndex: 'rental_status',
                                     flex: 1,
                                     renderer: function(value, metaData, record) {
+                                        // Only show for leaf nodes (vehicles), not for folder nodes
+                                        if (!(record.get('leaf') === true || record.get('typeid') === 1)) {
+                                            return ''; // Empty for folder nodes
+                                        }
+                                        
                                         // Determine rental status based on available data
                                         var rentalStatus = value || 'available'; // Default to available
                                         
