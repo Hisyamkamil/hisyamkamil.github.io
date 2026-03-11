@@ -94,10 +94,11 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                     }],
                     // Handle vehicle selection
                     listeners: {
-                        selectionchange: function(tree, selected) {
+                        selectionchange: function(selectionModel, selected) {
                             if (selected.length > 0) {
                                 var record = selected[0];
                                 var vehicleData = record.getData();
+                                var treePanel = selectionModel.getView().ownerCt; // Get the treepanel component
                                 
                                 // Store selected vehicle globally for auto-fill functionality
                                 window.RDMSelectedVehicle = {
@@ -118,8 +119,9 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                                 });
                                 
                                 // Update main panel with selected vehicle info
-                                if (tree.up('navigationtab').map_frame) {
-                                    var tokenPanel = tree.up('navigationtab').map_frame.down('[itemId=tokenmanagement]');
+                                var navTab = treePanel.up('navigationtab');
+                                if (navTab && navTab.map_frame) {
+                                    var tokenPanel = navTab.map_frame.down('[itemId=tokenmanagement]');
                                     if (tokenPanel) {
                                         // Update the TokenManagementPanel with vehicle info
                                         console.log('Vehicle selected from nav tree:', record.get('name'), 'ID:', record.get('id'));
