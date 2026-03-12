@@ -26,9 +26,162 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                 iconCls: 'fa fa-tachometer-alt',
                 itemId: 'dashboard',
                 layout: 'fit',
-                items: [
-                    Ext.create('Store.rdmtoken.view.DashboardPanel')
-                ],
+                items: [{
+                    xtype: 'treepanel',
+                    title: 'Vehicle Overview for Dashboard',
+                    tools: [{
+                        xtype: 'button',
+                        iconCls: 'fa fa-rotate',
+                        tooltip: 'Refresh Vehicle List',
+                        handler: function () {
+                            this.up('treepanel').getStore().load();
+                        }
+                    }],
+                    rootVisible: false,
+                    useArrows: true,
+                    border: false,
+                    // Create tree store that loads vehicle data from PILOT API
+                    store: Ext.create('Ext.data.TreeStore', {
+                        proxy: {
+                            type: 'ajax',
+                            url: '/ax/tree.php?vehs=1&state=1'
+                        },
+                        root: {
+                            text: 'Vehicles',
+                            expanded: true
+                        },
+                        autoLoad: true
+                    }),
+                    // Define columns for the vehicle tree
+                    columns: [{
+                        text: 'Vehicle',
+                        xtype: 'treecolumn',
+                        dataIndex: 'name',
+                        flex: 2,
+                        renderer: function(value) {
+                            return value || 'Unknown';
+                        }
+                    }, {
+                        text: 'Serial Number',
+                        dataIndex: 'vin',
+                        flex: 1,
+                        renderer: function(value, metaData, record) {
+                            // Only show for leaf nodes (vehicles), not for folder nodes
+                            if (record.get('leaf') === true || record.get('typeid') === 1) {
+                                return value || 'N/A';
+                            }
+                            return ''; // Empty for folder nodes
+                        }
+                    }, {
+                        text: 'IMEI',
+                        dataIndex: 'uniqid',
+                        flex: 1,
+                        renderer: function(value, metaData, record) {
+                            // Only show for leaf nodes (vehicles), not for folder nodes
+                            if (record.get('leaf') === true || record.get('typeid') === 1) {
+                                return value || 'N/A';
+                            }
+                            return ''; // Empty for folder nodes
+                        }
+                    }, {
+                        text: 'Status',
+                        dataIndex: 'rental_status',
+                        flex: 1,
+                        renderer: function(value, metaData, record) {
+                            // Only show for leaf nodes (vehicles), not for folder nodes
+                            if (!(record.get('leaf') === true || record.get('typeid') === 1)) {
+                                return ''; // Empty for folder nodes
+                            }
+                            
+                            // Determine rental status based on available data
+                            var rentalStatus = value || 'available'; // Default to available
+                            
+                            // If no explicit rental status, determine based on other fields
+                            if (!value) {
+                                // Check if vehicle has active contracts/tokens
+                                var isOnline = record.get('online');
+                                var hasActiveContract = record.get('active_contract'); // Assuming this field exists
+                                
+                                if (hasActiveContract) {
+                                    rentalStatus = 'rented';
+                                } else if (isOnline === 0 || isOnline === '0') {
+                                    rentalStatus = 'breakdown';
+                                } else {
+                                    rentalStatus = 'available';
+                                }
+                            }
+                            
+                            // Render status with appropriate colors
+                            switch(rentalStatus) {
+                                case 'available':
+                                    return '<span style="color: #28a745; font-weight: bold;">Available</span>';
+                                case 'rented':
+                                    return '<span style="color: #ffc107; font-weight: bold;">Rented</span>';
+                                case 'breakdown':
+                                    return '<span style="color: #dc3545; font-weight: bold;">Breakdown</span>';
+                                default:
+                                    return '<span style="color: #6c757d;">Unknown</span>';
+                            }
+                        }
+                    }, {
+                        text: 'Token Status',
+                        dataIndex: 'token_status',
+                        flex: 1,
+                        renderer: function(value, metaData, record) {
+                            // Only show for leaf nodes (vehicles), not for folder nodes
+                            if (!(record.get('leaf') === true || record.get('typeid') === 1)) {
+                                return ''; // Empty for folder nodes
+                            }
+                            
+                            // Determine token status
+                            var tokenStatus = value || 'no_token'; // Default to no token
+                            
+                            // Render status with appropriate colors
+                            switch(tokenStatus) {
+                                case 'active':
+                                    return '<span style="color: #28a745; font-weight: bold;">Active Token</span>';
+                                case 'expired':
+                                    return '<span style="color: #dc3545; font-weight: bold;">Expired Token</span>';
+                                case 'pending':
+                                    return '<span style="color: #ffc107; font-weight: bold;">Pending</span>';
+                                default:
+                                    return '<span style="color: #6c757d;">No Token</span>';
+                            }
+                        }
+                    }],
+                    // Handle vehicle selection for dashboard overview
+                    listeners: {
+                        selectionchange: function(selectionModel, selected) {
+                            if (selected.length > 0) {
+                                var record = selected[0];
+                                var vehicleData = record.getData();
+                                
+                                // Store selected vehicle globally for dashboard context
+                                window.RDMSelectedVehicleDashboard = {
+                                    id: vehicleData.id,
+                                    name: vehicleData.name,
+                                    vin: vehicleData.vin,
+                                    uniqid: vehicleData.uniqid, // IMEI
+                                    model: vehicleData.model,
+                                    year: vehicleData.year,
+                                    rentalStatus: vehicleData.rental_status,
+                                    tokenStatus: vehicleData.token_status,
+                                    online: vehicleData.online
+                                };
+                                
+                                console.log('Vehicle selected in Dashboard:', {
+                                    name: vehicleData.name,
+                                    vin: vehicleData.vin,
+                                    rentalStatus: vehicleData.rental_status,
+                                    tokenStatus: vehicleData.token_status
+                                });
+                            } else {
+                                // Clear selection
+                                window.RDMSelectedVehicleDashboard = null;
+                            }
+                        }
+                    }
+                }],
                 listeners: {
                     activate: this.onDashboardActivate.bind(this)
                 }
