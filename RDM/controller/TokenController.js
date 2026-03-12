@@ -1347,8 +1347,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 periodStart: this.formatDateToISO(values.periodStart),
                 periodExpiredToken: this.formatDateToISO(values.periodExpiredToken),
                 // Ensure numeric values
-                duration: parseInt(values.duration) + parseInt(values.additionalDuration || 0),
-                additionalDuration: parseInt(values.additionalDuration || 0),
+                duration: parseInt(values.duration, 10) + parseInt(values.additionalDuration || 0, 10),
+                additionalDuration: parseInt(values.additionalDuration || 0, 10),
                 requestorName: values.requestorName || 'Current User'
             };
             
@@ -1623,202 +1623,267 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     var tokenData = tokenRequestRecord.getData();
                     console.log('Token request data found:', tokenData);
                     
-                    // Prepare API request data according to specification
-                    var apiConfig = Store.rdmtoken.config.ApiConfig;
-                    var requestData = {
-                        requestId: tokenData.requestId || tokenData.id || tokenId,
-                        serialNumber: tokenData.serialNumber,
-                        imei: tokenData.imei, // Now available directly from grid data
-                        durationHours: parseInt(tokenData.durationHours) || 0,
-                        contractId: tokenData.contractId || tokenData.id
-                    };
-                    
-                    console.log('=== GENERATE TOKEN DEBUG INFO ===');
-                    console.log('Token data from grid:', tokenData);
-                    console.log('Request payload:', requestData);
-                    
-                    // Add optional geofenceData if available from contract details
-                    if (tokenData.geofenceDetails || tokenData.unitDetails?.geofenceDetails) {
-                        var geofence = tokenData.geofenceDetails || tokenData.unitDetails.geofenceDetails;
-                        if (geofence && geofence.latMin && geofence.latMax && geofence.lngMin && geofence.lngMax) {
-                            requestData.geofenceData = {
-                                latMin: parseFloat(geofence.latMin),
-                                latMax: parseFloat(geofence.latMax),
-                                lngMin: parseFloat(geofence.lngMin),
-                                lngMax: parseFloat(geofence.lngMax)
-                            };
-                            console.log('✓ Geofence data included:', requestData.geofenceData);
-                        }
+                    // Check if IMEI is missing and attempt dynamic lookup
+                    if (!tokenData.imei && tokenData.serialNumber) {
+                        console.log('⚠️ IMEI missing from stored data, attempting dynamic lookup...');
+                        console.log('Using serialNumber for IMEI lookup:', tokenData.serialNumber);
+                        
+                        // Perform dynamic IMEI lookup
+                        this.fetchImeiForTokenGeneration(tokenData, tokenId, function(imeiValue) {
+                            if (imeiValue) {
+                                console.log('✅ IMEI found via dynamic lookup:', imeiValue);
+                                tokenData.imei = imeiValue; // Update token data
+                                this.proceedWithTokenGeneration(tokenData, tokenId);
+                            } else {
+                                console.error('❌ Could not find IMEI for serialNumber:', tokenData.serialNumber);
+                                Ext.Msg.alert('IMEI Not Found',
+                                    'Could not find IMEI for vehicle with serial number: ' + tokenData.serialNumber +
+                                    '. Please verify the vehicle exists in the system.');
+                            }
+                        }.bind(this));
+                        return; // Exit here, continue in callback
                     }
                     
-                    // Validate required fields before API call
-                    var missingFields = [];
-                    if (!requestData.requestId) missingFields.push('requestId');
-                    if (!requestData.serialNumber) missingFields.push('serialNumber');
-                    if (!requestData.imei) missingFields.push('imei');
-                    if (!requestData.durationHours) missingFields.push('durationHours');
-                    if (!requestData.contractId) missingFields.push('contractId');
-                    
-                    if (missingFields.length > 0) {
-                        console.error('Missing required fields for generate token:', missingFields);
-                        Ext.Msg.alert('Validation Error',
-                            'Missing required data: ' + missingFields.join(', ') +
-                            '. Please ensure the token request has complete information.');
-                        return;
-                    }
-                    
-                    console.log('=== GENERATE TOKEN API REQUEST ===');
-                    console.log('API URL:', apiConfig.getUrl('tokenGenerate'));
-                    console.log('Request Data:', requestData);
-                    console.log('Required fields validation: PASSED');
-                    
-                    // Call the actual API
-                    Ext.Ajax.request({
-                        url: apiConfig.getUrl('tokenGenerate'),
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        jsonData: requestData,
-                        success: function(response) {
-                            console.log('=== GENERATE TOKEN API SUCCESS ===');
-                            console.log('Response:', response);
-                            console.log('Response Text:', response.responseText);
-                            
-                            Ext.Msg.hide();
-                            
-                            try {
-                                var result = Ext.decode(response.responseText);
-                                console.log('Parsed Result:', result);
-                                
-                                if (result.status === 200 && result.body) {
-                                    console.log('✅ Token generated successfully');
-                                    console.log('Token response data:', result.body);
-                                    
-                                    var responseData = result.body;
-                                    var expirationTime = responseData.expirationTime ?
-                                        Ext.util.Format.date(new Date(responseData.expirationTime), 'd M Y H:i') : 'Not specified';
-                                    
-                                    var successMessage = [
-                                        '<div style="text-align: center;">',
-                                        '<h3 style="color: #28a745; margin-bottom: 15px;"><i class="fa fa-check-circle"></i> Token Generated Successfully!</h3>',
-                                        
-                                        // STS Token Display - Most Important
-                                        '<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #2196f3;">',
-                                        '<h4 style="color: #1565c0; margin-bottom: 10px;">STS Token</h4>',
-                                        '<div style="font-size: 20px; font-weight: bold; color: #1565c0; font-family: monospace; letter-spacing: 1px;">' +
-                                        (responseData.stsDeliveryMethods?.display || responseData.stsToken || 'N/A') + '</div>',
-                                        '</div>',
-                                        '</div>',
-                                        
-                                        // Business Information - Left aligned for better readability
-                                        '<div style="text-align: left;">',
-                                        '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">',
-                                        '<h4 style="color: #495057; margin-bottom: 10px; text-align: center;">Contract Information</h4>',
-                                        '<table style="width: 100%; border-collapse: collapse;">',
-                                        '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Customer:</td><td style="padding: 5px;">' + (tokenData.customerName || 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">RO Number:</td><td style="padding: 5px;">' + (tokenData.roNumber || 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Serial Number:</td><td style="padding: 5px;">' + (responseData.stsEquipmentBinding?.serialNumber || requestData.serialNumber || 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Token Expires:</td><td style="padding: 5px; color: #dc3545; font-weight: 600;">' + expirationTime + '</td></tr>',
-                                        '</table>',
-                                        '</div>',
-                                        
-                                        // Equipment Information
-                                        '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">',
-                                        '<h4 style="color: #856404; margin-bottom: 10px; text-align: center;">Equipment Details</h4>',
-                                        '<table style="width: 100%; border-collapse: collapse;">',
-                                        '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Unit Name:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.unitName || 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Model:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.model || 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Year:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.year || 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">IMEI:</td><td style="padding: 5px; font-family: monospace;">' + (responseData.stsEquipmentBinding?.imei || requestData.imei || 'N/A') + '</td></tr>',
-                                        '</table>',
-                                        '</div>',
-                                        
-                                        // Contract Period
-                                        '<div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 15px 0;">',
-                                        '<h4 style="color: #0c5460; margin-bottom: 10px; text-align: center;">Contract Period</h4>',
-                                        '<table style="width: 100%; border-collapse: collapse;">',
-                                        '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Contract Start:</td><td style="padding: 5px;">' +
-                                        (tokenData.contractDetails?.contractStartDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractStartDate), 'd M Y') : 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Contract End:</td><td style="padding: 5px;">' +
-                                        (tokenData.contractDetails?.contractEndDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractEndDate), 'd M Y') : 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Duration:</td><td style="padding: 5px;">' + (tokenData.durationHours || 'N/A') + ' hours</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Contract Value:</td><td style="padding: 5px; color: #28a745; font-weight: 600;">Rp ' +
-                                        (tokenData.contractValue ? Ext.util.Format.number(tokenData.contractValue, '0,0') : 'N/A') + '</td></tr>',
-                                        '</table>',
-                                        '</div>',
-                                        
-                                        '<p style="color: #666; font-size: 14px; margin-top: 15px; text-align: center;">Please use the STS token above to activate the equipment. Keep this information safe as token cannot be retrieved again.</p>',
-                                        '</div>'
-                                    ].join('');
-                                    
-                                    Ext.Msg.alert('Token Generated', successMessage);
-                                } else {
-                                    console.error('❌ API returned error status:', result.status);
-                                    var errorMsg = 'Failed to generate token';
-                                    if (result.body && result.body.message) {
-                                        errorMsg = result.body.message;
-                                    } else if (result.body && result.body.error) {
-                                        errorMsg = result.body.error;
-                                    }
-                                    Ext.Msg.alert('Generate Token Failed', errorMsg);
-                                }
-                            } catch (parseError) {
-                                console.error('❌ Error parsing API response:', parseError);
-                                Ext.Msg.alert('Error', 'Invalid response from server');
-                            }
-                            
-                            // Refresh token grid regardless of success/error to show updated status
-                            me.refreshTokenGrid();
-                        },
-                        failure: function(response, options) {
-                            console.log('=== GENERATE TOKEN API FAILURE ===');
-                            console.error('❌ API Request failed');
-                            console.error('Response:', response);
-                            console.error('Response Status:', response.status);
-                            console.error('Response Text:', response.responseText);
-                            
-                            Ext.Msg.hide();
-                            
-                            var errorMessage = 'Failed to generate token - Network error occurred';
-                            
-                            if (response.status === 400) {
-                                errorMessage = 'Validation failed - Please check token request data is complete and valid';
-                            } else if (response.status === 401) {
-                                errorMessage = 'Authentication failed - Please check API credentials';
-                            } else if (response.status === 404) {
-                                errorMessage = 'Token request or contract not found';
-                            } else if (response.status === 500) {
-                                errorMessage = 'Server error - Please try again later';
-                            }
-                            
-                            if (response.responseText) {
-                                try {
-                                    var errorResult = Ext.decode(response.responseText);
-                                    if (errorResult.body && errorResult.body.message) {
-                                        errorMessage = errorResult.body.message;
-                                    } else if (errorResult.message) {
-                                        errorMessage = errorResult.message;
-                                    } else if (errorResult.error) {
-                                        errorMessage = errorResult.error;
-                                    }
-                                    console.error('Parsed error:', errorResult);
-                                } catch (e) {
-                                    console.error('Could not parse error response:', e);
-                                }
-                            }
-                            
-                            Ext.Msg.alert('Generate Token Failed',
-                                errorMessage + '<br><br><strong>Debug Info:</strong><br>' +
-                                'Status: ' + response.status + '<br>' +
-                                'Request ID: ' + (requestData.requestId || 'N/A') + '<br>' +
-                                'Serial Number: ' + (requestData.serialNumber || 'N/A')
-                            );
-                        }
-                    });
+                    // Proceed with token generation if IMEI is available
+                    this.proceedWithTokenGeneration(tokenData, tokenId);
                 }
             }
         );
+    },
+
+    /**
+     * Fetch IMEI dynamically for token generation when missing from stored data
+     */
+    fetchImeiForTokenGeneration: function(tokenData, tokenId, callback) {
+        console.log('=== DYNAMIC IMEI LOOKUP FOR TOKEN GENERATION ===');
+        console.log('Looking up IMEI for serialNumber:', tokenData.serialNumber);
+        
+        Ext.Ajax.request({
+            url: '/ax/tree.php?vehs=1&state=1',
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Vehicle tree loaded for IMEI lookup, records:', result.length);
+                    
+                    var imei = this.findImeiByUnitId(result, tokenData.serialNumber);
+                    callback(imei);
+                } catch (e) {
+                    console.error('❌ Error parsing vehicle tree response for IMEI lookup:', e);
+                    callback(null);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('❌ Failed to fetch vehicle tree data for IMEI lookup:', response);
+                callback(null);
+            }
+        });
+    },
+
+    /**
+     * Proceed with token generation after IMEI is confirmed available
+     */
+    proceedWithTokenGeneration: function(tokenData, tokenId) {
+        console.log('=== PROCEEDING WITH TOKEN GENERATION ===');
+        
+        // Prepare API request data according to specification
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
+        var requestData = {
+            requestId: tokenData.requestId || tokenData.id || tokenId,
+            serialNumber: tokenData.serialNumber,
+            imei: tokenData.imei, // Now guaranteed to be available
+            durationHours: parseInt(tokenData.durationHours, 10) || 0,
+            contractId: tokenData.contractId || tokenData.id
+        };
+        
+        console.log('=== GENERATE TOKEN DEBUG INFO ===');
+        console.log('Token data from grid:', tokenData);
+        console.log('Request payload:', requestData);
+        
+        // Add optional geofenceData if available from contract details
+        if (tokenData.geofenceDetails || tokenData.unitDetails?.geofenceDetails) {
+            var geofence = tokenData.geofenceDetails || tokenData.unitDetails.geofenceDetails;
+            if (geofence && geofence.latMin && geofence.latMax && geofence.lngMin && geofence.lngMax) {
+                requestData.geofenceData = {
+                    latMin: parseFloat(geofence.latMin),
+                    latMax: parseFloat(geofence.latMax),
+                    lngMin: parseFloat(geofence.lngMin),
+                    lngMax: parseFloat(geofence.lngMax)
+                };
+                console.log('✓ Geofence data included:', requestData.geofenceData);
+            }
+        }
+        
+        // Validate required fields before API call
+        var missingFields = [];
+        if (!requestData.requestId) missingFields.push('requestId');
+        if (!requestData.serialNumber) missingFields.push('serialNumber');
+        if (!requestData.imei) missingFields.push('imei');
+        if (!requestData.durationHours) missingFields.push('durationHours');
+        if (!requestData.contractId) missingFields.push('contractId');
+        
+        if (missingFields.length > 0) {
+            console.error('Missing required fields for generate token:', missingFields);
+            Ext.Msg.alert('Validation Error',
+                'Missing required data: ' + missingFields.join(', ') +
+                '. Please ensure the token request has complete information.');
+            return;
+        }
+        
+        console.log('=== GENERATE TOKEN API REQUEST ===');
+        console.log('API URL:', apiConfig.getUrl('tokenGenerate'));
+        console.log('Request Data:', requestData);
+        console.log('Required fields validation: PASSED');
+        
+        // Call the actual API
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('tokenGenerate'),
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            jsonData: requestData,
+            success: function(response) {
+                console.log('=== GENERATE TOKEN API SUCCESS ===');
+                console.log('Response:', response);
+                console.log('Response Text:', response.responseText);
+                
+                Ext.Msg.hide();
+                
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Parsed Result:', result);
+                    
+                    if (result.status === 200 && result.body) {
+                        console.log('✅ Token generated successfully');
+                        console.log('Token response data:', result.body);
+                        
+                        var responseData = result.body;
+                        var expirationTime = responseData.expirationTime ?
+                            Ext.util.Format.date(new Date(responseData.expirationTime), 'd M Y H:i') : 'Not specified';
+                        
+                        var successMessage = [
+                            '<div style="text-align: center;">',
+                            '<h3 style="color: #28a745; margin-bottom: 15px;"><i class="fa fa-check-circle"></i> Token Generated Successfully!</h3>',
+                            
+                            // STS Token Display - Most Important
+                            '<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #2196f3;">',
+                            '<h4 style="color: #1565c0; margin-bottom: 10px;">STS Token</h4>',
+                            '<div style="font-size: 20px; font-weight: bold; color: #1565c0; font-family: monospace; letter-spacing: 1px;">' +
+                            (responseData.stsDeliveryMethods?.display || responseData.stsToken || 'N/A') + '</div>',
+                            '</div>',
+                            '</div>',
+                            
+                            // Business Information - Left aligned for better readability
+                            '<div style="text-align: left;">',
+                            '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+                            '<h4 style="color: #495057; margin-bottom: 10px; text-align: center;">Contract Information</h4>',
+                            '<table style="width: 100%; border-collapse: collapse;">',
+                            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Customer:</td><td style="padding: 5px;">' + (tokenData.customerName || 'N/A') + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">RO Number:</td><td style="padding: 5px;">' + (tokenData.roNumber || 'N/A') + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Serial Number:</td><td style="padding: 5px;">' + (responseData.stsEquipmentBinding?.serialNumber || requestData.serialNumber || 'N/A') + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Token Expires:</td><td style="padding: 5px; color: #dc3545; font-weight: 600;">' + expirationTime + '</td></tr>',
+                            '</table>',
+                            '</div>',
+                            
+                            // Equipment Information
+                            '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+                            '<h4 style="color: #856404; margin-bottom: 10px; text-align: center;">Equipment Details</h4>',
+                            '<table style="width: 100%; border-collapse: collapse;">',
+                            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Unit Name:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.unitName || 'N/A') + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Model:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.model || 'N/A') + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Year:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.year || 'N/A') + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">IMEI:</td><td style="padding: 5px; font-family: monospace;">' + (responseData.stsEquipmentBinding?.imei || requestData.imei || 'N/A') + '</td></tr>',
+                            '</table>',
+                            '</div>',
+                            
+                            // Contract Period
+                            '<div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+                            '<h4 style="color: #0c5460; margin-bottom: 10px; text-align: center;">Contract Period</h4>',
+                            '<table style="width: 100%; border-collapse: collapse;">',
+                            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Contract Start:</td><td style="padding: 5px;">' +
+                            (tokenData.contractDetails?.contractStartDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractStartDate), 'd M Y') : 'N/A') + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Contract End:</td><td style="padding: 5px;">' +
+                            (tokenData.contractDetails?.contractEndDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractEndDate), 'd M Y') : 'N/A') + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Duration:</td><td style="padding: 5px;">' + (tokenData.durationHours || 'N/A') + ' hours</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Contract Value:</td><td style="padding: 5px; color: #28a745; font-weight: 600;">Rp ' +
+                            (tokenData.contractValue ? Ext.util.Format.number(tokenData.contractValue, '0,0') : 'N/A') + '</td></tr>',
+                            '</table>',
+                            '</div>',
+                            
+                            '<p style="color: #666; font-size: 14px; margin-top: 15px; text-align: center;">Please use the STS token above to activate the equipment. Keep this information safe as token cannot be retrieved again.</p>',
+                            '</div>'
+                        ].join('');
+                        
+                        Ext.Msg.alert('Token Generated', successMessage);
+                    } else {
+                        console.error('❌ API returned error status:', result.status);
+                        var errorMsg = 'Failed to generate token';
+                        if (result.body && result.body.message) {
+                            errorMsg = result.body.message;
+                        } else if (result.body && result.body.error) {
+                            errorMsg = result.body.error;
+                        }
+                        Ext.Msg.alert('Generate Token Failed', errorMsg);
+                    }
+                } catch (parseError) {
+                    console.error('❌ Error parsing API response:', parseError);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+                
+                // Refresh token grid regardless of success/error to show updated status
+                me.refreshTokenGrid();
+            },
+            failure: function(response, options) {
+                console.log('=== GENERATE TOKEN API FAILURE ===');
+                console.error('❌ API Request failed');
+                console.error('Response:', response);
+                console.error('Response Status:', response.status);
+                console.error('Response Text:', response.responseText);
+                
+                Ext.Msg.hide();
+                
+                var errorMessage = 'Failed to generate token - Network error occurred';
+                
+                if (response.status === 400) {
+                    errorMessage = 'Validation failed - Please check token request data is complete and valid';
+                } else if (response.status === 401) {
+                    errorMessage = 'Authentication failed - Please check API credentials';
+                } else if (response.status === 404) {
+                    errorMessage = 'Token request or contract not found';
+                } else if (response.status === 500) {
+                    errorMessage = 'Server error - Please try again later';
+                }
+                
+                if (response.responseText) {
+                    try {
+                        var errorResult = Ext.decode(response.responseText);
+                        if (errorResult.body && errorResult.body.message) {
+                            errorMessage = errorResult.body.message;
+                        } else if (errorResult.message) {
+                            errorMessage = errorResult.message;
+                        } else if (errorResult.error) {
+                            errorMessage = errorResult.error;
+                        }
+                        console.error('Parsed error:', errorResult);
+                    } catch (e) {
+                        console.error('Could not parse error response:', e);
+                    }
+                }
+                
+                Ext.Msg.alert('Generate Token Failed',
+                    errorMessage + '<br><br><strong>Debug Info:</strong><br>' +
+                    'Status: ' + response.status + '<br>' +
+                    'Request ID: ' + (requestData.requestId || 'N/A') + '<br>' +
+                    'Serial Number: ' + (requestData.serialNumber || 'N/A')
+                );
+            }
+        });
     },
 
     /**
@@ -1988,8 +2053,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                         var requestData = {
                             tokenId: tokenId,
                             topUpType: formValues.topup_type,
-                            timeExtension: formValues.topup_type === 'time' ? parseInt(formValues.time_extension) : 0,
-                            creditAmount: formValues.topup_type === 'credit' ? parseInt(formValues.credit_amount) : 0,
+                            timeExtension: formValues.topup_type === 'time' ? parseInt(formValues.time_extension, 10) : 0,
+                            creditAmount: formValues.topup_type === 'credit' ? parseInt(formValues.credit_amount, 10) : 0,
                             notes: formValues.topup_notes || '',
                             timestamp: new Date().toISOString()
                         };
@@ -3124,8 +3189,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             // Add optional fields
             if (values.customerCode) requestData.customerCode = values.customerCode;
             if (values.salesRepresentative) requestData.salesRepresentative = values.salesRepresentative;
-            if (values.durationHours) requestData.durationHours = parseInt(values.durationHours);
-            if (values.additionalDurationHours) requestData.additionalDurationHours = parseInt(values.additionalDurationHours);
+            if (values.durationHours) requestData.durationHours = parseInt(values.durationHours, 10);
+            if (values.additionalDurationHours) requestData.additionalDurationHours = parseInt(values.additionalDurationHours, 10);
 
             // Add geofence details if provided
             if (values.latMin || values.latMax || values.lngMin || values.lngMax) {
