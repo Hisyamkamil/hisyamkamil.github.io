@@ -1087,6 +1087,19 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         modal.contractId = contractData.id;
         console.log('✓ Contract ID stored:', contractData.id);
         
+        // Fill serial number from contract.unitId (correct mapping)
+        if (contractData.unitId) {
+            var serialField = form.down('field[name=serialNumber]');
+            if (serialField) {
+                serialField.setValue(contractData.unitId);
+                serialField.setReadOnly(true);
+                console.log('✓ Serial Number filled:', contractData.unitId);
+                
+                // Fetch IMEI from vehicle tree API based on unitId
+                this.fetchImeiFromVehicleTree(contractData.unitId, form);
+            }
+        }
+        
         // Auto-fill contract fields with correct API field mapping
         if (contractData.customerName) {
             var customerField = form.down('field[name=customerName]');
@@ -1170,6 +1183,79 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         }
         
         console.log('✅ Form population complete with correct field mapping and geofence auto-fill');
+    },
+
+    /**
+     * Fetch IMEI from vehicle tree API based on unitId (serial number)
+     * IMEI is mapped from vehicle.uniqid field
+     */
+    fetchImeiFromVehicleTree: function(unitId, form) {
+        console.log('Fetching IMEI for unitId:', unitId);
+        
+        Ext.Ajax.request({
+            url: '/ax/tree.php?vehs=1&state=1',
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Vehicle tree data loaded for IMEI lookup');
+                    
+                    var imei = this.findImeiByUnitId(result, unitId);
+                    if (imei) {
+                        var imeiField = form.down('field[name=imei]');
+                        if (imeiField) {
+                            imeiField.setValue(imei);
+                            imeiField.setReadOnly(true);
+                            console.log('✓ IMEI filled:', imei);
+                        }
+                    } else {
+                        console.warn('IMEI not found for unitId:', unitId);
+                    }
+                } catch (e) {
+                    console.error('Error parsing vehicle tree response for IMEI:', e);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to fetch vehicle tree data for IMEI:', response);
+            }
+        });
+    },
+
+    /**
+     * Find IMEI (uniqid) by matching unitId with vehicle.vin
+     * @param {Array} treeData - Vehicle tree data from API
+     * @param {String} unitId - Unit ID to search for
+     * @returns {String|null} - IMEI (uniqid) if found
+     */
+    findImeiByUnitId: function(treeData, unitId) {
+        if (!Array.isArray(treeData)) {
+            return null;
+        }
+        
+        // Search through tree structure for matching vehicle
+        for (var i = 0; i < treeData.length; i++) {
+            var orgNode = treeData[i];
+            if (orgNode.children && Array.isArray(orgNode.children)) {
+                for (var j = 0; j < orgNode.children.length; j++) {
+                    var vehicle = orgNode.children[j];
+                    if (vehicle.leaf && vehicle.iconCls === 'car_icon') {
+                        // Match unitId with vehicle.vin
+                        if (vehicle.vin === unitId) {
+                            console.log('Vehicle found for unitId:', unitId, 'IMEI:', vehicle.uniqid);
+                            return vehicle.uniqid || null;
+                        }
+                    }
+                }
+            }
+        }
+        
+        console.warn('No vehicle found with vin matching unitId:', unitId);
+        return null;
     },
 
     getCurrentContractId: function(modal) {
