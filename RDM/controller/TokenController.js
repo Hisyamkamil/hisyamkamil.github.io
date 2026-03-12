@@ -2342,19 +2342,84 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                 },
                                 items: [
                                     {
-                                        xtype: 'textfield',
-                                        fieldLabel: 'Unit ID (Serial/VIN) *',
-                                        name: 'unitId',
+                                        xtype: 'combobox',
+                                        fieldLabel: 'Select Unit *',
+                                        name: 'unitSelection',
                                         allowBlank: false,
-                                        emptyText: 'Enter unit identifier...',
+                                        emptyText: 'Select unit from list...',
                                         cls: 'required-field',
-                                        maxLength: 100
+                                        displayField: 'displayName',
+                                        valueField: 'id',
+                                        queryMode: 'local',
+                                        editable: true,
+                                        typeAhead: true,
+                                        forceSelection: true,
+                                        store: {
+                                            fields: ['id', 'name', 'vin', 'model', 'year', 'typename', 'uniqid', 'displayName'],
+                                            data: []
+                                        },
+                                        listeners: {
+                                            select: this.onUnitSelectionChange.bind(this)
+                                        }
                                     },
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Unit ID (Serial/VIN)',
+                                        name: 'unitId',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from selection',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            },
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                margin: '10 0 0 0',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
                                     {
                                         xtype: 'textfield',
                                         fieldLabel: 'Unit Name',
                                         name: 'unitName',
-                                        emptyText: 'Enter unit name...',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from selection'
+                                    },
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Model',
+                                        name: 'unitModel',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from selection',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            },
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                margin: '10 0 0 0',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Year',
+                                        name: 'unitYear',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from selection'
+                                    },
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Type',
+                                        name: 'unitType',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from selection',
                                         margin: '0 0 0 8'
                                     }
                                 ]
@@ -2551,10 +2616,48 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                 },
                                 items: [
                                     {
+                                        xtype: 'combobox',
+                                        fieldLabel: 'Select Geofence Zone',
+                                        name: 'geofenceSelection',
+                                        emptyText: 'Select geofence zone...',
+                                        displayField: 'displayName',
+                                        valueField: 'zone_id',
+                                        queryMode: 'local',
+                                        editable: true,
+                                        typeAhead: true,
+                                        forceSelection: false,
+                                        store: {
+                                            fields: ['zone_id', 'name', 'text', 'points', 'color', 'zonetype', 'displayName', 'coordinates'],
+                                            data: []
+                                        },
+                                        listeners: {
+                                            select: this.onGeofenceSelectionChange.bind(this)
+                                        }
+                                    },
+                                    {
+                                        xtype: 'displayfield',
+                                        fieldLabel: 'Zone Type',
+                                        name: 'geofenceType',
+                                        value: 'No zone selected',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            },
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                margin: '10 0 0 0',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
                                         xtype: 'numberfield',
                                         fieldLabel: 'Min Latitude',
                                         name: 'latMin',
-                                        emptyText: 'e.g., -6.5',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from zone',
                                         decimalPrecision: 6,
                                         fieldStyle: 'text-align: right'
                                     },
@@ -2562,7 +2665,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                         xtype: 'numberfield',
                                         fieldLabel: 'Max Latitude',
                                         name: 'latMax',
-                                        emptyText: 'e.g., -6.2',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from zone',
                                         decimalPrecision: 6,
                                         fieldStyle: 'text-align: right',
                                         margin: '0 0 0 8'
@@ -2582,7 +2686,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                         xtype: 'numberfield',
                                         fieldLabel: 'Min Longitude',
                                         name: 'lngMin',
-                                        emptyText: 'e.g., 106.6',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from zone',
                                         decimalPrecision: 6,
                                         fieldStyle: 'text-align: right'
                                     },
@@ -2590,7 +2695,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                         xtype: 'numberfield',
                                         fieldLabel: 'Max Longitude',
                                         name: 'lngMax',
-                                        emptyText: 'e.g., 106.9',
+                                        readOnly: true,
+                                        emptyText: 'Auto-filled from zone',
                                         decimalPrecision: 6,
                                         fieldStyle: 'text-align: right',
                                         margin: '0 0 0 8'
@@ -2628,15 +2734,14 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             }]
         });
 
+        // Load vehicle tree data and geofence zones
+        this.loadVehicleTreeForContract(modal);
+        this.loadGeofenceZonesForContract(modal);
+        
         // Auto-fill vehicle data if available
         if (isAutoFill && vehicleData) {
-            var form = modal.down('#contractForm');
-            if (vehicleData.vin) {
-                form.down('field[name=unitId]').setValue(vehicleData.vin);
-            }
-            if (vehicleData.model) {
-                form.down('field[name=unitName]').setValue(vehicleData.model);
-            }
+            // Auto-fill will happen after vehicle tree loads
+            modal.autoFillVehicleData = vehicleData;
         }
 
         // Fill edit data if editing existing contract
@@ -2828,6 +2933,330 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             
             Ext.Msg.alert('Validation Error', 'Please fill in all required fields correctly.');
         }
+    },
+
+    /**
+     * Load vehicle tree data for contract modal
+     */
+    loadVehicleTreeForContract: function(modal) {
+        console.log('Loading vehicle tree data for contract modal...');
+        
+        Ext.Ajax.request({
+            url: '/ax/tree.php?vehs=1&state=1',
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                console.log('Vehicle tree data loaded successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Vehicle tree API response:', result);
+                    
+                    this.processVehicleTreeForContract(modal, result);
+                } catch (e) {
+                    console.error('Error parsing vehicle tree response:', e);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load vehicle tree data:', response);
+                // Show fallback empty store
+                var combo = modal.down('combobox[name=unitSelection]');
+                if (combo && combo.getStore()) {
+                    combo.getStore().loadData([]);
+                }
+            }
+        });
+    },
+
+    /**
+     * Process vehicle tree API response and populate dropdown
+     */
+    processVehicleTreeForContract: function(modal, treeData) {
+        console.log('Processing vehicle tree data for contract dropdown...');
+        
+        var vehicles = [];
+        
+        // Extract vehicles from tree structure
+        if (Array.isArray(treeData)) {
+            treeData.forEach(function(orgNode) {
+                if (orgNode.children && Array.isArray(orgNode.children)) {
+                    orgNode.children.forEach(function(vehicle) {
+                        if (vehicle.leaf && vehicle.iconCls === 'car_icon') {
+                            vehicles.push({
+                                id: vehicle.vehid || vehicle.id,
+                                name: vehicle.name,
+                                vin: vehicle.vin,
+                                model: vehicle.model || '',
+                                year: vehicle.year || '',
+                                typename: vehicle.typename || '',
+                                uniqid: vehicle.uniqid || '',
+                                group: orgNode.name || '',
+                                displayName: vehicle.name + ' (' + vehicle.vin + ') - ' + (orgNode.name || 'Unknown Group')
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        
+        console.log('Extracted vehicles for dropdown:', vehicles.length);
+        
+        // Populate the dropdown store
+        var combo = modal.down('combobox[name=unitSelection]');
+        if (combo && combo.getStore()) {
+            combo.getStore().loadData(vehicles);
+            console.log('✅ Vehicle dropdown populated with', vehicles.length, 'vehicles');
+            
+            // Auto-select vehicle if auto-fill data is available
+            if (modal.autoFillVehicleData && modal.autoFillVehicleData.vin) {
+                var matchingVehicle = vehicles.find(function(v) {
+                    return v.vin === modal.autoFillVehicleData.vin;
+                });
+                
+                if (matchingVehicle) {
+                    combo.setValue(matchingVehicle.id);
+                    this.fillContractFormWithVehicle(modal, matchingVehicle);
+                    console.log('✅ Auto-selected vehicle:', matchingVehicle.name);
+                }
+            }
+        }
+    },
+
+    /**
+     * Handle unit selection change event
+     */
+    onUnitSelectionChange: function(combo, record) {
+        console.log('Unit selection changed:', record.getData());
+        
+        var vehicleData = record.getData();
+        var modal = combo.up('window');
+        
+        if (modal && vehicleData) {
+            this.fillContractFormWithVehicle(modal, vehicleData);
+        }
+    },
+
+    /**
+     * Fill contract form with selected vehicle data
+     */
+    fillContractFormWithVehicle: function(modal, vehicleData) {
+        console.log('Filling contract form with vehicle data:', vehicleData);
+        
+        var form = modal.down('#contractForm');
+        if (!form) return;
+        
+        // Fill equipment fields
+        var fieldMappings = {
+            'unitId': vehicleData.vin,
+            'unitName': vehicleData.name,
+            'unitModel': vehicleData.model,
+            'unitYear': vehicleData.year,
+            'unitType': vehicleData.typename
+        };
+        
+        Object.keys(fieldMappings).forEach(function(fieldName) {
+            var field = form.down('field[name=' + fieldName + ']');
+            var value = fieldMappings[fieldName];
+            if (field && value) {
+                field.setValue(value);
+                console.log('✓', fieldName, 'filled:', value);
+            }
+        });
+        
+        console.log('✅ Contract form filled with vehicle data');
+    },
+
+    /**
+     * Load geofence zones data for contract modal
+     */
+    loadGeofenceZonesForContract: function(modal) {
+        console.log('Loading geofence zones data for contract modal...');
+        
+        Ext.Ajax.request({
+            url: '/ax/zones.php',
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                console.log('Geofence zones data loaded successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Geofence zones API response:', result);
+                    
+                    this.processGeofenceZonesForContract(modal, result);
+                } catch (e) {
+                    console.error('Error parsing geofence zones response:', e);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load geofence zones data:', response);
+                // Show fallback empty store
+                var combo = modal.down('combobox[name=geofenceSelection]');
+                if (combo && combo.getStore()) {
+                    combo.getStore().loadData([]);
+                }
+            }
+        });
+    },
+
+    /**
+     * Process geofence zones API response and populate dropdown
+     */
+    processGeofenceZonesForContract: function(modal, zonesData) {
+        console.log('Processing geofence zones data for contract dropdown...');
+        
+        var zones = [];
+        
+        // Extract zones from tree structure
+        if (Array.isArray(zonesData)) {
+            zonesData.forEach(function(groupNode) {
+                if (groupNode.children && Array.isArray(groupNode.children)) {
+                    groupNode.children.forEach(function(zone) {
+                        if (zone.leaf && zone.iconCls === 'zone_icon') {
+                            // Parse coordinates from points or metadata.points
+                            var coordinates = this.parseGeofencePoints(zone.points || zone.metadata?.points);
+                            
+                            zones.push({
+                                zone_id: zone.zone_id || zone.id,
+                                name: zone.name,
+                                text: zone.text,
+                                points: zone.points || zone.metadata?.points || '',
+                                color: zone.color || zone.metadata?.color,
+                                zonetype: zone.zonetype || zone.metadata?.zonetype,
+                                coordinates: coordinates,
+                                group: groupNode.name || groupNode.text || '',
+                                displayName: (zone.text || zone.name) + ' - ' + (groupNode.name || groupNode.text || 'Unknown Group')
+                            });
+                        }
+                    }.bind(this));
+                }
+            }.bind(this));
+        }
+        
+        console.log('Extracted geofence zones for dropdown:', zones.length);
+        
+        // Populate the dropdown store
+        var combo = modal.down('combobox[name=geofenceSelection]');
+        if (combo && combo.getStore()) {
+            combo.getStore().loadData(zones);
+            console.log('✅ Geofence dropdown populated with', zones.length, 'zones');
+        }
+    },
+
+    /**
+     * Parse geofence points string to extract coordinate bounds
+     */
+    parseGeofencePoints: function(pointsString) {
+        if (!pointsString || typeof pointsString !== 'string') {
+            return null;
+        }
+        
+        try {
+            // Points can be in format: "lat1,lng1,lat2,lng2" or "lat1,lng1;lat2,lng2" etc.
+            var coords = pointsString.split(/[,;]/).map(function(coord) {
+                return parseFloat(coord.trim());
+            }).filter(function(coord) {
+                return !isNaN(coord);
+            });
+            
+            if (coords.length >= 2) {
+                var lats = [];
+                var lngs = [];
+                
+                // Extract lat/lng pairs
+                for (var i = 0; i < coords.length; i += 2) {
+                    if (i + 1 < coords.length) {
+                        lats.push(coords[i]);
+                        lngs.push(coords[i + 1]);
+                    }
+                }
+                
+                if (lats.length > 0 && lngs.length > 0) {
+                    return {
+                        latMin: Math.min.apply(null, lats),
+                        latMax: Math.max.apply(null, lats),
+                        lngMin: Math.min.apply(null, lngs),
+                        lngMax: Math.max.apply(null, lngs)
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn('Error parsing geofence points:', pointsString, e);
+        }
+        
+        return null;
+    },
+
+    /**
+     * Handle geofence selection change event
+     */
+    onGeofenceSelectionChange: function(combo, record) {
+        console.log('Geofence selection changed:', record.getData());
+        
+        var zoneData = record.getData();
+        var modal = combo.up('window');
+        
+        if (modal && zoneData) {
+            this.fillContractFormWithGeofence(modal, zoneData);
+        }
+    },
+
+    /**
+     * Fill contract form with selected geofence data
+     */
+    fillContractFormWithGeofence: function(modal, zoneData) {
+        console.log('Filling contract form with geofence data:', zoneData);
+        
+        var form = modal.down('#contractForm');
+        if (!form) return;
+        
+        // Update zone type display
+        var zoneTypeField = form.down('field[name=geofenceType]');
+        if (zoneTypeField) {
+            var zoneTypeText = this.getZoneTypeText(zoneData.zonetype);
+            zoneTypeField.setValue('<span style="color: ' + (zoneData.color || '#666') + '; font-weight: 600;">' + zoneTypeText + '</span>');
+        }
+        
+        // Fill coordinate fields if coordinates are available
+        if (zoneData.coordinates) {
+            var coordMappings = {
+                'latMin': zoneData.coordinates.latMin,
+                'latMax': zoneData.coordinates.latMax,
+                'lngMin': zoneData.coordinates.lngMin,
+                'lngMax': zoneData.coordinates.lngMax
+            };
+            
+            Object.keys(coordMappings).forEach(function(fieldName) {
+                var field = form.down('field[name=' + fieldName + ']');
+                var value = coordMappings[fieldName];
+                if (field && value !== undefined && value !== null) {
+                    field.setValue(value);
+                    console.log('✓', fieldName, 'filled:', value);
+                }
+            });
+        }
+        
+        console.log('✅ Contract form filled with geofence data');
+    },
+
+    /**
+     * Get human-readable zone type text
+     */
+    getZoneTypeText: function(zonetype) {
+        var zoneTypes = {
+            1: 'Standard Zone',
+            2: 'Restricted Area',
+            3: 'Speed Limit Zone',
+            4: 'Custom Zone'
+        };
+        
+        return zoneTypes[zonetype] || 'Zone Type ' + (zonetype || 'Unknown');
     },
 
     showContractSuccessModal: function(responseData, requestData, isEdit) {
