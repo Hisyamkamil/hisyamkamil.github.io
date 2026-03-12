@@ -1537,28 +1537,46 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                 
                                 if (result.status === 200 && result.body) {
                                     console.log('✅ Token generated successfully');
+                                    console.log('Token response data:', result.body);
                                     
                                     var responseData = result.body;
+                                    var expirationTime = responseData.expirationTime ?
+                                        Ext.util.Format.date(new Date(responseData.expirationTime), 'd M Y H:i') : 'Not specified';
+                                    
                                     var successMessage = [
-                                        'Token generated successfully!<br><br>',
-                                        '<strong>Request ID:</strong> ' + (responseData.requestId || tokenId) + '<br>',
-                                        '<strong>Serial Number:</strong> ' + (responseData.serialNumber || requestData.serialNumber) + '<br>',
-                                        '<strong>Status:</strong> <span style="color: #28a745;">Active</span><br>'
-                                    ];
+                                        '<div style="text-align: center;">',
+                                        '<h3 style="color: #28a745; margin-bottom: 15px;"><i class="fa fa-check-circle"></i> Token Generated Successfully!</h3>',
+                                        
+                                        // STS Token Display - Most Important
+                                        '<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #2196f3;">',
+                                        '<h4 style="color: #1565c0; margin-bottom: 10px;">STS Token</h4>',
+                                        '<div style="font-size: 20px; font-weight: bold; color: #1565c0; font-family: monospace; letter-spacing: 1px;">' +
+                                        (responseData.stsDeliveryMethods?.display || responseData.stsToken || 'N/A') + '</div>',
+                                        '</div>',
+                                        
+                                        // Key Information
+                                        '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+                                        '<table style="width: 100%; text-align: left;">',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Token Type:</td><td style="padding: 5px;"><span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 3px;">' + (responseData.tokenType || 'STS') + '</span></td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Serial Number:</td><td style="padding: 5px;">' + (responseData.stsEquipmentBinding?.serialNumber || requestData.serialNumber || 'N/A') + '</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Expires:</td><td style="padding: 5px; color: #dc3545; font-weight: 600;">' + expirationTime + '</td></tr>',
+                                        '</table>',
+                                        '</div>',
+                                        
+                                        // Delivery Methods
+                                        '<div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+                                        '<h4 style="color: #495057; margin-bottom: 10px;">Token Formats</h4>',
+                                        '<div style="font-size: 12px;">',
+                                        '<strong>Manual Entry:</strong> <span style="font-family: monospace;">' + (responseData.stsDeliveryMethods?.manual || 'N/A') + '</span><br>',
+                                        '<strong>SMS Format:</strong> <span style="font-family: monospace;">' + (responseData.stsDeliveryMethods?.sms || 'N/A') + '</span>',
+                                        '</div>',
+                                        '</div>',
+                                        
+                                        '<p style="color: #666; font-size: 14px; margin-top: 15px;">Use the token above for equipment activation. Token will expire on the specified date.</p>',
+                                        '</div>'
+                                    ].join('');
                                     
-                                    if (responseData.jwtToken) {
-                                        successMessage.push('<strong>JWT Token:</strong> ' + responseData.jwtToken.substring(0, 30) + '...<br>');
-                                    }
-                                    
-                                    if (responseData.expirationDate) {
-                                        successMessage.push('<strong>Valid until:</strong> ' + Ext.util.Format.date(new Date(responseData.expirationDate), 'Y-m-d H:i') + '<br>');
-                                    }
-                                    
-                                    if (responseData.durationHours) {
-                                        successMessage.push('<strong>Duration:</strong> ' + responseData.durationHours + ' hours');
-                                    }
-                                    
-                                    Ext.Msg.alert('Token Generated', successMessage.join(''));
+                                    Ext.Msg.alert('Token Generated', successMessage);
                                 } else {
                                     console.error('❌ API returned error status:', result.status);
                                     var errorMsg = 'Failed to generate token';
