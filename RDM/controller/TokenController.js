@@ -1184,15 +1184,13 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         
         // Auto-fill geofence based on geofenceDetails coordinates from contract
         if (contractData.geofenceDetails) {
-            var geofenceField = form.down('field[name=geofence]');
-            if (geofenceField && geofenceField.getStore()) {
-                var geofenceValue = this.mapCoordinatesToGeofenceArea(contractData.geofenceDetails);
-                if (geofenceValue) {
-                    geofenceField.setValue(geofenceValue);
-                    geofenceField.setReadOnly(true);
-                    console.log('✓ Geofence auto-filled:', geofenceValue, 'from coordinates:', contractData.geofenceDetails);
-                }
-            }
+            console.log('=== STARTING GEOFENCE AUTO-FILL ===');
+            console.log('Contract geofence details:', contractData.geofenceDetails);
+            
+            // Load actual geofence zones and match with contract coordinates
+            this.loadGeofenceZonesForAutoFill(form, contractData.geofenceDetails);
+        } else {
+            console.log('⚠️ No geofence details in contract - skipping geofence auto-fill');
         }
         
         console.log('✅ Form population complete with correct field mapping and geofence auto-fill');
@@ -2080,56 +2078,188 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     /**
-     * Map geofence coordinates from contract API to predefined geofence area names
+     * Map geofence coordinates from contract API to actual geofence zones from /ax/zones.php
      * @param {Object} geofenceDetails - Coordinate bounds from contract API
-     * @returns {String|null} - Geofence area value for form field
+     * @param {Array} availableZones - Zones loaded from /ax/zones.php API
+     * @returns {String|null} - Zone ID that matches the contract coordinates
      */
-    mapCoordinatesToGeofenceArea: function(geofenceDetails) {
+    mapCoordinatesToGeofenceZone: function(geofenceDetails, availableZones) {
         if (!geofenceDetails || !geofenceDetails.latMax || !geofenceDetails.latMin ||
             !geofenceDetails.lngMax || !geofenceDetails.lngMin) {
-            console.warn('Invalid geofence coordinates:', geofenceDetails);
-            return 'default';
+            console.warn('Invalid contract geofence coordinates:', geofenceDetails);
+            return null;
         }
 
-        var lat = (geofenceDetails.latMax + geofenceDetails.latMin) / 2;
-        var lng = (geofenceDetails.lngMax + geofenceDetails.lngMin) / 2;
+        if (!availableZones || !Array.isArray(availableZones)) {
+            console.warn('No geofence zones available for matching');
+            return null;
+        }
 
-        console.log('Mapping coordinates to geofence area:', {
-            centerLat: lat,
-            centerLng: lng,
+        var contractLat = (geofenceDetails.latMax + geofenceDetails.latMin) / 2;
+        var contractLng = (geofenceDetails.lngMax + geofenceDetails.lngMin) / 2;
+
+        console.log('=== GEOFENCE ZONE MATCHING ===');
+        console.log('Contract coordinates:', {
+            centerLat: contractLat,
+            centerLng: contractLng,
             bounds: geofenceDetails
         });
+        console.log('Available zones to match:', availableZones.length);
 
-        // Define coordinate ranges for each predefined geofence area
-        // These ranges should match your actual mining site locations
-        var geofenceAreas = {
-            'mining_area_1': {
-                latMin: -6.4, latMax: -6.1,
-                lngMin: 106.6, lngMax: 106.9
-            },
-            'mining_area_2': {
-                latMin: -6.7, latMax: -6.4,
-                lngMin: 106.9, lngMax: 107.2
-            },
-            'processing_area': {
-                latMin: -6.1, latMax: -5.8,
-                lngMin: 106.5, lngMax: 106.8
-            }
-        };
+        var tolerance = 0.001; // ~111 meters tolerance for coordinate matching
+        var bestMatch = null;
+        var minDistance = Infinity;
 
-        // Check which area contains the center coordinates
-        for (var areaId in geofenceAreas) {
-            var area = geofenceAreas[areaId];
-            if (lat >= area.latMin && lat <= area.latMax &&
-                lng >= area.lngMin && lng <= area.lngMax) {
-                console.log('✓ Coordinates mapped to geofence area:', areaId);
-                return areaId;
+        // Search through all available zones
+        availableZones.forEach(function(zone) {
+            if (!zone.metadata || !zone.metadata.points) {
+                return;
             }
+
+            // Parse zone coordinates from metadata.points
+            var zonePoints = zone.metadata.points.split(',');
+            if (zonePoints.length >= 2) {
+                var zoneLat = parseFloat(zonePoints[0]);
+                var zoneLng = parseFloat(zonePoints[1]);
+
+                if (!isNaN(zoneLat) && !isNaN(zoneLng)) {
+                    // Calculate distance between contract and zone coordinates
+                    var distance = Math.sqrt(
+                        Math.pow(contractLat - zoneLat, 2) +
+                        Math.pow(contractLng - zoneLng, 2)
+                    );
+
+                    console.log('Checking zone:', {
+                        zone_id: zone.zone_id,
+                        name: zone.text,
+                        zoneLat: zoneLat,
+                        zoneLng: zoneLng,
+                        distance: distance,
+                        withinTolerance: distance <= tolerance
+                    });
+
+                    // Find closest match within tolerance
+                    if (distance <= tolerance && distance < minDistance) {
+                        minDistance = distance;
+                        bestMatch = zone;
+                    }
+                }
+            }
+        });
+
+        if (bestMatch) {
+            console.log('✅ GEOFENCE ZONE MATCHED:', {
+                zone_id: bestMatch.zone_id,
+                name: bestMatch.text,
+                distance: minDistance
+            });
+            return bestMatch.zone_id.toString();
+        } else {
+            console.log('❌ No matching geofence zone found within tolerance');
+            return null;
+        }
+    },
+
+    /**
+     * Load geofence zones from /ax/zones.php and match with contract coordinates
+     */
+    loadGeofenceZonesForAutoFill: function(form, contractGeofenceDetails) {
+        console.log('=== LOADING GEOFENCE ZONES FOR AUTO-FILL ===');
+        console.log('Contract geofence details:', contractGeofenceDetails);
+
+        Ext.Ajax.request({
+            url: '/ax/zones.php',
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                console.log('Geofence zones loaded for auto-fill');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Zones API response:', result);
+                    
+                    // Extract zones from tree structure
+                    var availableZones = this.extractZonesFromTree(result);
+                    console.log('Extracted zones for matching:', availableZones.length);
+
+                    // Find matching zone
+                    var matchingZoneId = this.mapCoordinatesToGeofenceZone(contractGeofenceDetails, availableZones);
+                    
+                    if (matchingZoneId) {
+                        this.setGeofenceFieldValue(form, matchingZoneId, availableZones);
+                    } else {
+                        console.log('⚠️ No matching geofence zone found - leaving field empty');
+                    }
+                } catch (e) {
+                    console.error('Error parsing geofence zones response:', e);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load geofence zones for auto-fill:', response);
+            }
+        });
+    },
+
+    /**
+     * Extract zones from nested tree structure
+     */
+    extractZonesFromTree: function(treeData) {
+        var zones = [];
+        
+        if (Array.isArray(treeData)) {
+            treeData.forEach(function(groupNode) {
+                if (groupNode.children && Array.isArray(groupNode.children)) {
+                    groupNode.children.forEach(function(zone) {
+                        if (zone.leaf && zone.iconCls === 'zone_icon') {
+                            zones.push(zone);
+                        }
+                    });
+                }
+            });
+        }
+        
+        return zones;
+    },
+
+    /**
+     * Set geofence field value with matched zone
+     */
+    setGeofenceFieldValue: function(form, zoneId, availableZones) {
+        var geofenceField = form.down('field[name=geofence]');
+        if (!geofenceField || !geofenceField.getStore()) {
+            console.error('Geofence field or store not found');
+            return;
         }
 
-        // If no specific area matches, return default
-        console.log('✓ Using default geofence area (no match found)');
-        return 'default';
+        // Find zone details
+        var matchedZone = availableZones.find(function(zone) {
+            return zone.zone_id.toString() === zoneId;
+        });
+
+        if (matchedZone) {
+            // Update geofence dropdown store with current zones
+            var geofenceStore = geofenceField.getStore();
+            var storeData = availableZones.map(function(zone) {
+                return {
+                    value: zone.zone_id.toString(),
+                    text: zone.text + ' (Zone ID: ' + zone.zone_id + ')'
+                };
+            });
+
+            geofenceStore.loadData(storeData);
+
+            // Set the matched value
+            geofenceField.setValue(zoneId);
+            geofenceField.setReadOnly(true);
+
+            console.log('✅ Geofence field auto-filled:', {
+                zone_id: zoneId,
+                zone_name: matchedZone.text
+            });
+        }
     },
 
     // ===== CONTRACT MANAGEMENT METHODS =====
