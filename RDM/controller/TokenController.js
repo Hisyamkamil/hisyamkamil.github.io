@@ -617,13 +617,18 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     showCreateRequestModal: function() {
         console.log('=== SHOWING CREATE REQUEST MODAL ===');
         
-        // Check if we have selected vehicle data for auto-fill
+        // Check priority: Contract > Vehicle > Empty
+        var selectedContract = window.RDMSelectedContract;
         var selectedVehicle = window.RDMSelectedVehicle;
-        if (selectedVehicle && selectedVehicle.vin) {
-            console.log('Selected vehicle found, showing auto-fill modal:', selectedVehicle);
+        
+        if (selectedContract && selectedContract.id) {
+            console.log('Selected contract found, showing contract auto-fill modal:', selectedContract);
+            this.showCreateRequestModalWithContract(selectedContract);
+        } else if (selectedVehicle && selectedVehicle.vin) {
+            console.log('Selected vehicle found, showing vehicle auto-fill modal:', selectedVehicle);
             this.showCreateRequestModalWithVehicle(selectedVehicle);
         } else {
-            console.log('No vehicle selected, showing empty modal');
+            console.log('No contract or vehicle selected, showing empty modal');
             this.showCreateRequestModalEmpty();
         }
     },
@@ -653,7 +658,16 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var modalWidth = Math.min(750, viewport.width - 40);
         var modalHeight = Math.min(650, viewport.height - 60);
         
-        var titleSuffix = isAutoFill ? ' - ' + (vehicleData.model || 'Selected Vehicle') : '';
+        var titleSuffix = '';
+        if (isAutoFill) {
+            if (contractData && contractData.customerName) {
+                titleSuffix = ' - Contract: ' + contractData.customerName;
+            } else if (vehicleData && vehicleData.model) {
+                titleSuffix = ' - Vehicle: ' + vehicleData.model;
+            } else {
+                titleSuffix = ' - Auto-fill';
+            }
+        }
         
         var modal = Ext.create('Ext.window.Window', {
             title: '<i class="fa fa-key"></i> Create Request Token' + titleSuffix,
