@@ -621,9 +621,21 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var selectedContract = window.RDMSelectedContract;
         var selectedVehicle = window.RDMSelectedVehicle;
         
+        // Debug: Check if methods exist
+        console.log('Methods available:', {
+            showCreateRequestModalWithContract: typeof this.showCreateRequestModalWithContract,
+            showCreateRequestModalWithVehicle: typeof this.showCreateRequestModalWithVehicle,
+            showCreateRequestModalEmpty: typeof this.showCreateRequestModalEmpty
+        });
+        
         if (selectedContract && selectedContract.id) {
             console.log('Selected contract found, showing contract auto-fill modal:', selectedContract);
-            this.showCreateRequestModalWithContract(selectedContract);
+            if (typeof this.showCreateRequestModalWithContract === 'function') {
+                this.showCreateRequestModalWithContract(selectedContract);
+            } else {
+                console.error('showCreateRequestModalWithContract method not found - fallback to empty modal');
+                this.showCreateRequestModalEmpty();
+            }
         } else if (selectedVehicle && selectedVehicle.vin) {
             console.log('Selected vehicle found, showing vehicle auto-fill modal:', selectedVehicle);
             this.showCreateRequestModalWithVehicle(selectedVehicle);
@@ -649,12 +661,18 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         console.log('=== AUTO-FILL MODAL WITH CONTRACT DATA ===');
         console.log('Contract data:', contractData);
         
-        // Create the modal with contract auto-fill
-        var modal = this.createTokenRequestModal(true, null);
-        modal.show();
-        
-        // Populate form immediately with contract data
-        this.populateFormWithContract(modal, contractData);
+        try {
+            // Create the modal with contract auto-fill
+            var modal = this.createTokenRequestModal(true, null);
+            modal.show();
+            
+            // Populate form immediately with contract data
+            this.populateFormWithContract(modal, contractData);
+        } catch (error) {
+            console.error('Error in showCreateRequestModalWithContract:', error);
+            // Fallback to empty modal
+            this.showCreateRequestModalEmpty();
+        }
     },
 
     showCreateRequestModalEmpty: function() {
