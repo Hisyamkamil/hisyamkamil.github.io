@@ -1087,21 +1087,30 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         modal.contractId = contractData.id;
         console.log('✓ Contract ID stored:', contractData.id);
         
-        // Fill serial number from contract.unitId
-        // Contract unitId = Vehicle vin = Serial Number
-        console.log('Contract unitId (serial number):', contractData.unitId);
+        // Fill serial number from contract.unitDetails.externalUnitId (primary) or contract.unitId (fallback)
+        // The external unit ID matches vehicle.vin for IMEI lookup
+        var unitId = (contractData.unitDetails && contractData.unitDetails.externalUnitId)
+            ? contractData.unitDetails.externalUnitId
+            : contractData.unitId;
+        
+        console.log('=== SERIAL NUMBER MAPPING ===');
+        console.log('contractData.unitId:', contractData.unitId);
+        console.log('contractData.unitDetails?.externalUnitId:', contractData.unitDetails?.externalUnitId);
+        console.log('Using unitId for serial number:', unitId);
+        
         var serialField = form.down('field[name=serialNumber]');
         console.log('Serial field found:', !!serialField);
         
-        if (contractData.unitId && serialField) {
-            serialField.setValue(contractData.unitId);
+        if (unitId && serialField) {
+            serialField.setValue(unitId);
             serialField.setReadOnly(true);
-            console.log('✓ Serial Number filled:', contractData.unitId);
+            console.log('✓ Serial Number filled:', unitId);
             
-            // Fetch IMEI (uniqid) from vehicle tree API where vehicle.vin matches contract.unitId
-            this.fetchImeiFromVehicleTree(contractData.unitId, form);
+            // Fetch IMEI (uniqid) from vehicle tree API where vehicle.vin matches the unitId
+            this.fetchImeiFromVehicleTree(unitId, form);
         } else {
-            console.error('❌ Failed to fill serial number - unitId:', contractData.unitId, 'field found:', !!serialField);
+            console.error('❌ Failed to fill serial number - unitId:', unitId, 'field found:', !!serialField);
+            console.error('Contract data structure debug:', JSON.stringify(contractData, null, 2));
         }
         
         // Auto-fill contract fields with correct API field mapping
