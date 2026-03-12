@@ -249,6 +249,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     customerName: request.customerName,
                     roNumber: request.roNumber,
                     serialNumber: request.serialNumber,
+                    imei: request.imei, // Add IMEI field from API response
                     status: request.status,
                     tokenStatus: request.tokenStatus,
                     requestDate: request.requestDate,
@@ -258,7 +259,9 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     remainingHours: request.remainingHours,
                     durationHours: request.durationHours,
                     contractValue: request.contractValue,
+                    contractId: request.contractId || request.id, // Add contractId for generate token
                     unitDetails: request.unitDetails,
+                    contractDetails: request.contractDetails, // Add contract details
                     actions: request.actions
                 };
             });
@@ -1469,10 +1472,14 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     var requestData = {
                         requestId: tokenData.requestId || tokenData.id || tokenId,
                         serialNumber: tokenData.serialNumber,
-                        imei: tokenData.unitDetails?.imei || tokenData.imei,
+                        imei: tokenData.imei, // Now available directly from grid data
                         durationHours: parseInt(tokenData.durationHours) || 0,
                         contractId: tokenData.contractId || tokenData.id
                     };
+                    
+                    console.log('=== GENERATE TOKEN DEBUG INFO ===');
+                    console.log('Token data from grid:', tokenData);
+                    console.log('Request payload:', requestData);
                     
                     // Add optional geofenceData if available from contract details
                     if (tokenData.geofenceDetails || tokenData.unitDetails?.geofenceDetails) {
