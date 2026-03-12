@@ -2619,8 +2619,15 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var isEdit = !!record;
         console.log(isEdit ? 'Edit contract modal' : 'Create contract modal');
         
-        // Check if we have selected vehicle data for auto-fill
-        var selectedVehicle = window.RDMSelectedVehicleContract || window.RDMSelectedVehicle;
+        // Check if we have selected vehicle data for auto-fill - FIX: Use correct variable name
+        var selectedVehicle = window.RDMSelectedVehicleForContract || window.RDMSelectedVehicleContract || window.RDMSelectedVehicle;
+        console.log('Checking for selected vehicle data:', {
+            RDMSelectedVehicleForContract: !!window.RDMSelectedVehicleForContract,
+            RDMSelectedVehicleContract: !!window.RDMSelectedVehicleContract,
+            RDMSelectedVehicle: !!window.RDMSelectedVehicle,
+            selectedVehicle: selectedVehicle
+        });
+        
         if (selectedVehicle && selectedVehicle.vin && !isEdit) {
             console.log('Selected vehicle found for contract, showing auto-fill modal:', selectedVehicle);
             this.showCreateContractModalWithVehicle(selectedVehicle);
@@ -2633,9 +2640,13 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     showCreateContractModalWithVehicle: function(vehicleData) {
         console.log('=== AUTO-FILL CONTRACT MODAL WITH VEHICLE DATA ===');
         console.log('Vehicle data:', vehicleData);
+        console.log('Vehicle VIN for auto-select:', vehicleData.vin);
         
         var modal = this.createContractModal(true, vehicleData);
         modal.show();
+        
+        // Debug: Check if auto-fill data was stored correctly
+        console.log('Modal auto-fill data stored:', modal.autoFillVehicleData);
     },
 
     showCreateContractModalEmpty: function(record) {
@@ -3332,12 +3343,23 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         
         var vehicles = [];
         
-        // Extract vehicles from tree structure
+        // Extract vehicles from tree structure - FIX: Use same filtering logic as NavigationTab
         if (Array.isArray(treeData)) {
             treeData.forEach(function(orgNode) {
+                console.log('Processing org node:', orgNode.name, 'children:', orgNode.children ? orgNode.children.length : 0);
+                
                 if (orgNode.children && Array.isArray(orgNode.children)) {
                     orgNode.children.forEach(function(vehicle) {
-                        if (vehicle.leaf && vehicle.iconCls === 'car_icon') {
+                        console.log('Checking vehicle:', {
+                            name: vehicle.name,
+                            leaf: vehicle.leaf,
+                            typeid: vehicle.typeid,
+                            iconCls: vehicle.iconCls,
+                            vin: vehicle.vin
+                        });
+                        
+                        // Use same filtering logic as NavigationTab: leaf === true OR typeid === 1
+                        if (vehicle.leaf === true || vehicle.typeid === 1) {
                             vehicles.push({
                                 id: vehicle.vehid || vehicle.id,
                                 name: vehicle.name,
@@ -3349,6 +3371,9 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                 group: orgNode.name || '',
                                 displayName: vehicle.name + ' (' + vehicle.vin + ') - ' + (orgNode.name || 'Unknown Group')
                             });
+                            console.log('✓ Vehicle added to dropdown:', vehicle.name);
+                        } else {
+                            console.log('✗ Vehicle skipped (not leaf or typeid≠1):', vehicle.name);
                         }
                     });
                 }
@@ -3356,6 +3381,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         }
         
         console.log('Extracted vehicles for dropdown:', vehicles.length);
+        console.log('Vehicle details:', vehicles.map(function(v) { return v.name + ' (' + v.vin + ')'; }));
         
         // Populate the dropdown store
         var combo = modal.down('combobox[name=unitSelection]');
@@ -3365,15 +3391,25 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             
             // Auto-select vehicle if auto-fill data is available
             if (modal.autoFillVehicleData && modal.autoFillVehicleData.vin) {
+                console.log('=== AUTO-SELECT VEHICLE IN DROPDOWN ===');
+                console.log('Looking for VIN:', modal.autoFillVehicleData.vin);
+                console.log('Available vehicles:', vehicles.map(function(v) { return v.vin; }));
+                
                 var matchingVehicle = vehicles.find(function(v) {
                     return v.vin === modal.autoFillVehicleData.vin;
                 });
                 
+                console.log('Matching vehicle found:', !!matchingVehicle);
                 if (matchingVehicle) {
+                    console.log('Matching vehicle details:', matchingVehicle);
                     combo.setValue(matchingVehicle.id);
                     this.fillContractFormWithVehicle(modal, matchingVehicle);
                     console.log('✅ Auto-selected vehicle:', matchingVehicle.name);
+                } else {
+                    console.log('❌ No matching vehicle found for VIN:', modal.autoFillVehicleData.vin);
                 }
+            } else {
+                console.log('⚠️ No auto-fill data available:', modal.autoFillVehicleData);
             }
         }
     },
