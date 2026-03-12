@@ -31,23 +31,23 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         this.loadTokenData();
     },
 
-    onLocationMonitoringActivate: function() {
-        console.log('Location Monitoring activated');
-        this.loadLocationData();
-    },
+    // onLocationMonitoringActivate: function() {
+    //     console.log('Location Monitoring activated');
+    //     this.loadLocationData();
+    // },
 
     onContractActivate: function() {
         console.log('Contract activated - loading contract data...');
         this.loadContractData();
     },
 
-    onApprovalActivate: function() {
-        console.log('Approval activated');
-    },
+    // onApprovalActivate: function() {
+    //     console.log('Approval activated');
+    // },
 
-    onReportActivate: function() {
-        console.log('Report activated');
-    },
+    // onReportActivate: function() {
+    //     console.log('Report activated');
+    // },
 
     // Dashboard methods
     loadDashboardMetrics: function() {
@@ -1274,17 +1274,17 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         }
     },
 
-    // Location Monitoring methods
-    loadLocationData: function() {
-        if (window.RDMStores && window.RDMStores.units) {
-            window.RDMStores.units.load();
-        }
-    },
+    // Location Monitoring methods (commented out)
+    // loadLocationData: function() {
+    //     if (window.RDMStores && window.RDMStores.units) {
+    //         window.RDMStores.units.load();
+    //     }
+    // },
 
-    onUnitSearch: function(searchValue) {
-        console.log('Unit search:', searchValue);
-        // Implement unit filtering logic
-    },
+    // onUnitSearch: function(searchValue) {
+    //     console.log('Unit search:', searchValue);
+    //     // Implement unit filtering logic
+    // },
 
     // JWT and Security methods
     generateJWTToken: function(tokenData) {
@@ -1445,17 +1445,69 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     // Show loading mask
                     Ext.Msg.wait('Generating token...', 'Processing');
                     
-                    // Prepare API request data
+                    // Get token request data from grid to build proper payload
+                    var tokenRequestRecord = null;
+                    var grid = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid]')[0];
+                    if (grid && grid.getStore()) {
+                        var store = grid.getStore();
+                        tokenRequestRecord = store.findRecord('requestId', tokenId) ||
+                                           store.findRecord('id', tokenId) ||
+                                           store.findRecord('tokenNumber', tokenId);
+                    }
+                    
+                    if (!tokenRequestRecord) {
+                        console.error('Token request record not found for:', tokenId);
+                        Ext.Msg.alert('Error', 'Token request data not found. Please refresh the grid and try again.');
+                        return;
+                    }
+                    
+                    var tokenData = tokenRequestRecord.getData();
+                    console.log('Token request data found:', tokenData);
+                    
+                    // Prepare API request data according to specification
                     var apiConfig = Store.rdmtoken.config.ApiConfig;
                     var requestData = {
-                        tokenId: tokenId,
-                        action: 'generate',
-                        timestamp: new Date().toISOString()
+                        requestId: tokenData.requestId || tokenData.id || tokenId,
+                        serialNumber: tokenData.serialNumber,
+                        imei: tokenData.unitDetails?.imei || tokenData.imei,
+                        durationHours: parseInt(tokenData.durationHours) || 0,
+                        contractId: tokenData.contractId || tokenData.id
                     };
+                    
+                    // Add optional geofenceData if available from contract details
+                    if (tokenData.geofenceDetails || tokenData.unitDetails?.geofenceDetails) {
+                        var geofence = tokenData.geofenceDetails || tokenData.unitDetails.geofenceDetails;
+                        if (geofence && geofence.latMin && geofence.latMax && geofence.lngMin && geofence.lngMax) {
+                            requestData.geofenceData = {
+                                latMin: parseFloat(geofence.latMin),
+                                latMax: parseFloat(geofence.latMax),
+                                lngMin: parseFloat(geofence.lngMin),
+                                lngMax: parseFloat(geofence.lngMax)
+                            };
+                            console.log('✓ Geofence data included:', requestData.geofenceData);
+                        }
+                    }
+                    
+                    // Validate required fields before API call
+                    var missingFields = [];
+                    if (!requestData.requestId) missingFields.push('requestId');
+                    if (!requestData.serialNumber) missingFields.push('serialNumber');
+                    if (!requestData.imei) missingFields.push('imei');
+                    if (!requestData.durationHours) missingFields.push('durationHours');
+                    if (!requestData.contractId) missingFields.push('contractId');
+                    
+                    if (missingFields.length > 0) {
+                        console.error('Missing required fields for generate token:', missingFields);
+                        Ext.Msg.alert('Validation Error',
+                            'Missing required data: ' + missingFields.join(', ') +
+                            '. Please ensure the token request has complete information.');
+                        return;
+                    }
                     
                     console.log('=== GENERATE TOKEN API REQUEST ===');
                     console.log('API URL:', apiConfig.getUrl('tokenGenerate'));
                     console.log('Request Data:', requestData);
+                    console.log('Required fields validation: PASSED');
                     
                     // Call the actual API
                     Ext.Ajax.request({
@@ -1476,18 +1528,39 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                 var result = Ext.decode(response.responseText);
                                 console.log('Parsed Result:', result);
                                 
-                                if (result.status === 200) {
+                                if (result.status === 200 && result.body) {
                                     console.log('✅ Token generated successfully');
-                                    Ext.Msg.alert('Success',
-                                        'Token generated successfully!<br><br>' +
-                                        'Token ID: ' + tokenId + '<br>' +
-                                        'Status: Active<br>' +
-                                        'JWT Token: ' + (result.body.jwtToken ? result.body.jwtToken.substring(0, 20) + '...' : 'Generated') + '<br>' +
-                                        'Valid until: ' + (result.body.expirationDate || Ext.util.Format.date(new Date(Date.now() + 30*24*60*60*1000), 'Y-m-d H:i'))
-                                    );
+                                    
+                                    var responseData = result.body;
+                                    var successMessage = [
+                                        'Token generated successfully!<br><br>',
+                                        '<strong>Request ID:</strong> ' + (responseData.requestId || tokenId) + '<br>',
+                                        '<strong>Serial Number:</strong> ' + (responseData.serialNumber || requestData.serialNumber) + '<br>',
+                                        '<strong>Status:</strong> <span style="color: #28a745;">Active</span><br>'
+                                    ];
+                                    
+                                    if (responseData.jwtToken) {
+                                        successMessage.push('<strong>JWT Token:</strong> ' + responseData.jwtToken.substring(0, 30) + '...<br>');
+                                    }
+                                    
+                                    if (responseData.expirationDate) {
+                                        successMessage.push('<strong>Valid until:</strong> ' + Ext.util.Format.date(new Date(responseData.expirationDate), 'Y-m-d H:i') + '<br>');
+                                    }
+                                    
+                                    if (responseData.durationHours) {
+                                        successMessage.push('<strong>Duration:</strong> ' + responseData.durationHours + ' hours');
+                                    }
+                                    
+                                    Ext.Msg.alert('Token Generated', successMessage.join(''));
                                 } else {
                                     console.error('❌ API returned error status:', result.status);
-                                    Ext.Msg.alert('Error', result.body ? result.body.message : 'Failed to generate token');
+                                    var errorMsg = 'Failed to generate token';
+                                    if (result.body && result.body.message) {
+                                        errorMsg = result.body.message;
+                                    } else if (result.body && result.body.error) {
+                                        errorMsg = result.body.error;
+                                    }
+                                    Ext.Msg.alert('Generate Token Failed', errorMsg);
                                 }
                             } catch (parseError) {
                                 console.error('❌ Error parsing API response:', parseError);
@@ -1507,17 +1580,39 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                             Ext.Msg.hide();
                             
                             var errorMessage = 'Failed to generate token - Network error occurred';
+                            
+                            if (response.status === 400) {
+                                errorMessage = 'Validation failed - Please check token request data is complete and valid';
+                            } else if (response.status === 401) {
+                                errorMessage = 'Authentication failed - Please check API credentials';
+                            } else if (response.status === 404) {
+                                errorMessage = 'Token request or contract not found';
+                            } else if (response.status === 500) {
+                                errorMessage = 'Server error - Please try again later';
+                            }
+                            
                             if (response.responseText) {
                                 try {
                                     var errorResult = Ext.decode(response.responseText);
-                                    errorMessage = errorResult.body ? errorResult.body.message : errorResult.message || errorMessage;
+                                    if (errorResult.body && errorResult.body.message) {
+                                        errorMessage = errorResult.body.message;
+                                    } else if (errorResult.message) {
+                                        errorMessage = errorResult.message;
+                                    } else if (errorResult.error) {
+                                        errorMessage = errorResult.error;
+                                    }
                                     console.error('Parsed error:', errorResult);
                                 } catch (e) {
                                     console.error('Could not parse error response:', e);
                                 }
                             }
                             
-                            Ext.Msg.alert('Generate Token Failed', errorMessage);
+                            Ext.Msg.alert('Generate Token Failed',
+                                errorMessage + '<br><br><strong>Debug Info:</strong><br>' +
+                                'Status: ' + response.status + '<br>' +
+                                'Request ID: ' + (requestData.requestId || 'N/A') + '<br>' +
+                                'Serial Number: ' + (requestData.serialNumber || 'N/A')
+                            );
                         }
                     });
                 }
