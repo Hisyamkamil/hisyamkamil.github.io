@@ -645,6 +645,18 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         this.fetchContractBySerialNumber(vehicleData.vin, modal);
     },
 
+    showCreateRequestModalWithContract: function(contractData) {
+        console.log('=== AUTO-FILL MODAL WITH CONTRACT DATA ===');
+        console.log('Contract data:', contractData);
+        
+        // Create the modal with contract auto-fill
+        var modal = this.createTokenRequestModal(true, null);
+        modal.show();
+        
+        // Populate form immediately with contract data
+        this.populateFormWithContract(modal, contractData);
+    },
+
     showCreateRequestModalEmpty: function() {
         console.log('=== EMPTY CREATE REQUEST MODAL ===');
         
