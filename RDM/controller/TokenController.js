@@ -1087,17 +1087,21 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         modal.contractId = contractData.id;
         console.log('✓ Contract ID stored:', contractData.id);
         
-        // Fill serial number from contract.unitId (correct mapping)
-        if (contractData.unitId) {
-            var serialField = form.down('field[name=serialNumber]');
-            if (serialField) {
-                serialField.setValue(contractData.unitId);
-                serialField.setReadOnly(true);
-                console.log('✓ Serial Number filled:', contractData.unitId);
-                
-                // Fetch IMEI from vehicle tree API based on unitId
-                this.fetchImeiFromVehicleTree(contractData.unitId, form);
-            }
+        // Fill serial number from contract.unitId
+        // Contract unitId = Vehicle vin = Serial Number
+        console.log('Contract unitId (serial number):', contractData.unitId);
+        var serialField = form.down('field[name=serialNumber]');
+        console.log('Serial field found:', !!serialField);
+        
+        if (contractData.unitId && serialField) {
+            serialField.setValue(contractData.unitId);
+            serialField.setReadOnly(true);
+            console.log('✓ Serial Number filled:', contractData.unitId);
+            
+            // Fetch IMEI (uniqid) from vehicle tree API where vehicle.vin matches contract.unitId
+            this.fetchImeiFromVehicleTree(contractData.unitId, form);
+        } else {
+            console.error('❌ Failed to fill serial number - unitId:', contractData.unitId, 'field found:', !!serialField);
         }
         
         // Auto-fill contract fields with correct API field mapping
@@ -1190,7 +1194,11 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
      * IMEI is mapped from vehicle.uniqid field
      */
     fetchImeiFromVehicleTree: function(unitId, form) {
-        console.log('Fetching IMEI for unitId:', unitId);
+        console.log('=== FETCHING IMEI FOR UNIT ID ===');
+        console.log('UnitId:', unitId);
+        
+        var imeiField = form.down('field[name=imei]');
+        console.log('IMEI field found:', !!imeiField);
         
         Ext.Ajax.request({
             url: '/ax/tree.php?vehs=1&state=1',
@@ -1201,52 +1209,64 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             },
             timeout: 15000,
             success: function(response) {
+                console.log('Vehicle tree API response received');
                 try {
                     var result = Ext.decode(response.responseText);
-                    console.log('Vehicle tree data loaded for IMEI lookup');
+                    console.log('Vehicle tree data loaded for IMEI lookup, records:', result.length);
                     
                     var imei = this.findImeiByUnitId(result, unitId);
-                    if (imei) {
-                        var imeiField = form.down('field[name=imei]');
-                        if (imeiField) {
-                            imeiField.setValue(imei);
-                            imeiField.setReadOnly(true);
-                            console.log('✓ IMEI filled:', imei);
-                        }
+                    console.log('IMEI lookup result:', imei);
+                    
+                    if (imei && imeiField) {
+                        imeiField.setValue(imei);
+                        imeiField.setReadOnly(true);
+                        console.log('✅ IMEI filled successfully:', imei);
                     } else {
-                        console.warn('IMEI not found for unitId:', unitId);
+                        console.error('❌ Failed to fill IMEI - imei:', imei, 'field:', !!imeiField);
                     }
                 } catch (e) {
-                    console.error('Error parsing vehicle tree response for IMEI:', e);
+                    console.error('❌ Error parsing vehicle tree response for IMEI:', e);
                 }
             }.bind(this),
             failure: function(response) {
-                console.error('Failed to fetch vehicle tree data for IMEI:', response);
+                console.error('❌ Failed to fetch vehicle tree data for IMEI:', response);
             }
         });
     },
 
     /**
-     * Find IMEI (uniqid) by matching unitId with vehicle.vin
+     * Find IMEI (uniqid) by matching contract.unitId with vehicle.vin
      * @param {Array} treeData - Vehicle tree data from API
-     * @param {String} unitId - Unit ID to search for
+     * @param {String} unitId - Contract unitId to search for (matches vehicle.vin)
      * @returns {String|null} - IMEI (uniqid) if found
      */
     findImeiByUnitId: function(treeData, unitId) {
+        console.log('=== SEARCHING FOR IMEI ===');
+        console.log('Looking for contract.unitId:', unitId);
+        console.log('Will match with vehicle.vin, return vehicle.uniqid as IMEI');
+        
         if (!Array.isArray(treeData)) {
+            console.error('❌ Tree data is not an array');
             return null;
         }
         
         // Search through tree structure for matching vehicle
+        var vehicleCount = 0;
         for (var i = 0; i < treeData.length; i++) {
             var orgNode = treeData[i];
+            console.log('Processing org node:', orgNode.name || 'Unknown');
+            
             if (orgNode.children && Array.isArray(orgNode.children)) {
                 for (var j = 0; j < orgNode.children.length; j++) {
                     var vehicle = orgNode.children[j];
                     if (vehicle.leaf && vehicle.iconCls === 'car_icon') {
-                        // Match unitId with vehicle.vin
+                        vehicleCount++;
+                        console.log('Vehicle found - Name:', vehicle.name, 'VIN:', vehicle.vin, 'IMEI(uniqid):', vehicle.uniqid);
+                        
+                        // Match contract.unitId with vehicle.vin, return vehicle.uniqid as IMEI
                         if (vehicle.vin === unitId) {
-                            console.log('Vehicle found for unitId:', unitId, 'IMEI:', vehicle.uniqid);
+                            console.log('✅ MATCH FOUND! Vehicle:', vehicle.name);
+                            console.log('✅ Returning IMEI (uniqid):', vehicle.uniqid);
                             return vehicle.uniqid || null;
                         }
                     }
@@ -1254,7 +1274,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             }
         }
         
-        console.warn('No vehicle found with vin matching unitId:', unitId);
+        console.error('❌ No vehicle found with vin matching contract.unitId:', unitId);
+        console.log('Total vehicles searched:', vehicleCount);
         return null;
     },
 
