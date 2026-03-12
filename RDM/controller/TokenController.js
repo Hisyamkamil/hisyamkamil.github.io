@@ -1553,26 +1553,46 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                         '<div style="font-size: 20px; font-weight: bold; color: #1565c0; font-family: monospace; letter-spacing: 1px;">' +
                                         (responseData.stsDeliveryMethods?.display || responseData.stsToken || 'N/A') + '</div>',
                                         '</div>',
+                                        '</div>',
                                         
-                                        // Key Information
+                                        // Business Information - Left aligned for better readability
+                                        '<div style="text-align: left;">',
                                         '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">',
-                                        '<table style="width: 100%; text-align: left;">',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Token Type:</td><td style="padding: 5px;"><span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 3px;">' + (responseData.tokenType || 'STS') + '</span></td></tr>',
+                                        '<h4 style="color: #495057; margin-bottom: 10px; text-align: center;">Contract Information</h4>',
+                                        '<table style="width: 100%; border-collapse: collapse;">',
+                                        '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Customer:</td><td style="padding: 5px;">' + (tokenData.customerName || 'N/A') + '</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">RO Number:</td><td style="padding: 5px;">' + (tokenData.roNumber || 'N/A') + '</td></tr>',
                                         '<tr><td style="padding: 5px; font-weight: 600;">Serial Number:</td><td style="padding: 5px;">' + (responseData.stsEquipmentBinding?.serialNumber || requestData.serialNumber || 'N/A') + '</td></tr>',
-                                        '<tr><td style="padding: 5px; font-weight: 600;">Expires:</td><td style="padding: 5px; color: #dc3545; font-weight: 600;">' + expirationTime + '</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Token Expires:</td><td style="padding: 5px; color: #dc3545; font-weight: 600;">' + expirationTime + '</td></tr>',
                                         '</table>',
                                         '</div>',
                                         
-                                        // Delivery Methods
-                                        '<div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0;">',
-                                        '<h4 style="color: #495057; margin-bottom: 10px;">Token Formats</h4>',
-                                        '<div style="font-size: 12px;">',
-                                        '<strong>Manual Entry:</strong> <span style="font-family: monospace;">' + (responseData.stsDeliveryMethods?.manual || 'N/A') + '</span><br>',
-                                        '<strong>SMS Format:</strong> <span style="font-family: monospace;">' + (responseData.stsDeliveryMethods?.sms || 'N/A') + '</span>',
-                                        '</div>',
+                                        // Equipment Information
+                                        '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+                                        '<h4 style="color: #856404; margin-bottom: 10px; text-align: center;">Equipment Details</h4>',
+                                        '<table style="width: 100%; border-collapse: collapse;">',
+                                        '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Unit Name:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.unitName || 'N/A') + '</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Model:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.model || 'N/A') + '</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Year:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.year || 'N/A') + '</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">IMEI:</td><td style="padding: 5px; font-family: monospace;">' + (responseData.stsEquipmentBinding?.imei || requestData.imei || 'N/A') + '</td></tr>',
+                                        '</table>',
                                         '</div>',
                                         
-                                        '<p style="color: #666; font-size: 14px; margin-top: 15px;">Use the token above for equipment activation. Token will expire on the specified date.</p>',
+                                        // Contract Period
+                                        '<div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+                                        '<h4 style="color: #0c5460; margin-bottom: 10px; text-align: center;">Contract Period</h4>',
+                                        '<table style="width: 100%; border-collapse: collapse;">',
+                                        '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Contract Start:</td><td style="padding: 5px;">' +
+                                        (tokenData.contractDetails?.contractStartDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractStartDate), 'd M Y') : 'N/A') + '</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Contract End:</td><td style="padding: 5px;">' +
+                                        (tokenData.contractDetails?.contractEndDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractEndDate), 'd M Y') : 'N/A') + '</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Duration:</td><td style="padding: 5px;">' + (tokenData.durationHours || 'N/A') + ' hours</td></tr>',
+                                        '<tr><td style="padding: 5px; font-weight: 600;">Contract Value:</td><td style="padding: 5px; color: #28a745; font-weight: 600;">Rp ' +
+                                        (tokenData.contractValue ? Ext.util.Format.number(tokenData.contractValue, '0,0') : 'N/A') + '</td></tr>',
+                                        '</table>',
+                                        '</div>',
+                                        
+                                        '<p style="color: #666; font-size: 14px; margin-top: 15px; text-align: center;">Please use the STS token above to activate the equipment. Keep this information safe as token cannot be retrieved again.</p>',
                                         '</div>'
                                     ].join('');
                                     
@@ -2246,9 +2266,624 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var isEdit = !!record;
         console.log(isEdit ? 'Edit contract modal' : 'Create contract modal');
         
-        Ext.Msg.alert('Contract Management',
-            (isEdit ? 'Edit contract functionality' : 'Create new contract functionality') +
-            ' will be implemented in future version.');
+        // Check if we have selected vehicle data for auto-fill
+        var selectedVehicle = window.RDMSelectedVehicleContract || window.RDMSelectedVehicle;
+        if (selectedVehicle && selectedVehicle.vin && !isEdit) {
+            console.log('Selected vehicle found for contract, showing auto-fill modal:', selectedVehicle);
+            this.showCreateContractModalWithVehicle(selectedVehicle);
+        } else {
+            console.log('No vehicle selected or editing existing contract, showing empty modal');
+            this.showCreateContractModalEmpty(record);
+        }
+    },
+
+    showCreateContractModalWithVehicle: function(vehicleData) {
+        console.log('=== AUTO-FILL CONTRACT MODAL WITH VEHICLE DATA ===');
+        console.log('Vehicle data:', vehicleData);
+        
+        var modal = this.createContractModal(true, vehicleData);
+        modal.show();
+    },
+
+    showCreateContractModalEmpty: function(record) {
+        console.log('=== EMPTY CREATE CONTRACT MODAL ===');
+        
+        var modal = this.createContractModal(false, null, record);
+        modal.show();
+    },
+
+    createContractModal: function(isAutoFill, vehicleData, editRecord) {
+        var isEdit = !!editRecord;
+        var titleSuffix = isAutoFill ? ' - ' + (vehicleData.model || 'Selected Vehicle') :
+                         isEdit ? ' - ' + (editRecord.get('rentalOrderNumber') || 'Edit') : '';
+        
+        // Get viewport dimensions for responsive sizing
+        var viewport = Ext.getBody().getViewSize();
+        var modalWidth = Math.min(800, viewport.width - 40);
+        var modalHeight = Math.min(700, viewport.height - 60);
+        
+        var modal = Ext.create('Ext.window.Window', {
+            title: '<i class="fa fa-file-contract"></i> ' + (isEdit ? 'Edit Contract' : 'Create Contract') + titleSuffix,
+            modal: true,
+            width: modalWidth,
+            height: modalHeight,
+            layout: 'fit',
+            closable: true,
+            resizable: true,
+            constrainHeader: true,
+            maximizable: true,
+            items: [{
+                xtype: 'form',
+                itemId: 'contractForm',
+                bodyPadding: '20 25 20 25',
+                autoScroll: true,
+                layout: 'anchor',
+                bodyStyle: 'background: #f8f9fa;',
+                defaults: {
+                    anchor: '100%',
+                    labelWidth: 150,
+                    margin: '0 0 12 0',
+                    labelStyle: 'font-weight: 600; color: #495057;'
+                },
+                items: [
+                    // Equipment Information Section
+                    {
+                        xtype: 'fieldset',
+                        title: '<i class="fa fa-cogs"></i> Equipment Information',
+                        margin: '0 0 15 0',
+                        padding: '15 20 15 20',
+                        items: [
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Unit ID (Serial/VIN) *',
+                                        name: 'unitId',
+                                        allowBlank: false,
+                                        emptyText: 'Enter unit identifier...',
+                                        cls: 'required-field',
+                                        maxLength: 100
+                                    },
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Unit Name',
+                                        name: 'unitName',
+                                        emptyText: 'Enter unit name...',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    
+                    // Customer Information Section
+                    {
+                        xtype: 'fieldset',
+                        title: '<i class="fa fa-user-tie"></i> Customer Information',
+                        margin: '0 0 15 0',
+                        padding: '15 20 15 20',
+                        items: [
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Customer Name *',
+                                        name: 'customerName',
+                                        allowBlank: false,
+                                        emptyText: 'Enter customer name...',
+                                        cls: 'required-field'
+                                    },
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Customer Code',
+                                        name: 'customerCode',
+                                        emptyText: 'Enter customer code...',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            },
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                margin: '10 0 0 0',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'Sales Representative',
+                                        name: 'salesRepresentative',
+                                        emptyText: 'Enter sales rep name...'
+                                    },
+                                    {
+                                        xtype: 'textfield',
+                                        fieldLabel: 'RO Number *',
+                                        name: 'rentalOrderNumber',
+                                        allowBlank: false,
+                                        emptyText: 'Enter rental order number...',
+                                        cls: 'required-field',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    
+                    // Contract Timeline Section
+                    {
+                        xtype: 'fieldset',
+                        title: '<i class="fa fa-calendar-alt"></i> Contract Timeline',
+                        margin: '0 0 15 0',
+                        padding: '15 20 15 20',
+                        items: [
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'datefield',
+                                        fieldLabel: 'Contract Start *',
+                                        name: 'contractStartDate',
+                                        allowBlank: false,
+                                        format: 'd M Y',
+                                        emptyText: 'DD MMM YYYY',
+                                        cls: 'required-field',
+                                        listeners: {
+                                            change: this.onContractStartDateChange.bind(this)
+                                        }
+                                    },
+                                    {
+                                        xtype: 'datefield',
+                                        fieldLabel: 'Contract End *',
+                                        name: 'contractEndDate',
+                                        allowBlank: false,
+                                        format: 'd M Y',
+                                        emptyText: 'DD MMM YYYY',
+                                        cls: 'required-field',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    
+                    // Financial & Duration Section
+                    {
+                        xtype: 'fieldset',
+                        title: '<i class="fa fa-dollar-sign"></i> Financial & Duration Details',
+                        margin: '0 0 15 0',
+                        padding: '15 20 15 20',
+                        items: [
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'numberfield',
+                                        fieldLabel: 'Contract Value *',
+                                        name: 'contractValue',
+                                        allowBlank: false,
+                                        emptyText: 'Enter contract value...',
+                                        cls: 'required-field',
+                                        decimalPrecision: 2,
+                                        minValue: 0,
+                                        fieldStyle: 'text-align: right'
+                                    },
+                                    {
+                                        xtype: 'displayfield',
+                                        fieldLabel: 'Currency',
+                                        value: 'IDR (Rupiah)',
+                                        width: 150,
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            },
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                margin: '10 0 0 0',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'numberfield',
+                                        fieldLabel: 'Duration (Hours)',
+                                        name: 'durationHours',
+                                        emptyText: 'Operating hours...',
+                                        minValue: 0,
+                                        value: 0,
+                                        step: 1,
+                                        fieldStyle: 'text-align: right'
+                                    },
+                                    {
+                                        xtype: 'numberfield',
+                                        fieldLabel: 'Additional Hours',
+                                        name: 'additionalDurationHours',
+                                        emptyText: 'Additional hours...',
+                                        minValue: 0,
+                                        value: 0,
+                                        step: 1,
+                                        fieldStyle: 'text-align: right',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    
+                    // Geofence Information Section
+                    {
+                        xtype: 'fieldset',
+                        title: '<i class="fa fa-map-marked-alt"></i> Geofence Information',
+                        margin: '0 0 5 0',
+                        padding: '15 20 15 20',
+                        items: [
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'numberfield',
+                                        fieldLabel: 'Min Latitude',
+                                        name: 'latMin',
+                                        emptyText: 'e.g., -6.5',
+                                        decimalPrecision: 6,
+                                        fieldStyle: 'text-align: right'
+                                    },
+                                    {
+                                        xtype: 'numberfield',
+                                        fieldLabel: 'Max Latitude',
+                                        name: 'latMax',
+                                        emptyText: 'e.g., -6.2',
+                                        decimalPrecision: 6,
+                                        fieldStyle: 'text-align: right',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            },
+                            {
+                                xtype: 'container',
+                                layout: 'hbox',
+                                margin: '10 0 0 0',
+                                defaults: {
+                                    flex: 1,
+                                    margin: '0 8 0 0'
+                                },
+                                items: [
+                                    {
+                                        xtype: 'numberfield',
+                                        fieldLabel: 'Min Longitude',
+                                        name: 'lngMin',
+                                        emptyText: 'e.g., 106.6',
+                                        decimalPrecision: 6,
+                                        fieldStyle: 'text-align: right'
+                                    },
+                                    {
+                                        xtype: 'numberfield',
+                                        fieldLabel: 'Max Longitude',
+                                        name: 'lngMax',
+                                        emptyText: 'e.g., 106.9',
+                                        decimalPrecision: 6,
+                                        fieldStyle: 'text-align: right',
+                                        margin: '0 0 0 8'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }],
+            dockedItems: [{
+                xtype: 'toolbar',
+                dock: 'bottom',
+                cls: 'dark_form',
+                ui: 'footer',
+                items: [
+                    '->',
+                    {
+                        text: 'Cancel',
+                        iconCls: 'fa fa-times',
+                        handler: function() { modal.close(); },
+                        cls: 'x-btn-default-small',
+                        minWidth: 100
+                    },
+                    {
+                        text: isEdit ? 'Update Contract' : 'Create Contract',
+                        iconCls: 'fa fa-save',
+                        handler: function() {
+                            this.onSubmitContract(modal, isEdit);
+                        }.bind(this),
+                        cls: 'x-btn-default-small',
+                        minWidth: 120
+                    }
+                ]
+            }]
+        });
+
+        // Auto-fill vehicle data if available
+        if (isAutoFill && vehicleData) {
+            var form = modal.down('#contractForm');
+            if (vehicleData.vin) {
+                form.down('field[name=unitId]').setValue(vehicleData.vin);
+            }
+            if (vehicleData.model) {
+                form.down('field[name=unitName]').setValue(vehicleData.model);
+            }
+        }
+
+        // Fill edit data if editing existing contract
+        if (isEdit && editRecord) {
+            modal.editRecordId = editRecord.get('id');
+            this.populateContractForm(modal, editRecord.getData());
+        }
+
+        return modal;
+    },
+
+    populateContractForm: function(modal, contractData) {
+        console.log('Populating contract form with data:', contractData);
+        
+        var form = modal.down('#contractForm');
+        if (!form) return;
+        
+        // Populate all contract fields
+        var fieldMappings = {
+            'unitId': contractData.unitId,
+            'unitName': contractData.unitDetails?.unitName,
+            'customerName': contractData.customerName,
+            'customerCode': contractData.customerCode,
+            'salesRepresentative': contractData.salesRepresentative,
+            'rentalOrderNumber': contractData.rentalOrderNumber,
+            'contractStartDate': contractData.contractStartDate ? new Date(contractData.contractStartDate) : null,
+            'contractEndDate': contractData.contractEndDate ? new Date(contractData.contractEndDate) : null,
+            'contractValue': contractData.contractValue,
+            'durationHours': contractData.durationHours,
+            'additionalDurationHours': contractData.additionalDurationHours
+        };
+
+        // Fill geofence data if available
+        if (contractData.geofenceDetails) {
+            var gf = contractData.geofenceDetails;
+            fieldMappings['latMin'] = gf.latMin;
+            fieldMappings['latMax'] = gf.latMax;
+            fieldMappings['lngMin'] = gf.lngMin;
+            fieldMappings['lngMax'] = gf.lngMax;
+        }
+
+        // Apply values to form fields
+        Object.keys(fieldMappings).forEach(function(fieldName) {
+            var field = form.down('field[name=' + fieldName + ']');
+            var value = fieldMappings[fieldName];
+            if (field && value !== undefined && value !== null) {
+                field.setValue(value);
+            }
+        });
+
+        console.log('✅ Contract form populated successfully');
+    },
+
+    onContractStartDateChange: function(field, newValue) {
+        if (newValue) {
+            // Auto-suggest end date (e.g., 1 year later)
+            var endDate = new Date(newValue);
+            endDate.setFullYear(endDate.getFullYear() + 1);
+            
+            var form = field.up('form');
+            var endDateField = form.down('field[name=contractEndDate]');
+            if (endDateField && !endDateField.getValue()) {
+                endDateField.setValue(endDate);
+            }
+        }
+    },
+
+    onSubmitContract: function(modal, isEdit) {
+        console.log('=== SUBMIT CONTRACT BUTTON CLICKED ===');
+        console.log('Edit mode:', isEdit);
+        
+        var form = modal.down('#contractForm');
+        console.log('Form found:', !!form);
+        
+        if (form.isValid()) {
+            var values = form.getValues();
+            var apiConfig = Store.rdmtoken.config.ApiConfig;
+            
+            // Log form values
+            console.log('Contract form values:', values);
+            
+            // Prepare API data according to specification
+            var requestData = {
+                unitId: values.unitId,
+                customerName: values.customerName,
+                rentalOrderNumber: values.rentalOrderNumber,
+                contractStartDate: this.formatDateToISO(values.contractStartDate),
+                contractEndDate: this.formatDateToISO(values.contractEndDate),
+                contractValue: parseFloat(values.contractValue)
+            };
+
+            // Add optional fields
+            if (values.customerCode) requestData.customerCode = values.customerCode;
+            if (values.salesRepresentative) requestData.salesRepresentative = values.salesRepresentative;
+            if (values.durationHours) requestData.durationHours = parseInt(values.durationHours);
+            if (values.additionalDurationHours) requestData.additionalDurationHours = parseInt(values.additionalDurationHours);
+
+            // Add geofence details if provided
+            if (values.latMin || values.latMax || values.lngMin || values.lngMax) {
+                requestData.geofenceDetails = {
+                    latMin: parseFloat(values.latMin) || 0,
+                    latMax: parseFloat(values.latMax) || 0,
+                    lngMin: parseFloat(values.lngMin) || 0,
+                    lngMax: parseFloat(values.lngMax) || 0
+                };
+            }
+            
+            var apiUrl = isEdit ?
+                apiConfig.getUrl('contractById', {contractId: modal.editRecordId}) :
+                apiConfig.getUrl('contractList');
+            var method = isEdit ? 'PUT' : 'POST';
+            
+            console.log('=== CONTRACT API REQUEST DETAILS ===');
+            console.log('API URL:', apiUrl);
+            console.log('Method:', method);
+            console.log('Request Data:', requestData);
+            
+            // Show loading mask to prevent duplicate submissions
+            Ext.Msg.wait(isEdit ? 'Updating contract...' : 'Creating contract...', 'Please wait');
+            
+            Ext.Ajax.request({
+                url: apiUrl,
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                jsonData: requestData,
+                timeout: 30000,
+                success: function(response) {
+                    Ext.Msg.hide();
+                    console.log('=== CONTRACT API SUCCESS RESPONSE ===');
+                    console.log('Raw Response:', response);
+                    console.log('Response Text:', response.responseText);
+                    
+                    try {
+                        var result = Ext.decode(response.responseText);
+                        console.log('Parsed Result:', result);
+                        
+                        if (result.status === 200) {
+                            console.log('✅ Contract ' + (isEdit ? 'updated' : 'created') + ' successfully');
+                            
+                            // Show success modal with contract details
+                            this.showContractSuccessModal(result.body, requestData, isEdit);
+                            
+                            modal.close();
+                            this.loadContractData(); // Refresh contract grid
+                        } else {
+                            console.error('❌ API returned error status:', result.status);
+                            var errorMsg = result.body?.message || 'Failed to ' + (isEdit ? 'update' : 'create') + ' contract';
+                            Ext.Msg.alert('Error', errorMsg);
+                        }
+                    } catch (parseError) {
+                        console.error('❌ Error parsing API response:', parseError);
+                        Ext.Msg.alert('Error', 'Invalid response from server');
+                    }
+                }.bind(this),
+                failure: function(response, options) {
+                    console.log('=== CONTRACT API FAILURE RESPONSE ===');
+                    console.error('❌ API Request failed');
+                    console.error('Response:', response);
+                    console.error('Response Status:', response.status);
+                    console.error('Response Text:', response.responseText);
+                    
+                    Ext.Msg.hide();
+                    
+                    var errorMessage = 'Network error occurred';
+                    if (response.responseText) {
+                        try {
+                            var errorResult = Ext.decode(response.responseText);
+                            errorMessage = errorResult.body?.message || errorResult.message || errorMessage;
+                        } catch (e) {
+                            console.error('Could not parse error response:', e);
+                        }
+                    }
+                    
+                    Ext.Msg.alert('Error', errorMessage);
+                }
+            });
+        } else {
+            console.log('❌ Contract form validation failed');
+            var invalidFields = [];
+            form.getForm().getFields().each(function(field) {
+                if (!field.isValid()) {
+                    invalidFields.push(field.getName() + ': ' + field.getActiveError());
+                }
+            });
+            console.log('Invalid fields:', invalidFields);
+            
+            Ext.Msg.alert('Validation Error', 'Please fill in all required fields correctly.');
+        }
+    },
+
+    showContractSuccessModal: function(responseData, requestData, isEdit) {
+        var action = isEdit ? 'updated' : 'created';
+        var contractId = responseData.id || responseData.contractId || 'Generated';
+        
+        var successMessage = [
+            '<div style="text-align: center;">',
+            '<h3 style="color: #28a745; margin-bottom: 15px;"><i class="fa fa-check-circle"></i> Contract ' + (isEdit ? 'Updated' : 'Created') + ' Successfully!</h3>',
+            
+            // Contract ID Display
+            '<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #2196f3;">',
+            '<h4 style="color: #1565c0; margin-bottom: 10px;">Contract ID</h4>',
+            '<div style="font-size: 18px; font-weight: bold; color: #1565c0; font-family: monospace;">' + contractId + '</div>',
+            '</div>',
+            '</div>',
+            
+            // Contract Information - Left aligned for better readability
+            '<div style="text-align: left;">',
+            '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+            '<h4 style="color: #495057; margin-bottom: 10px; text-align: center;">Contract Details</h4>',
+            '<table style="width: 100%; border-collapse: collapse;">',
+            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Customer:</td><td style="padding: 5px;">' + (requestData.customerName || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 5px; font-weight: 600;">RO Number:</td><td style="padding: 5px;">' + (requestData.rentalOrderNumber || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 5px; font-weight: 600;">Unit ID:</td><td style="padding: 5px;">' + (requestData.unitId || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 5px; font-weight: 600;">Sales Rep:</td><td style="padding: 5px;">' + (requestData.salesRepresentative || 'N/A') + '</td></tr>',
+            '</table>',
+            '</div>',
+            
+            // Financial Information
+            '<div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+            '<h4 style="color: #155724; margin-bottom: 10px; text-align: center;">Financial Details</h4>',
+            '<table style="width: 100%; border-collapse: collapse;">',
+            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Contract Value:</td><td style="padding: 5px; color: #28a745; font-weight: 600;">Rp ' +
+            (requestData.contractValue ? Ext.util.Format.number(requestData.contractValue, '0,0') : 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 5px; font-weight: 600;">Duration:</td><td style="padding: 5px;">' + (requestData.durationHours || 0) + ' hours</td></tr>',
+            '<tr><td style="padding: 5px; font-weight: 600;">Additional Hours:</td><td style="padding: 5px;">' + (requestData.additionalDurationHours || 0) + ' hours</td></tr>',
+            '</table>',
+            '</div>',
+            
+            // Timeline Information
+            '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">',
+            '<h4 style="color: #856404; margin-bottom: 10px; text-align: center;">Contract Timeline</h4>',
+            '<table style="width: 100%; border-collapse: collapse;">',
+            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Start Date:</td><td style="padding: 5px;">' +
+            (requestData.contractStartDate ? Ext.util.Format.date(new Date(requestData.contractStartDate), 'd M Y') : 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 5px; font-weight: 600;">End Date:</td><td style="padding: 5px;">' +
+            (requestData.contractEndDate ? Ext.util.Format.date(new Date(requestData.contractEndDate), 'd M Y') : 'N/A') + '</td></tr>',
+            '</table>',
+            '</div>',
+            
+            '<p style="color: #666; font-size: 14px; margin-top: 15px; text-align: center;">Contract has been ' + action + ' successfully. You can now create token requests for this contract.</p>',
+            '</div>'
+        ].join('');
+        
+        Ext.Msg.alert('Contract ' + (isEdit ? 'Updated' : 'Created'), successMessage);
     },
 
     /**
