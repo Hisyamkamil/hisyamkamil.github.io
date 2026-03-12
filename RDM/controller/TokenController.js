@@ -690,9 +690,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         
         var titleSuffix = '';
         if (isAutoFill) {
-            if (contractData && contractData.customerName) {
-                titleSuffix = ' - Contract: ' + contractData.customerName;
-            } else if (vehicleData && vehicleData.model) {
+            if (vehicleData && vehicleData.model) {
                 titleSuffix = ' - Vehicle: ' + vehicleData.model;
             } else {
                 titleSuffix = ' - Auto-fill';
