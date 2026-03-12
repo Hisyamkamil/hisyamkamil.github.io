@@ -1266,9 +1266,18 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             if (orgNode.children && Array.isArray(orgNode.children)) {
                 for (var j = 0; j < orgNode.children.length; j++) {
                     var vehicle = orgNode.children[j];
-                    if (vehicle.leaf && vehicle.iconCls === 'car_icon') {
+                    console.log('Checking vehicle for IMEI:', {
+                        name: vehicle.name,
+                        leaf: vehicle.leaf,
+                        typeid: vehicle.typeid,
+                        iconCls: vehicle.iconCls,
+                        vin: vehicle.vin
+                    });
+                    
+                    // FIX: Use same filtering logic as dropdown - leaf === true OR typeid === 1
+                    if (vehicle.leaf === true || vehicle.typeid === 1) {
                         vehicleCount++;
-                        console.log('Vehicle found - Name:', vehicle.name, 'VIN:', vehicle.vin, 'IMEI(uniqid):', vehicle.uniqid);
+                        console.log('✓ Vehicle found - Name:', vehicle.name, 'VIN:', vehicle.vin, 'IMEI(uniqid):', vehicle.uniqid);
                         
                         // Match contract.unitId with vehicle.vin, return vehicle.uniqid as IMEI
                         if (vehicle.vin === unitId) {
@@ -1276,6 +1285,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                             console.log('✅ Returning IMEI (uniqid):', vehicle.uniqid);
                             return vehicle.uniqid || null;
                         }
+                    } else {
+                        console.log('✗ Vehicle skipped (not leaf or typeid≠1):', vehicle.name);
                     }
                 }
             }
@@ -1283,6 +1294,12 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         
         console.error('❌ No vehicle found with vin matching contract.unitId:', unitId);
         console.log('Total vehicles searched:', vehicleCount);
+        console.log('Available VINs:', treeData.map(function(org) {
+            return org.children ? org.children
+                .filter(function(v) { return v.leaf === true || v.typeid === 1; })
+                .map(function(v) { return v.vin; }) : [];
+        }).flat());
+        
         return null;
     },
 
