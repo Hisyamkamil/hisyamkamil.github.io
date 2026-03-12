@@ -1628,24 +1628,24 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                         console.log('⚠️ IMEI missing from stored data, attempting dynamic lookup...');
                         console.log('Using serialNumber for IMEI lookup:', tokenData.serialNumber);
                         
-                        // Perform dynamic IMEI lookup
-                        this.fetchImeiForTokenGeneration(tokenData, tokenId, function(imeiValue) {
+                        // Perform dynamic IMEI lookup - use 'me' instead of 'this'
+                        me.fetchImeiForTokenGeneration(tokenData, tokenId, function(imeiValue) {
                             if (imeiValue) {
                                 console.log('✅ IMEI found via dynamic lookup:', imeiValue);
                                 tokenData.imei = imeiValue; // Update token data
-                                this.proceedWithTokenGeneration(tokenData, tokenId);
+                                me.proceedWithTokenGeneration(tokenData, tokenId);
                             } else {
                                 console.error('❌ Could not find IMEI for serialNumber:', tokenData.serialNumber);
                                 Ext.Msg.alert('IMEI Not Found',
                                     'Could not find IMEI for vehicle with serial number: ' + tokenData.serialNumber +
                                     '. Please verify the vehicle exists in the system.');
                             }
-                        }.bind(this));
+                        });
                         return; // Exit here, continue in callback
                     }
                     
                     // Proceed with token generation if IMEI is available
-                    this.proceedWithTokenGeneration(tokenData, tokenId);
+                    me.proceedWithTokenGeneration(tokenData, tokenId);
                 }
             }
         );
