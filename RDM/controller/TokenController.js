@@ -2286,23 +2286,37 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     /**
-     * Extract zones from nested tree structure
+     * Extract ALL zones from nested tree structure - NO FILTERING
      */
     extractZonesFromTree: function(treeData) {
         var zones = [];
         
         if (Array.isArray(treeData)) {
             treeData.forEach(function(groupNode) {
+                console.log('Extracting from group node:', groupNode.name, 'children:', groupNode.children ? groupNode.children.length : 0);
+                
                 if (groupNode.children && Array.isArray(groupNode.children)) {
-                    groupNode.children.forEach(function(zone) {
-                        if (zone.leaf && zone.iconCls === 'zone_icon') {
-                            zones.push(zone);
-                        }
+                    groupNode.children.forEach(function(zone, index) {
+                        console.log('Extracting zone (no filter):', {
+                            name: zone.name,
+                            text: zone.text,
+                            zone_id: zone.zone_id,
+                            id: zone.id,
+                            leaf: zone.leaf,
+                            iconCls: zone.iconCls,
+                            points: zone.points,
+                            metadata: zone.metadata
+                        });
+                        
+                        // NO FILTERING - Extract ALL zones from API response
+                        zones.push(zone);
+                        console.log('✓ Zone extracted (no filter):', zone.name || zone.text || ('Zone ' + index));
                     });
                 }
             });
         }
         
+        console.log('Total zones extracted for matching:', zones.length);
         return zones;
     },
 
