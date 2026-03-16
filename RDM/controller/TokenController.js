@@ -3516,29 +3516,68 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
      */
     processGeofenceZonesForContract: function(modal, zonesData) {
         console.log('Processing geofence zones data for contract dropdown...');
+        console.log('Raw zones data structure:', zonesData);
         
         var zones = [];
         
         // Extract zones from tree structure
         if (Array.isArray(zonesData)) {
             zonesData.forEach(function(groupNode) {
+                console.log('Processing group node:', {
+                    name: groupNode.name,
+                    hasChildren: !!groupNode.children,
+                    childrenLength: groupNode.children ? groupNode.children.length : 0
+                });
+                
                 if (groupNode.children && Array.isArray(groupNode.children)) {
                     groupNode.children.forEach(function(zone) {
-                        if (zone.leaf && zone.iconCls === 'zone_icon') {
+                        console.log('Checking zone:', {
+                            name: zone.name,
+                            text: zone.text,
+                            zone_id: zone.zone_id,
+                            id: zone.id,
+                            leaf: zone.leaf,
+                            iconCls: zone.iconCls,
+                            zonetype: zone.zonetype,
+                            points: zone.points
+                        });
+                        
+                        // FIX: More flexible zone filtering logic
+                        // Accept zones that are either:
+                        // 1. Have leaf=true and iconCls='zone_icon' (standard format)
+                        // 2. Have zone_id or zonetype (alternative format)
+                        // 3. Have 'zone' in the name/text (fallback)
+                        var isValidZone = (zone.leaf && zone.iconCls === 'zone_icon') ||
+                                        zone.zone_id ||
+                                        zone.zonetype ||
+                                        (zone.name && zone.name.toLowerCase().includes('zone')) ||
+                                        (zone.text && zone.text.toLowerCase().includes('zone'));
+                        
+                        console.log('Zone validation result:', {
+                            isValidZone: isValidZone,
+                            reason: isValidZone ? 'Valid zone found' : 'Zone filtered out'
+                        });
+                        
+                        if (isValidZone) {
                             // Parse coordinates from points or metadata.points
                             var coordinates = this.parseGeofencePoints(zone.points || zone.metadata?.points);
                             
-                            zones.push({
-                                zone_id: zone.zone_id || zone.id,
-                                name: zone.name,
-                                text: zone.text,
+                            var zoneEntry = {
+                                zone_id: zone.zone_id || zone.id || ('zone_' + zones.length),
+                                name: zone.name || zone.text || 'Unnamed Zone',
+                                text: zone.text || zone.name || 'Unnamed Zone',
                                 points: zone.points || zone.metadata?.points || '',
-                                color: zone.color || zone.metadata?.color,
-                                zonetype: zone.zonetype || zone.metadata?.zonetype,
+                                color: zone.color || zone.metadata?.color || '#666',
+                                zonetype: zone.zonetype || zone.metadata?.zonetype || 1,
                                 coordinates: coordinates,
-                                group: groupNode.name || groupNode.text || '',
-                                displayName: (zone.text || zone.name) + ' - ' + (groupNode.name || groupNode.text || 'Unknown Group')
-                            });
+                                group: groupNode.name || groupNode.text || 'Default Group',
+                                displayName: (zone.text || zone.name || 'Unnamed Zone') + ' - ' + (groupNode.name || groupNode.text || 'Unknown Group')
+                            };
+                            
+                            zones.push(zoneEntry);
+                            console.log('✓ Zone added:', zoneEntry.displayName);
+                        } else {
+                            console.log('✗ Zone skipped:', zone.name || zone.text || 'Unknown');
                         }
                     }.bind(this));
                 }
@@ -3546,6 +3585,10 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         }
         
         console.log('Extracted geofence zones for dropdown:', zones.length);
+        if (zones.length === 0) {
+            console.warn('⚠️ No geofence zones extracted - check API response structure');
+            console.log('Sample of raw data for debugging:', JSON.stringify(zonesData.slice(0, 2), null, 2));
+        }
         
         // Populate the dropdown store
         var combo = modal.down('combobox[name=geofenceSelection]');
