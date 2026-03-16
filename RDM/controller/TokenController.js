@@ -2193,39 +2193,89 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var minDistance = Infinity;
 
         // Search through all available zones
-        availableZones.forEach(function(zone) {
-            if (!zone.metadata || !zone.metadata.points) {
-                return;
+        availableZones.forEach(function(zone, index) {
+            console.log('=== CHECKING ZONE ' + index + ' ===');
+            console.log('Zone structure:', {
+                zone_id: zone.zone_id,
+                id: zone.id,
+                name: zone.name,
+                text: zone.text,
+                points: zone.points,
+                metadata: zone.metadata,
+                hasMetadata: !!zone.metadata,
+                hasMetadataPoints: !!(zone.metadata && zone.metadata.points),
+                hasDirectPoints: !!zone.points
+            });
+
+            var pointsString = null;
+            var coordinates = null;
+
+            // Try multiple ways to get coordinates
+            if (zone.metadata && zone.metadata.points) {
+                pointsString = zone.metadata.points;
+                console.log('Using metadata.points:', pointsString);
+            } else if (zone.points) {
+                pointsString = zone.points;
+                console.log('Using direct points:', pointsString);
             }
 
-            // Parse zone coordinates from metadata.points
-            var zonePoints = zone.metadata.points.split(',');
-            if (zonePoints.length >= 2) {
-                var zoneLat = parseFloat(zonePoints[0]);
-                var zoneLng = parseFloat(zonePoints[1]);
-
-                if (!isNaN(zoneLat) && !isNaN(zoneLng)) {
-                    // Calculate distance between contract and zone coordinates
-                    var distance = Math.sqrt(
-                        Math.pow(contractLat - zoneLat, 2) +
-                        Math.pow(contractLng - zoneLng, 2)
-                    );
-
-                    console.log('Checking zone:', {
-                        zone_id: zone.zone_id,
-                        name: zone.text,
+            if (pointsString) {
+                // Parse zone coordinates from points string
+                var zonePoints = pointsString.split(/[,;]/);
+                console.log('Split points:', zonePoints);
+                
+                if (zonePoints.length >= 2) {
+                    var zoneLat = parseFloat(zonePoints[0]);
+                    var zoneLng = parseFloat(zonePoints[1]);
+                    
+                    console.log('Parsed coordinates:', {
                         zoneLat: zoneLat,
                         zoneLng: zoneLng,
-                        distance: distance,
-                        withinTolerance: distance <= tolerance
+                        isValidLat: !isNaN(zoneLat),
+                        isValidLng: !isNaN(zoneLng)
                     });
 
-                    // Find closest match within tolerance
-                    if (distance <= tolerance && distance < minDistance) {
-                        minDistance = distance;
-                        bestMatch = zone;
+                    if (!isNaN(zoneLat) && !isNaN(zoneLng)) {
+                        // Calculate distance between contract and zone coordinates
+                        var distance = Math.sqrt(
+                            Math.pow(contractLat - zoneLat, 2) +
+                            Math.pow(contractLng - zoneLng, 2)
+                        );
+
+                        console.log('Distance calculation:', {
+                            contractLat: contractLat,
+                            contractLng: contractLng,
+                            zoneLat: zoneLat,
+                            zoneLng: zoneLng,
+                            distance: distance,
+                            tolerance: tolerance,
+                            withinTolerance: distance <= tolerance
+                        });
+
+                        // Find closest match within tolerance
+                        if (distance <= tolerance && distance < minDistance) {
+                            minDistance = distance;
+                            bestMatch = zone;
+                            console.log('✅ NEW BEST MATCH FOUND!', {
+                                zone_id: zone.zone_id || zone.id,
+                                name: zone.name || zone.text,
+                                distance: distance
+                            });
+                        } else if (distance <= tolerance) {
+                            console.log('⚠️ Match within tolerance but not best:', {
+                                zone_id: zone.zone_id || zone.id,
+                                distance: distance,
+                                currentBest: minDistance
+                            });
+                        }
+                    } else {
+                        console.log('❌ Invalid coordinates parsed from:', pointsString);
                     }
+                } else {
+                    console.log('❌ Not enough points in string:', pointsString);
                 }
+            } else {
+                console.log('❌ No points data found in zone');
             }
         });
 
