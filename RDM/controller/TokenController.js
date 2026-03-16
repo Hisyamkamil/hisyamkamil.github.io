@@ -3513,6 +3513,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
 
     /**
      * Process geofence zones API response and populate dropdown
+     * NO FILTERING - Lists ALL zones from API response
      */
     processGeofenceZonesForContract: function(modal, zonesData) {
         console.log('Processing geofence zones data for contract dropdown...');
@@ -3520,7 +3521,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         
         var zones = [];
         
-        // Extract zones from tree structure
+        // Extract ALL items from API response - NO FILTERING
         if (Array.isArray(zonesData)) {
             zonesData.forEach(function(groupNode) {
                 console.log('Processing group node:', {
@@ -3530,8 +3531,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 });
                 
                 if (groupNode.children && Array.isArray(groupNode.children)) {
-                    groupNode.children.forEach(function(zone) {
-                        console.log('Checking zone:', {
+                    groupNode.children.forEach(function(zone, index) {
+                        console.log('Adding zone (no filtering):', {
                             name: zone.name,
                             text: zone.text,
                             zone_id: zone.zone_id,
@@ -3542,59 +3543,40 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                             points: zone.points
                         });
                         
-                        // FIX: More flexible zone filtering logic
-                        // Accept zones that are either:
-                        // 1. Have leaf=true and iconCls='zone_icon' (standard format)
-                        // 2. Have zone_id or zonetype (alternative format)
-                        // 3. Have 'zone' in the name/text (fallback)
-                        var isValidZone = (zone.leaf && zone.iconCls === 'zone_icon') ||
-                                        zone.zone_id ||
-                                        zone.zonetype ||
-                                        (zone.name && zone.name.toLowerCase().includes('zone')) ||
-                                        (zone.text && zone.text.toLowerCase().includes('zone'));
+                        // NO FILTERING - Accept ALL zones from API
+                        // Parse coordinates from points or metadata.points
+                        var coordinates = this.parseGeofencePoints(zone.points || zone.metadata?.points);
                         
-                        console.log('Zone validation result:', {
-                            isValidZone: isValidZone,
-                            reason: isValidZone ? 'Valid zone found' : 'Zone filtered out'
-                        });
+                        var zoneEntry = {
+                            zone_id: zone.zone_id || zone.id || ('zone_' + zones.length),
+                            name: zone.name || zone.text || ('Zone ' + (index + 1)),
+                            text: zone.text || zone.name || ('Zone ' + (index + 1)),
+                            points: zone.points || zone.metadata?.points || '',
+                            color: zone.color || zone.metadata?.color || '#666',
+                            zonetype: zone.zonetype || zone.metadata?.zonetype || 1,
+                            coordinates: coordinates,
+                            group: groupNode.name || groupNode.text || 'Default Group',
+                            displayName: (zone.text || zone.name || ('Zone ' + (index + 1))) + ' - ' + (groupNode.name || groupNode.text || 'Unknown Group')
+                        };
                         
-                        if (isValidZone) {
-                            // Parse coordinates from points or metadata.points
-                            var coordinates = this.parseGeofencePoints(zone.points || zone.metadata?.points);
-                            
-                            var zoneEntry = {
-                                zone_id: zone.zone_id || zone.id || ('zone_' + zones.length),
-                                name: zone.name || zone.text || 'Unnamed Zone',
-                                text: zone.text || zone.name || 'Unnamed Zone',
-                                points: zone.points || zone.metadata?.points || '',
-                                color: zone.color || zone.metadata?.color || '#666',
-                                zonetype: zone.zonetype || zone.metadata?.zonetype || 1,
-                                coordinates: coordinates,
-                                group: groupNode.name || groupNode.text || 'Default Group',
-                                displayName: (zone.text || zone.name || 'Unnamed Zone') + ' - ' + (groupNode.name || groupNode.text || 'Unknown Group')
-                            };
-                            
-                            zones.push(zoneEntry);
-                            console.log('✓ Zone added:', zoneEntry.displayName);
-                        } else {
-                            console.log('✗ Zone skipped:', zone.name || zone.text || 'Unknown');
-                        }
+                        zones.push(zoneEntry);
+                        console.log('✓ Zone added (no filter):', zoneEntry.displayName);
                     }.bind(this));
                 }
             }.bind(this));
         }
         
-        console.log('Extracted geofence zones for dropdown:', zones.length);
+        console.log('Extracted ALL geofence zones for dropdown:', zones.length);
         if (zones.length === 0) {
-            console.warn('⚠️ No geofence zones extracted - check API response structure');
-            console.log('Sample of raw data for debugging:', JSON.stringify(zonesData.slice(0, 2), null, 2));
+            console.warn('⚠️ No zones found in API response');
+            console.log('Complete raw data for debugging:', JSON.stringify(zonesData, null, 2));
         }
         
         // Populate the dropdown store
         var combo = modal.down('combobox[name=geofenceSelection]');
         if (combo && combo.getStore()) {
             combo.getStore().loadData(zones);
-            console.log('✅ Geofence dropdown populated with', zones.length, 'zones');
+            console.log('✅ Geofence dropdown populated with ALL', zones.length, 'zones from API');
         }
     },
 
