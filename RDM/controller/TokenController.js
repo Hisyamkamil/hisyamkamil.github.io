@@ -928,21 +928,19 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                         fieldLabel: 'Geofence *',
                                         name: 'geofence',
                                         allowBlank: false,
-                                        emptyText: 'Select geofence...',
+                                        emptyText: 'Loading geofence zones...',
                                         cls: 'required-field',
                                         margin: '0 0 0 8',
-                                        store: {
-                                            data: [
-                                                {value: 'default', text: 'Default Geofence'},
-                                                {value: 'mining_area_1', text: 'Mining Area 1'},
-                                                {value: 'mining_area_2', text: 'Mining Area 2'},
-                                                {value: 'processing_area', text: 'Processing Area'}
-                                            ]
-                                        },
-                                        displayField: 'text',
-                                        valueField: 'value',
+                                        displayField: 'displayName',
+                                        valueField: 'zone_id',
                                         queryMode: 'local',
-                                        editable: false
+                                        editable: true,
+                                        typeAhead: true,
+                                        forceSelection: false,
+                                        store: {
+                                            fields: ['zone_id', 'name', 'text', 'points', 'color', 'zonetype', 'displayName', 'coordinates'],
+                                            data: []
+                                        }
                                     }
                                 ]
                             }
@@ -1010,6 +1008,9 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             }]
         });
 
+        // Load geofence zones dynamically for token request modal
+        this.loadGeofenceZonesForTokenRequest(modal);
+        
         // Auto-fill vehicle data if available
         if (isAutoFill && vehicleData) {
             // Pre-populate vehicle fields
@@ -2160,15 +2161,14 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     /**
-     * Map geofence coordinates from contract API to actual geofence zones from /ax/zones.php
-     * @param {Object} geofenceDetails - Coordinate bounds from contract API
+     * Match geofence zone by zone ID first, then fallback to coordinate matching
+     * @param {Object} geofenceDetails - Geofence details from contract API
      * @param {Array} availableZones - Zones loaded from /ax/zones.php API
-     * @returns {String|null} - Zone ID that matches the contract coordinates
+     * @returns {String|null} - Zone ID that matches the contract
      */
-    mapCoordinatesToGeofenceZone: function(geofenceDetails, availableZones) {
-        if (!geofenceDetails || !geofenceDetails.latMax || !geofenceDetails.latMin ||
-            !geofenceDetails.lngMax || !geofenceDetails.lngMin) {
-            console.warn('Invalid contract geofence coordinates:', geofenceDetails);
+    matchGeofenceZone: function(geofenceDetails, availableZones) {
+        if (!geofenceDetails) {
+            console.warn('No geofence details provided');
             return null;
         }
 
@@ -2177,123 +2177,101 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             return null;
         }
 
+        console.log('=== GEOFENCE ZONE MATCHING ===');
+        console.log('Contract geofence details:', geofenceDetails);
+        console.log('Available zones to match:', availableZones.length);
+
+        // PRIORITY 1: Match by geozones_id if available in contract
+        if (geofenceDetails.geozones_id) {
+            console.log('=== MATCHING BY ZONE ID ===');
+            console.log('Looking for zone ID:', geofenceDetails.geozones_id);
+            
+            var matchedByZoneId = availableZones.find(function(zone) {
+                var zoneId = zone.zone_id || zone.id;
+                return zoneId && zoneId.toString() === geofenceDetails.geozones_id.toString();
+            });
+            
+            if (matchedByZoneId) {
+                console.log('✅ ZONE MATCHED BY ID:', {
+                    zone_id: matchedByZoneId.zone_id || matchedByZoneId.id,
+                    name: matchedByZoneId.text || matchedByZoneId.name
+                });
+                return (matchedByZoneId.zone_id || matchedByZoneId.id).toString();
+            } else {
+                console.log('❌ No zone found with ID:', geofenceDetails.geozones_id);
+            }
+        }
+
+        // PRIORITY 2: Fallback to coordinate matching if no zone ID match
+        if (geofenceDetails.latMax && geofenceDetails.latMin &&
+            geofenceDetails.lngMax && geofenceDetails.lngMin) {
+            console.log('=== FALLBACK TO COORDINATE MATCHING ===');
+            return this.mapCoordinatesToGeofenceZone(geofenceDetails, availableZones);
+        }
+
+        console.log('❌ No valid zone ID or coordinates for matching');
+        return null;
+    },
+
+    /**
+     * Map geofence coordinates from contract API to actual geofence zones from /ax/zones.php
+     * @param {Object} geofenceDetails - Coordinate bounds from contract API
+     * @param {Array} availableZones - Zones loaded from /ax/zones.php API
+     * @returns {String|null} - Zone ID that matches the contract coordinates
+     */
+    mapCoordinatesToGeofenceZone: function(geofenceDetails, availableZones) {
         var contractLat = (geofenceDetails.latMax + geofenceDetails.latMin) / 2;
         var contractLng = (geofenceDetails.lngMax + geofenceDetails.lngMin) / 2;
 
-        console.log('=== GEOFENCE ZONE MATCHING ===');
-        console.log('Contract coordinates:', {
+        console.log('Contract center coordinates:', {
             centerLat: contractLat,
             centerLng: contractLng,
             bounds: geofenceDetails
         });
-        console.log('Available zones to match:', availableZones.length);
 
-        var tolerance = 0.001; // ~111 meters tolerance for coordinate matching
+        var tolerance = 0.001; // ~111 meters tolerance
         var bestMatch = null;
         var minDistance = Infinity;
 
-        // Search through all available zones
-        availableZones.forEach(function(zone, index) {
-            console.log('=== CHECKING ZONE ' + index + ' ===');
-            console.log('Zone structure:', {
-                zone_id: zone.zone_id,
-                id: zone.id,
-                name: zone.name,
-                text: zone.text,
-                points: zone.points,
-                metadata: zone.metadata,
-                hasMetadata: !!zone.metadata,
-                hasMetadataPoints: !!(zone.metadata && zone.metadata.points),
-                hasDirectPoints: !!zone.points
-            });
+        availableZones.forEach(function(zone) {
+            var pointsString = (zone.metadata && zone.metadata.points) || zone.points;
+            if (!pointsString) return;
 
-            var pointsString = null;
-            var coordinates = null;
+            // Parse first coordinate pair from points string
+            var coords = pointsString.split(/[,;]/);
+            if (coords.length < 2) return;
 
-            // Try multiple ways to get coordinates
-            if (zone.metadata && zone.metadata.points) {
-                pointsString = zone.metadata.points;
-                console.log('Using metadata.points:', pointsString);
-            } else if (zone.points) {
-                pointsString = zone.points;
-                console.log('Using direct points:', pointsString);
-            }
+            var zoneLat = parseFloat(coords[0]);
+            var zoneLng = parseFloat(coords[1]);
+            
+            if (isNaN(zoneLat) || isNaN(zoneLng)) return;
 
-            if (pointsString) {
-                // Parse zone coordinates from points string
-                var zonePoints = pointsString.split(/[,;]/);
-                console.log('Split points:', zonePoints);
-                
-                if (zonePoints.length >= 2) {
-                    var zoneLat = parseFloat(zonePoints[0]);
-                    var zoneLng = parseFloat(zonePoints[1]);
-                    
-                    console.log('Parsed coordinates:', {
-                        zoneLat: zoneLat,
-                        zoneLng: zoneLng,
-                        isValidLat: !isNaN(zoneLat),
-                        isValidLng: !isNaN(zoneLng)
-                    });
+            var distance = Math.sqrt(
+                Math.pow(contractLat - zoneLat, 2) +
+                Math.pow(contractLng - zoneLng, 2)
+            );
 
-                    if (!isNaN(zoneLat) && !isNaN(zoneLng)) {
-                        // Calculate distance between contract and zone coordinates
-                        var distance = Math.sqrt(
-                            Math.pow(contractLat - zoneLat, 2) +
-                            Math.pow(contractLng - zoneLng, 2)
-                        );
-
-                        console.log('Distance calculation:', {
-                            contractLat: contractLat,
-                            contractLng: contractLng,
-                            zoneLat: zoneLat,
-                            zoneLng: zoneLng,
-                            distance: distance,
-                            tolerance: tolerance,
-                            withinTolerance: distance <= tolerance
-                        });
-
-                        // Find closest match within tolerance
-                        if (distance <= tolerance && distance < minDistance) {
-                            minDistance = distance;
-                            bestMatch = zone;
-                            console.log('✅ NEW BEST MATCH FOUND!', {
-                                zone_id: zone.zone_id || zone.id,
-                                name: zone.name || zone.text,
-                                distance: distance
-                            });
-                        } else if (distance <= tolerance) {
-                            console.log('⚠️ Match within tolerance but not best:', {
-                                zone_id: zone.zone_id || zone.id,
-                                distance: distance,
-                                currentBest: minDistance
-                            });
-                        }
-                    } else {
-                        console.log('❌ Invalid coordinates parsed from:', pointsString);
-                    }
-                } else {
-                    console.log('❌ Not enough points in string:', pointsString);
-                }
-            } else {
-                console.log('❌ No points data found in zone');
+            if (distance <= tolerance && distance < minDistance) {
+                minDistance = distance;
+                bestMatch = zone;
             }
         });
 
         if (bestMatch) {
-            console.log('✅ GEOFENCE ZONE MATCHED:', {
-                zone_id: bestMatch.zone_id,
-                name: bestMatch.text,
+            console.log('✅ ZONE MATCHED BY COORDINATES:', {
+                zone_id: bestMatch.zone_id || bestMatch.id,
+                name: bestMatch.text || bestMatch.name,
                 distance: minDistance
             });
-            return bestMatch.zone_id.toString();
-        } else {
-            console.log('❌ No matching geofence zone found within tolerance');
-            return null;
+            return (bestMatch.zone_id || bestMatch.id).toString();
         }
+
+        console.log('❌ No zone found within coordinate tolerance');
+        return null;
     },
 
     /**
-     * Load geofence zones from /ax/zones.php and match with contract coordinates
+     * Load geofence zones from /ax/zones.php and match with contract zone ID or coordinates
      */
     loadGeofenceZonesForAutoFill: function(form, contractGeofenceDetails) {
         console.log('=== LOADING GEOFENCE ZONES FOR AUTO-FILL ===');
@@ -2317,8 +2295,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     var availableZones = this.extractZonesFromTree(result);
                     console.log('Extracted zones for matching:', availableZones.length);
 
-                    // Find matching zone
-                    var matchingZoneId = this.mapCoordinatesToGeofenceZone(contractGeofenceDetails, availableZones);
+                    // Find matching zone - prefer zone ID matching over coordinates
+                    var matchingZoneId = this.matchGeofenceZone(contractGeofenceDetails, availableZones);
                     
                     if (matchingZoneId) {
                         this.setGeofenceFieldValue(form, matchingZoneId, availableZones);
@@ -3285,13 +3263,19 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             if (values.additionalDurationHours) requestData.additionalDurationHours = parseInt(values.additionalDurationHours, 10);
 
             // Add geofence details if provided
-            if (values.latMin || values.latMax || values.lngMin || values.lngMax) {
+            if (values.latMin || values.latMax || values.lngMin || values.lngMax || values.geofenceSelection) {
                 requestData.geofenceDetails = {
                     latMin: parseFloat(values.latMin) || 0,
                     latMax: parseFloat(values.latMax) || 0,
                     lngMin: parseFloat(values.lngMin) || 0,
                     lngMax: parseFloat(values.lngMax) || 0
                 };
+                
+                // Include selected geofence zone ID from /ax/zones.php API
+                if (values.geofenceSelection) {
+                    requestData.geofenceDetails.geozones_id = parseInt(values.geofenceSelection, 10);
+                    console.log('✓ Geofence zone ID included:', requestData.geofenceDetails.geozones_id);
+                }
             }
             
             var apiUrl = isEdit ?
@@ -3808,6 +3792,118 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         ].join('');
         
         Ext.Msg.alert('Contract ' + (isEdit ? 'Updated' : 'Created'), successMessage);
+    },
+
+    /**
+     * Load geofence zones data for token request modal
+     */
+    loadGeofenceZonesForTokenRequest: function(modal) {
+        console.log('Loading geofence zones data for token request modal...');
+        
+        var geofenceField = modal.down('combobox[name=geofence]');
+        if (geofenceField) {
+            geofenceField.setEmptyText('Loading geofence zones...');
+        }
+        
+        Ext.Ajax.request({
+            url: '/ax/zones.php',
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout: 15000,
+            success: function(response) {
+                console.log('Geofence zones data loaded successfully for token request');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Geofence zones API response for token request:', result);
+                    
+                    this.processGeofenceZonesForTokenRequest(modal, result);
+                } catch (e) {
+                    console.error('Error parsing geofence zones response for token request:', e);
+                    if (geofenceField) {
+                        geofenceField.setEmptyText('Failed to load zones');
+                    }
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load geofence zones data for token request:', response);
+                // Show fallback empty store
+                if (geofenceField && geofenceField.getStore()) {
+                    geofenceField.getStore().loadData([]);
+                    geofenceField.setEmptyText('Failed to load zones');
+                }
+            }
+        });
+    },
+
+    /**
+     * Process geofence zones for token request dropdown
+     */
+    processGeofenceZonesForTokenRequest: function(modal, zonesData) {
+        console.log('Processing geofence zones for token request dropdown...');
+        
+        var zones = [];
+        
+        // Extract ALL zones from API response - NO FILTERING for token request
+        if (Array.isArray(zonesData)) {
+            zonesData.forEach(function(groupNode) {
+                console.log('Processing group node for token request:', {
+                    name: groupNode.name,
+                    hasChildren: !!groupNode.children,
+                    childrenLength: groupNode.children ? groupNode.children.length : 0
+                });
+                
+                if (groupNode.children && Array.isArray(groupNode.children)) {
+                    groupNode.children.forEach(function(zone, index) {
+                        console.log('Adding zone for token request (no filtering):', {
+                            name: zone.name,
+                            text: zone.text,
+                            zone_id: zone.zone_id,
+                            id: zone.id,
+                            leaf: zone.leaf,
+                            iconCls: zone.iconCls,
+                            zonetype: zone.zonetype,
+                            points: zone.points
+                        });
+                        
+                        // NO FILTERING - Accept ALL zones from API
+                        // Parse coordinates from points or metadata.points
+                        var coordinates = this.parseGeofencePoints(zone.points || zone.metadata?.points);
+                        
+                        var zoneEntry = {
+                            zone_id: zone.zone_id || zone.id || ('zone_' + zones.length),
+                            name: zone.name || zone.text || ('Zone ' + (index + 1)),
+                            text: zone.text || zone.name || ('Zone ' + (index + 1)),
+                            points: zone.points || zone.metadata?.points || '',
+                            color: zone.color || zone.metadata?.color || '#666',
+                            zonetype: zone.zonetype || zone.metadata?.zonetype || 1,
+                            coordinates: coordinates,
+                            group: groupNode.name || groupNode.text || 'Default Group',
+                            displayName: (zone.text || zone.name || ('Zone ' + (index + 1))) + ' - ' + (groupNode.name || groupNode.text || 'Unknown Group')
+                        };
+                        
+                        zones.push(zoneEntry);
+                        console.log('✓ Zone added for token request (no filter):', zoneEntry.displayName);
+                    }.bind(this));
+                }
+            }.bind(this));
+        }
+        
+        console.log('Extracted ALL geofence zones for token request dropdown:', zones.length);
+        if (zones.length === 0) {
+            console.warn('⚠️ No zones found in API response for token request');
+            console.log('Complete raw data for debugging:', JSON.stringify(zonesData, null, 2));
+        }
+        
+        // Populate the token request geofence dropdown store
+        var geofenceField = modal.down('combobox[name=geofence]');
+        if (geofenceField && geofenceField.getStore()) {
+            geofenceField.getStore().loadData(zones);
+            geofenceField.setEmptyText('Select geofence zone...');
+            console.log('✅ Token request geofence dropdown populated with ALL', zones.length, 'zones from API');
+        }
     },
 
     /**
