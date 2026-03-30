@@ -5,7 +5,7 @@
     "description": "Clean configuration-driven sensor monitoring with DTC support"
   },
   "api": {
-    "url": "/backend/ax/current_data.php",
+    "url": "/ax/current_data.php",
     "timeout": 30000
   },
   "refresh": {
@@ -19,7 +19,8 @@
     "tabIcon": "fa fa-list-alt",
     "collapsible": true,
     "resizable": true,
-    "animCollapse": 300
+    "animCollapse": 300,
+    "navigation": false
   },
   "sensors": {
     "dtcDetectionKeyword": "group by active dtc",
