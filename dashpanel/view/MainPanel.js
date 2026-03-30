@@ -38,7 +38,7 @@ Ext.define('Store.dashpanel.view.MainPanel', {
         me.animCollapse = me.config.ui.animCollapse;
         me.collapseDirection = 'bottom';
         me.titleCollapse = true;
-        me.collapseMode = 'mini';
+        me.collapseMode = 'header';
         me.layout = 'fit';
         me.hidden = true;
         me.id = 'dashpanel-main-panel';
