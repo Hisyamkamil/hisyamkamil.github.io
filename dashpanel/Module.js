@@ -37,14 +37,16 @@ Ext.define('Store.dashpanel.Module', {
     setupComponents: function() {
         var me = this;
         
-        // 1. CREATE NAVIGATION COMPONENT
-        me.navigationComponent = me.createNavigationComponent();
+        // 1. CREATE NAVIGATION COMPONENT (CONDITIONAL)
+        if (me.isNavigationEnabled()) {
+            me.navigationComponent = me.createNavigationComponent();
+        }
         
         // 2. CREATE MAIN PANEL COMPONENT
         me.mainPanelComponent = me.createMainPanelComponent();
         
         // 3. LINK COMPONENTS TOGETHER
-        // Navigation will trigger main panel via global reference
+        // Navigation will trigger main panel via global reference (if enabled)
         
         // 4. ADD TO PILOT INTERFACE
         me.addToPilotInterface();
@@ -53,6 +55,17 @@ Ext.define('Store.dashpanel.Module', {
         me.loadStyles();
         
         console.log('✅', me.config.module.name, 'initialized successfully');
+    },
+
+    /**
+     * Check if navigation is enabled in configuration
+     * @returns {boolean} True if navigation should be shown
+     */
+    isNavigationEnabled: function() {
+        var me = this;
+        return me.config &&
+               me.config.ui &&
+               me.config.ui.navigation !== false; // Default to true if not specified
     },
 
     /**
@@ -89,20 +102,30 @@ Ext.define('Store.dashpanel.Module', {
     addToPilotInterface: function() {
         var me = this;
         
-        // Add navigation to existing Online navigation panel
-        if (me.isOnlineNavigationAvailable()) {
-            var onlinePanel = skeleton.navigation.online;
-            onlinePanel.add(me.navigationComponent);
-            me.setupNavigationListeners(onlinePanel);
-            console.log('✅ Navigation component added to PILOT interface');
+        // Add navigation to existing Online navigation panel (if enabled)
+        if (me.isNavigationEnabled()) {
+            if (me.isOnlineNavigationAvailable()) {
+                var onlinePanel = skeleton.navigation.online;
+                onlinePanel.add(me.navigationComponent);
+                me.setupNavigationListeners(onlinePanel);
+                console.log('✅ Navigation component added to PILOT interface');
+            } else {
+                console.error('❌ Online navigation not available');
+            }
         } else {
-            console.error('❌ Online navigation not available');
+            console.log('ℹ️ Navigation disabled in configuration - main panel will be always visible');
         }
         
         // Add main panel to mapframe
         if (me.isMapFrameAvailable()) {
             me.dockMainPanelToMapFrame();
             console.log('✅ Main panel docked to PILOT mapframe');
+            
+            // If navigation is disabled, show main panel immediately
+            if (!me.isNavigationEnabled()) {
+                me.showMainPanel();
+                console.log('✅ Main panel shown automatically (no navigation)');
+            }
         } else {
             console.error('❌ Map frame not available');
         }
@@ -134,6 +157,11 @@ Ext.define('Store.dashpanel.Module', {
     setupNavigationListeners: function(onlinePanel) {
         var me = this;
         
+        // Only setup listeners if navigation is enabled
+        if (!me.isNavigationEnabled()) {
+            return;
+        }
+        
         if (onlinePanel.on) {
             onlinePanel.on('tabchange', function(tabPanel, newCard) {
                 me.handleTabChange(newCard);
@@ -155,6 +183,11 @@ Ext.define('Store.dashpanel.Module', {
      */
     handleTabChange: function(newCard) {
         var me = this;
+        
+        // Only handle tab changes if navigation is enabled
+        if (!me.isNavigationEnabled()) {
+            return;
+        }
         
         if (newCard && newCard.title === 'Sensor Monitor') {
             me.showMainPanel();
@@ -309,9 +342,16 @@ Ext.define('Store.dashpanel.Module', {
         
         if (Ext.isArray(tags)) {
             Ext.each(tags, function(tag) {
-                if (tag.tag_name && tag.icon) {
-                    // Convert icon name to FontAwesome class
-                    var iconClass = me.convertIconToFontAwesome(tag.icon);
+                if (tag.tag_name) {
+                    var iconClass;
+                    if (tag.icon) {
+                        // Convert icon name to FontAwesome class
+                        iconClass = me.convertIconToFontAwesome(tag.icon);
+                    } else {
+                        // Use default icon for null icons
+                        iconClass = 'fa fa-microchip';
+                    }
+                    
                     me.sensorTagsCache[tag.tag_name.toLowerCase()] = iconClass;
                     
                     // Create reverse lookup by tag ID
@@ -379,7 +419,7 @@ Ext.define('Store.dashpanel.Module', {
             module: { name: 'Sensor Monitor (Fallback)', version: '4.0.0' },
             api: { url: '/ax/current_data.php', timeout: 30000 },
             refresh: { interval: 500, minInterval: 100, maxInterval: 10000 },
-            ui: { panelHeight: 325, deferredInitDelay: 1000, tabIcon: 'fa fa-list-alt', collapsible: true, resizable: true, animCollapse: 300 },
+            ui: { panelHeight: 325, deferredInitDelay: 1000, tabIcon: 'fa fa-list-alt', collapsible: true, resizable: true, animCollapse: 300, navigation: true },
             sensors: { dtcDetectionKeyword: 'group by active dtc', defaultColumns: 3 },
             colors: { normal: '#008000', warning: '#ff8c00', critical: '#ff0000', unknown: '#666666' },
             icons: { default: 'fa fa-microchip', temperature: 'fa fa-thermometer-half', pressure: 'fa fa-tachometer-alt', level: 'fa fa-battery-half', voltage: 'fa fa-bolt', speed: 'fa fa-speedometer', weight: 'fa fa-weight', engine: 'fa fa-cog' },
