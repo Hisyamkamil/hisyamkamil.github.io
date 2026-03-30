@@ -58,6 +58,104 @@ Ext.define('Store.dashpanel.Module', {
     },
 
     /**
+     * Bind to PILOT's main online tree selection (when navigation disabled)
+     */
+    bindToPilotTreeSelection: function() {
+        var me = this;
+        
+        try {
+            // Access PILOT's main online tree per AI_SPECS.pdf
+            if (skeleton &&
+                skeleton.navigation &&
+                skeleton.navigation.online &&
+                skeleton.navigation.online.online_tree) {
+                
+                var pilotTree = skeleton.navigation.online.online_tree;
+                console.log('🔗 Binding to PILOT online tree for vehicle selection...');
+                
+                // Listen to selection change on main PILOT tree
+                pilotTree.on('selectionchange', function(tree, selected) {
+                    me.handlePilotTreeSelection(tree, selected);
+                });
+                
+                // Also check current selection if any
+                var currentSelection = pilotTree.getSelection();
+                if (currentSelection && currentSelection.length > 0) {
+                    me.handlePilotTreeSelection(pilotTree, currentSelection);
+                }
+                
+                console.log('✅ Successfully bound to PILOT online tree selection');
+                
+            } else {
+                console.warn('⚠️ PILOT online tree not available for binding');
+            }
+            
+        } catch (e) {
+            console.error('❌ Failed to bind to PILOT tree selection:', e);
+        }
+    },
+
+    /**
+     * Handle PILOT tree selection change
+     * @param {Object} tree - PILOT tree component
+     * @param {Array} selected - Selected records from PILOT tree
+     */
+    handlePilotTreeSelection: function(tree, selected) {
+        var me = this;
+        
+        if (selected && selected.length > 0) {
+            var record = selected[0];
+            
+            // Check if selected record is a vehicle (leaf node with ID)
+            if (me.isPilotVehicleRecord(record)) {
+                var vehicleId = me.getPilotVehicleId(record);
+                var vehicleName = me.getPilotVehicleName(record);
+                
+                console.log('🚗 PILOT vehicle selected:', vehicleName, 'ID:', vehicleId);
+                
+                // Show vehicle sensors using existing method
+                me.showVehicleSensors(vehicleId, vehicleName, record);
+                
+            } else {
+                console.log('ℹ️ Non-vehicle item selected in PILOT tree');
+                // Don't hide panel, just show message about non-vehicle selection
+            }
+        }
+    },
+
+    /**
+     * Check if PILOT record is a vehicle (based on AI_SPECS.pdf tree structure)
+     * @param {Object} record - PILOT tree record
+     * @returns {boolean} True if vehicle
+     */
+    isPilotVehicleRecord: function(record) {
+        return record &&
+               record.get &&
+               record.get('leaf') &&
+               (record.get('id') || record.get('vehicle_id'));
+    },
+
+    /**
+     * Get vehicle ID from PILOT record
+     * @param {Object} record - PILOT tree record
+     * @returns {string} Vehicle ID
+     */
+    getPilotVehicleId: function(record) {
+        return record.get('id') || record.get('vehicle_id');
+    },
+
+    /**
+     * Get vehicle name from PILOT record
+     * @param {Object} record - PILOT tree record
+     * @returns {string} Vehicle name
+     */
+    getPilotVehicleName: function(record) {
+        return record.get('name') ||
+               record.get('text') ||
+               'PILOT Vehicle';
+    },
+
+    /**
      * Check if navigation is enabled in configuration
      * @returns {boolean} True if navigation should be shown
      */
@@ -121,10 +219,11 @@ Ext.define('Store.dashpanel.Module', {
             me.dockMainPanelToMapFrame();
             console.log('✅ Main panel docked to PILOT mapframe');
             
-            // If navigation is disabled, show main panel immediately
+            // If navigation is disabled, show main panel immediately and bind to PILOT tree
             if (!me.isNavigationEnabled()) {
                 me.showMainPanel();
-                console.log('✅ Main panel shown automatically (no navigation)');
+                me.bindToPilotTreeSelection();
+                console.log('✅ Main panel shown automatically (no navigation) - bound to PILOT tree');
             }
         } else {
             console.error('❌ Map frame not available');
