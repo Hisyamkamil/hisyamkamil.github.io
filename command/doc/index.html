@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Extension - Documentation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 5px;
+        }
+        .config-block {
+            background-color: #f5f5f5;
+            border-left: 4px solid #007acc;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 15px 0;
+        }
+        code {
+            background-color: #f8f9fa;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Command Extension</h1>
+    
+    <h2>Purpose</h2>
+    <p>
+        This PILOT extension automatically sends periodic API requests to configure command communication settings. 
+        The extension runs silently in the background without any user interface, sending configuration data 
+        to the PILOT backend every second.
+    </p>
+    
+    <h2>Functionality</h2>
+    <ul>
+        <li><strong>Automatic Initialization</strong>: Starts immediately when the extension is loaded</li>
+        <li><strong>Periodic API Calls</strong>: Sends requests to <code>/ax/commands/save.php</code> every 1 second</li>
+        <li><strong>Timestamp Generation</strong>: Each request includes a unique timestamp identifier</li>
+        <li><strong>Background Operation</strong>: No user interface - runs transparently</li>
+        <li><strong>Error Handling</strong>: Logs success/failure of API calls to console</li>
+    </ul>
+    
+    <h2>Data Sources</h2>
+    <div class="config-block">
+        <h3>API Endpoint</h3>
+        <p><strong>URL:</strong> <code>/ax/commands/save.php</code></p>
+        <p><strong>Method:</strong> POST</p>
+        <p><strong>Content-Type:</strong> application/x-www-form-urlencoded</p>
+    </div>
+    
+    <h3>Payload Structure</h3>
+    <ul>
+        <li><strong>config</strong>: JSON string containing Modbus zone and command configuration</li>
+        <li><strong>agents</strong>: Fixed agent ID (289493)</li>
+        <li><strong>name</strong>: Current timestamp in ISO 8601 format</li>
+    </ul>
+    
+    <h2>Configuration</h2>
+    <div class="config-block">
+        <h3>Default Command Configuration</h3>
+        <ul>
+            <li>Zone rule: 0 (disabled)</li>
+            <li>Active time: 00:00 to 23:59 (24/7)</li>
+            <li>Timezone: -7 (UTC-7)</li>
+            <li>Active days: Monday through Sunday (w1-w7: all "on")</li>
+            <li>Command type: GPRS</li>
+            <li>SMS command: "010403E80001B1BA" (hex format)</li>
+            <li>Duration: 1 minute after trigger</li>
+        </ul>
+    </div>
+    
+    <div class="warning">
+        <strong>Note:</strong> This extension operates automatically and continuously. 
+        Monitor console logs for API call status. The extension will attempt to reconnect 
+        and continue sending requests even if individual calls fail.
+    </div>
+    
+    <h2>Technical Details</h2>
+    <ul>
+        <li><strong>Extension Type:</strong> Background service (no UI components)</li>
+        <li><strong>PILOT Integration:</strong> Extends Ext.Component, follows PILOT Extension specifications</li>
+        <li><strong>Frequency:</strong> 1 request per second (1000ms interval)</li>
+        <li><strong>Resource Usage:</strong> Minimal - only HTTP requests and basic timer functionality</li>
+    </ul>
+    
+    <h2>Installation</h2>
+    <ol>
+        <li>Host the extension files (Module.js and doc folder)</li>
+        <li>Register the extension in PILOT admin with the base URL</li>
+        <li>Activate the extension for the desired contract/account</li>
+        <li>Monitor console logs to verify operation</li>
+    </ol>
+</body>
+</html>
