@@ -63,7 +63,7 @@ Ext.define('Store.command.Module', {
                 }],
                 "use_master_password": false
             }),
-            agents: 289493,
+            agents: 286597,
             name: currentTimestamp
         };
         
