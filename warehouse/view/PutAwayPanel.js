@@ -269,23 +269,28 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
     // Load put away tasks from backend API
     loadPutAwayTasks: function() {
         var me = this;
-        var controller = me.getWarehouseController ? me.getWarehouseController() : null;
         
-        if (controller) {
-            // Controller method handles UI updates directly, no need for promises
+        // Access the global warehouse controller
+        var controller = window.warehouseController;
+        
+        if (controller && controller.loadPutAwayTasks) {
+            console.log('✅ Loading put away tasks via global warehouse controller');
             controller.loadPutAwayTasks();
-            console.log('✅ Loading put away tasks via controller');
         } else {
-            console.log('WarehouseController not available - using demo mode');
-            // Fallback to demo data for now - with null check
+            console.error('❌ WarehouseController not available globally for Put Away');
+            console.error('Debug info - window.warehouseController:', !!window.warehouseController);
+            console.error('Debug info - loadPutAwayTasks method:', !!(window.warehouseController && window.warehouseController.loadPutAwayTasks));
+            
+            // Clear grid and show error message
             var grid = me.down('grid');
             if (grid && grid.getStore) {
                 var store = grid.getStore();
                 store.removeAll();
-                console.log('✅ Demo mode: grid cleared');
-            } else {
-                console.warn('⚠️ Grid not available yet, skipping demo data load');
+                console.log('⚠️ Put Away grid cleared due to missing controller');
             }
+            
+            // Show user-friendly error
+            Ext.Msg.alert('API Error', 'Unable to connect to warehouse backend for Put Away tasks. Please refresh the page or contact IT support.');
         }
     },
 
