@@ -542,7 +542,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                             };
                             
                             itemsStore.add(newItem);
-                            me.updateTotalItems(window.up().down('form'), itemsStore);
+                            me.updateTotalItems(null, itemsStore);
                             window.close();
                         } else {
                             Ext.Msg.alert('Selection Required', 'Please select an item and specify quantity.');
@@ -561,9 +561,13 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             totalItems += parseInt(record.get('expectedQuantity') || 0);
         });
         
-        var display = formPanel.up().down('#totalItemsDisplay');
+        // Find the total items display component globally
+        var display = Ext.ComponentQuery.query('#totalItemsDisplay')[0];
         if (display) {
             display.setValue(totalItems);
+            console.log('✅ Total items updated:', totalItems);
+        } else {
+            console.warn('⚠️ Total items display not found');
         }
     },
 
