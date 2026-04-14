@@ -12,79 +12,32 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
     initComponent: function() {
         var me = this;
         
-        // Create put away tasks store
+        // Create put away tasks store - INTEGRATED WITH BACKEND API
         var putAwayStore = Ext.create('Ext.data.Store', {
             fields: [
-                'transferNumber',
-                'sourceDelivery',
-                'fromLocation',
-                'toLocation',
-                'totalItems',
-                'movedItems',
+                'id',
+                'putaway_task_id',
+                'inbound_delivery_id',
+                'transfer_number',
+                'source_location',
+                'destination_location',
                 'status',
-                'assignedTo',
                 'priority',
-                'createdBy',
-                'createdDate',
-                'startedDate',
-                'completedBy',
-                'completedDate',
-                'estimatedTime'
+                'assigned_to',
+                'created_by_name',
+                'created_at',
+                'started_at',
+                'completed_at',
+                'completed_by_name',
+                'estimated_duration',
+                'total_items',
+                'moved_items'
             ],
-            data: [
-                {
-                    transferNumber: 'TRF-2024-001',
-                    sourceDelivery: 'GRN-2024-001',
-                    fromLocation: 'INBOUND-A01',
-                    toLocation: 'GOLD-ROOM-A',
-                    totalItems: 5,
-                    movedItems: 5,
-                    status: 'Completed',
-                    assignedTo: 'operator_001',
-                    priority: 'High',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-15',
-                    startedDate: '2024-04-15',
-                    completedBy: 'operator_001',
-                    completedDate: '2024-04-15',
-                    estimatedTime: '2 hours'
-                },
-                {
-                    transferNumber: 'TRF-2024-002',
-                    sourceDelivery: 'GRN-2024-002',
-                    fromLocation: 'INBOUND-A02',
-                    toLocation: 'GOLD-ROOM-B',
-                    totalItems: 3,
-                    movedItems: 1,
-                    status: 'In Progress',
-                    assignedTo: 'operator_002',
-                    priority: 'Medium',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-16',
-                    startedDate: '2024-04-16',
-                    completedBy: null,
-                    completedDate: null,
-                    estimatedTime: '1.5 hours'
-                },
-                {
-                    transferNumber: 'TRF-2024-003',
-                    sourceDelivery: 'GRN-2024-003',
-                    fromLocation: 'INBOUND-A03',
-                    toLocation: 'GOLD-ROOM-C',
-                    totalItems: 8,
-                    movedItems: 0,
-                    status: 'Created',
-                    assignedTo: 'operator_003',
-                    priority: 'Normal',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-17',
-                    startedDate: null,
-                    completedBy: null,
-                    completedDate: null,
-                    estimatedTime: '3 hours'
-                }
-            ]
+            data: [] // Will be loaded from API
         });
+        
+        // Load data from backend API on component initialization
+        me.loadPutAwayTasks();
 
         this.items = [
             // Toolbar
