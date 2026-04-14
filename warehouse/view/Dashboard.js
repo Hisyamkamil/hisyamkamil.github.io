@@ -264,6 +264,64 @@ Ext.define('Store.warehouse.view.Dashboard', {
         }
     },
 
+    // Update dashboard with data from controller (called by WarehouseController)
+    updateDashboard: function(dashboardData) {
+        console.log('🔍 DEBUG: Dashboard.updateDashboard called with:', dashboardData);
+        
+        if (!dashboardData) {
+            console.warn('⚠️ WARNING: No dashboard data provided');
+            return;
+        }
+        
+        try {
+            // Map controller data format to UI format
+            var metrics = {
+                total_deliveries: dashboardData.totalItems || 0,
+                pending_tasks: (dashboardData.todayPutAway || 0) + (dashboardData.todayPicking || 0),
+                total_items: dashboardData.totalQuantity || 0,
+                rfid_scans_today: dashboardData.activeAlerts || 0
+            };
+            
+            console.log('✅ DEBUG: Updating metrics cards with:', metrics);
+            this.updateMetricsCards(metrics);
+            
+            // Update activities if provided
+            if (dashboardData.locationSummary) {
+                var activitiesGrid = this.down('#activitiesGrid');
+                if (activitiesGrid) {
+                    var store = activitiesGrid.getStore();
+                    store.removeAll();
+                    
+                    // Convert location summary to activities
+                    var activities = [];
+                    dashboardData.locationSummary.forEach(function(location, index) {
+                        if (index < 5) { // Limit to 5 recent activities
+                            activities.push({
+                                activity_type: 'Inventory',
+                                description: 'Location ' + location.locationName + ': ' + location.totalItems + ' items',
+                                user_name: 'system',
+                                timestamp: location.lastActivity || new Date()
+                            });
+                        }
+                    });
+                    
+                    store.add(activities);
+                    console.log('✅ DEBUG: Updated activities grid with', activities.length, 'items');
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ ERROR updating dashboard UI:', error);
+            // Fallback to demo data on error
+            this.updateMetricsCards({
+                total_deliveries: 0,
+                pending_tasks: 0,
+                total_items: 0,
+                rfid_scans_today: 0
+            });
+        }
+    },
+
     // Clean up auto-refresh task when component is destroyed
     onDestroy: function() {
         if (this.refreshTask) {
