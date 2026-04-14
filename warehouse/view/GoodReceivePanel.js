@@ -238,23 +238,28 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     // Load inbound deliveries from backend API
     loadInboundDeliveries: function() {
         var me = this;
-        var controller = me.getWarehouseController ? me.getWarehouseController() : null;
         
-        if (controller) {
-            // Controller method handles UI updates directly, no need for promises
+        // Access the global warehouse controller
+        var controller = window.warehouseController;
+        
+        if (controller && controller.loadInboundDeliveries) {
+            console.log('✅ Loading inbound deliveries via global warehouse controller');
             controller.loadInboundDeliveries();
-            console.log('✅ Loading inbound deliveries via controller');
         } else {
-            console.log('WarehouseController not available - using demo mode');
-            // Fallback to demo data for now - with null check
+            console.error('❌ WarehouseController not available globally');
+            console.error('Debug info - window.warehouseController:', !!window.warehouseController);
+            console.error('Debug info - loadInboundDeliveries method:', !!(window.warehouseController && window.warehouseController.loadInboundDeliveries));
+            
+            // Clear grid and show error message
             var grid = me.down('grid');
             if (grid && grid.getStore) {
                 var store = grid.getStore();
                 store.removeAll();
-                console.log('✅ Demo mode: grid cleared');
-            } else {
-                console.warn('⚠️ Grid not available yet, skipping demo data load');
+                console.log('⚠️ Grid cleared due to missing controller');
             }
+            
+            // Show user-friendly error
+            Ext.Msg.alert('API Error', 'Unable to connect to warehouse backend. Please refresh the page or contact IT support.');
         }
     },
 
