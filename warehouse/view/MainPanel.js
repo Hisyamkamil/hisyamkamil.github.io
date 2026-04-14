@@ -5,6 +5,10 @@
 Ext.define('Store.warehouse.view.MainPanel', {
     extend: 'Ext.panel.Panel',
     
+    requires: [
+        'Store.warehouse.view.MasterDataPanel'
+    ],
+    
     layout: 'card',
     border: false,
     
@@ -50,7 +54,9 @@ Ext.define('Store.warehouse.view.MainPanel', {
                 itemId: 'masterdata',
                 title: 'Master Data',
                 layout: 'fit',
-                html: '<div style="padding: 20px; text-align: center; color: #666;"><h2>Master Data</h2><p>Item and location master data management.</p></div>'
+                items: [
+                    Ext.create('Store.warehouse.view.MasterDataPanel')
+                ]
             }
         ];
 
