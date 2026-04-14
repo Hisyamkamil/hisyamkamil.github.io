@@ -592,11 +592,170 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                           '<tr><td style="font-weight: bold; padding: 5px;">Status:</td><td style="padding: 5px;"><strong style="color: ' + me.getStatusColor(record.get('status')) + ';">' + record.get('status') + '</strong></td></tr>' +
                           '</table>'
                 },
-                // Items Grid (placeholder)
+                // Items Grid
                 {
                     region: 'center',
                     title: 'Delivery Items',
-                    html: '<div style="padding: 20px; text-align: center; color: #666;"><p>Items list for delivery <strong>' + record.get('deliveryNumber') + '</strong> would be displayed here.</p><p>Features: Item details, quantities, EPC codes, scanning status.</p></div>'
+                    xtype: 'grid',
+                    store: Ext.create('Ext.data.Store', {
+                        fields: [
+                            'itemCode',
+                            'itemName',
+                            'category',
+                            'unitOfMeasure',
+                            'expectedQuantity',
+                            'receivedQuantity',
+                            'epcCode',
+                            'scanningStatus',
+                            'lotNumber',
+                            'expiryDate'
+                        ],
+                        data: [
+                            {
+                                itemCode: 'ITM001',
+                                itemName: 'Steel Pipe 6 inch',
+                                category: 'Piping',
+                                unitOfMeasure: 'PCS',
+                                expectedQuantity: 2,
+                                receivedQuantity: record.get('status') === 'Confirmed' ? 2 : 0,
+                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A85' : 'Not Generated',
+                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
+                                lotNumber: 'LOT-2024-001',
+                                expiryDate: null
+                            },
+                            {
+                                itemCode: 'ITM002',
+                                itemName: 'Hydraulic Hose',
+                                category: 'Hydraulics',
+                                unitOfMeasure: 'MTR',
+                                expectedQuantity: 50,
+                                receivedQuantity: record.get('status') === 'Confirmed' ? 50 : 0,
+                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A86' : 'Not Generated',
+                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
+                                lotNumber: 'LOT-2024-002',
+                                expiryDate: null
+                            },
+                            {
+                                itemCode: 'ITM005',
+                                itemName: 'Industrial Grease',
+                                category: 'Lubricants',
+                                unitOfMeasure: 'KG',
+                                expectedQuantity: 10,
+                                receivedQuantity: record.get('status') === 'Confirmed' ? 10 : 0,
+                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A87' : 'Not Generated',
+                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
+                                lotNumber: 'LOT-2024-003',
+                                expiryDate: '2025-12-31'
+                            }
+                        ]
+                    }),
+                    columns: [
+                        {
+                            text: 'Item Code',
+                            dataIndex: 'itemCode',
+                            width: 100,
+                            renderer: function(value) {
+                                return '<strong>' + value + '</strong>';
+                            }
+                        },
+                        {
+                            text: 'Item Name',
+                            dataIndex: 'itemName',
+                            flex: 2
+                        },
+                        {
+                            text: 'Category',
+                            dataIndex: 'category',
+                            width: 120
+                        },
+                        {
+                            text: 'Unit',
+                            dataIndex: 'unitOfMeasure',
+                            width: 60,
+                            align: 'center'
+                        },
+                        {
+                            text: 'Expected Qty',
+                            dataIndex: 'expectedQuantity',
+                            width: 100,
+                            align: 'center',
+                            renderer: function(value) {
+                                return '<strong>' + value + '</strong>';
+                            }
+                        },
+                        {
+                            text: 'Received Qty',
+                            dataIndex: 'receivedQuantity',
+                            width: 100,
+                            align: 'center',
+                            renderer: function(value, metaData, record) {
+                                var expected = record.get('expectedQuantity');
+                                var color = value === expected ? 'green' : value > 0 ? 'orange' : 'black';
+                                return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'EPC Code',
+                            dataIndex: 'epcCode',
+                            width: 180,
+                            renderer: function(value) {
+                                var color = value === 'Not Generated' ? '#6c757d' : '#007bff';
+                                var style = 'color: ' + color + '; font-family: monospace; font-size: 11px;';
+                                return '<span style="' + style + '">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'Scanning Status',
+                            dataIndex: 'scanningStatus',
+                            width: 120,
+                            renderer: function(value) {
+                                var colorMap = {
+                                    'Confirmed': 'green',
+                                    'Pending': 'orange',
+                                    'Error': 'red'
+                                };
+                                var color = colorMap[value] || '#6c757d';
+                                return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'Lot Number',
+                            dataIndex: 'lotNumber',
+                            width: 110
+                        },
+                        {
+                            text: 'Expiry Date',
+                            dataIndex: 'expiryDate',
+                            width: 100,
+                            renderer: function(value) {
+                                return value ? Ext.util.Format.date(new Date(value), 'd M Y') : '-';
+                            }
+                        }
+                    ],
+                    tbar: [
+                        {
+                            text: 'Generate EPC Codes',
+                            iconCls: 'fa fa-tags',
+                            disabled: record.get('status') !== 'Created',
+                            handler: function() {
+                                Ext.Msg.alert('EPC Generation', 'EPC codes would be generated for all items in this delivery.');
+                            }
+                        },
+                        '-',
+                        {
+                            text: 'Start RFID Scanning',
+                            iconCls: 'fa fa-wifi',
+                            disabled: record.get('status') === 'Confirmed',
+                            handler: function() {
+                                me.showRFIDScanning(record);
+                            }
+                        },
+                        '->',
+                        {
+                            xtype: 'displayfield',
+                            value: '<strong>Total Items: ' + record.get('totalItems') + ' | Status: </strong><span style="color: ' + me.getStatusColor(record.get('status')) + '; font-weight: bold;">' + record.get('status') + '</span>'
+                        }
+                    ]
                 }
             ]
         });
