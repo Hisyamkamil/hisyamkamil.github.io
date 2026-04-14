@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Management System - PILOT Extension Documentation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #2c3e50;
+            margin-top: 25px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .feature-card h4 {
+            color: #3498db;
+            margin-top: 0;
+            font-size: 1.2em;
+        }
+        .api-endpoint {
+            background: #2c3e50;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .config-table th,
+        .config-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        .config-table th {
+            background-color: #3498db;
+            color: white;
+        }
+        .config-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: monospace;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Warehouse Management System</h1>
+        <p><strong>PILOT Extension for Comprehensive Warehouse Operations with Zebra RFID Integration</strong></p>
+        
+        <div class="info">
+            <strong>Version:</strong> 1.0.0<br>
+            <strong>Extension Name:</strong> warehouse-management<br>
+            <strong>Target Platform:</strong> PILOT Fleet Management System<br>
+            <strong>Framework:</strong> Ext JS 7.7+ Integration
+        </div>
+
+        <h2>Overview</h2>
+        <p>The Warehouse Management System extension provides comprehensive warehouse operations management integrated with Zebra RFID technology. This extension enables real-time inventory tracking, automated workflows, and seamless integration with warehouse hardware including RFID readers and barcode scanners.</p>
+
+        <h2>Core Features</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>📊 Real-time Dashboard</h4>
+                <ul>
+                    <li>Live inventory metrics and KPIs</li>
+                    <li>Active alerts monitoring</li>
+                    <li>Activity timeline tracking</li>
+                    <li>Variance analysis visualization</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h4>📦 Good Receive</h4>
+                <ul>
+                    <li>Inbound delivery management</li>
+                    <li>Automated EPC generation</li>
+                    <li>RFID confirmation workflows</li>
+                    <li>Barcode scanning integration</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h4>🚚 Put Away Tasks</h4>
+                <ul>
+                    <li>Transfer order management</li>
+                    <li>Location-based put away</li>
+                    <li>RFID validation workflows</li>
+                    <li>Real-time task tracking</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h4>📋 Picking Operations</h4>
+                <ul>
+                    <li>Outbound delivery planning</li>
+                    <li>Picking list generation</li>
+                    <li>Gate exit validation</li>
+                    <li>Automated completion tracking</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h4>📏 Stock Opname</h4>
+                <ul>
+                    <li>Physical inventory counting</li>
+                    <li>RFID bulk scanning</li>
+                    <li>Variance analysis</li>
+                    <li>Reconciliation workflows</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <h4>📈 Reports & Analytics</h4>
+                <ul>
+                    <li>Inventory movement reports</li>
+                    <li>Activity audit trails</li>
+                    <li>Performance metrics</li>
+                    <li>Compliance reporting</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Technical Architecture</h2>
+        
+        <h3>Frontend Architecture</h3>
+        <ul>
+            <li><strong>Technology:</strong> PILOT Extension using Ext JS 7.7+</li>
+            <li><strong>Pattern:</strong> Navigation tab + Main panel (mapframe)</li>
+            <li><strong>Integration:</strong> Runs inside existing PILOT application</li>
+            <li><strong>Entry Point:</strong> Module.js class-based initialization</li>
+            <li><strong>UI Framework:</strong> Ext JS components with custom warehouse workflows</li>
+        </ul>
+
+        <h3>Backend Integration</h3>
+        <ul>
+            <li><strong>API Architecture:</strong> RESTful AWS Lambda functions</li>
+            <li><strong>Database:</strong> PostgreSQL for data persistence</li>
+            <li><strong>Communication:</strong> Ext.Ajax.request() for API calls</li>
+            <li><strong>Real-time Updates:</strong> Polling-based data refresh</li>
+        </ul>
+
+        <h2>RFID Integration</h2>
+        
+        <h3>Supported Hardware</h3>
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>Device Type</th>
+                    <th>Model</th>
+                    <th>Functionality</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Fixed RFID Reader</td>
+                    <td>Zebra FX9600</td>
+                    <td>Gate monitoring, bulk scanning</td>
+                </tr>
+                <tr>
+                    <td>Handheld RFID</td>
+                    <td>Zebra MC3330R</td>
+                    <td>Item-level scanning, validation</td>
+                </tr>
+                <tr>
+                    <td>Touch Computer</td>
+                    <td>Zebra TC27</td>
+                    <td>Barcode scanning, data entry</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>RFID Technical Specifications</h3>
+        <ul>
+            <li><strong>Frequency:</strong> 860-960 MHz (UHF)</li>
+            <li><strong>Read Range:</strong> Up to 15 meters</li>
+            <li><strong>Tag Support:</strong> EPC Gen 2, ISO 18000-6C</li>
+            <li><strong>Integration:</strong> Zebra EMDK (Enterprise Mobility Development Kit)</li>
+            <li><strong>Anti-collision:</strong> Multiple tag reading capability</li>
+        </ul>
+
+        <h2>API Integration</h2>
+        
+        <h3>Core Endpoints</h3>
+        <div class="api-endpoint">GET /api/warehouse/dashboard</div>
+        <p>Retrieves real-time warehouse metrics, inventory status, and active alerts</p>
+
+        <div class="api-endpoint">POST /api/warehouse/inbound</div>
+        <p>Creates new inbound delivery with item details and expected quantities</p>
+
+        <div class="api-endpoint">POST /api/warehouse/rfid/scan</div>
+        <p>Processes RFID scan data with EPC validation and item mapping</p>
+
+        <div class="api-endpoint">GET /api/warehouse/putaway</div>
+        <p>Retrieves pending put away tasks and transfer orders</p>
+
+        <div class="api-endpoint">POST /api/warehouse/picking</div>
+        <p>Creates picking tasks for outbound deliveries</p>
+
+        <h3>Data Sources</h3>
+        <ul>
+            <li><strong>Inventory Data:</strong> Real-time stock levels, locations, and allocations</li>
+            <li><strong>Transaction History:</strong> Complete audit trail of warehouse operations</li>
+            <li><strong>RFID Scans:</strong> Tag detection events with timestamp and location</li>
+            <li><strong>Alert System:</strong> Unauthorized movements and system notifications</li>
+        </ul>
+
+        <h2>Workflow Operations</h2>
+
+        <h3>Good Receive Workflow</h3>
+        <ol>
+            <li>Create inbound delivery with expected items</li>
+            <li>Generate EPC codes for incoming items</li>
+            <li>Physical receipt with RFID/barcode scanning</li>
+            <li>System validation and inventory update</li>
+            <li>Completion confirmation and reporting</li>
+        </ol>
+
+        <h3>Put Away Workflow</h3>
+        <ol>
+            <li>Create transfer order from inbound to storage</li>
+            <li>Assign operator and target locations</li>
+            <li>RFID validation at source location</li>
+            <li>Scan destination bin barcode</li>
+            <li>Confirm put away completion</li>
+        </ol>
+
+        <h3>Picking Workflow</h3>
+        <ol>
+            <li>Create picking task for outbound delivery</li>
+            <li>Generate optimized picking list</li>
+            <li>RFID scanning at pick locations</li>
+            <li>Validate items at exit gate</li>
+            <li>Complete outbound shipment</li>
+        </ol>
+
+        <h2>Configuration</h2>
+        
+        <h3>Extension Configuration</h3>
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>Setting</th>
+                    <th>Default Value</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>API Base URL</td>
+                    <td>/api/warehouse/</td>
+                    <td>Backend API endpoint base path</td>
+                </tr>
+                <tr>
+                    <td>Dashboard Refresh</td>
+                    <td>30 seconds</td>
+                    <td>Auto-refresh interval for dashboard metrics</td>
+                </tr>
+                <tr>
+                    <td>RFID Timeout</td>
+                    <td>10 seconds</td>
+                    <td>Maximum scan operation duration</td>
+                </tr>
+                <tr>
+                    <td>Alert Polling</td>
+                    <td>5 seconds</td>
+                    <td>Real-time alert checking interval</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Security & Compliance</h2>
+        
+        <h3>Data Security</h3>
+        <ul>
+            <li><strong>Authentication:</strong> Integrates with PILOT user management</li>
+            <li><strong>Authorization:</strong> Role-based access control for warehouse operations</li>
+            <li><strong>Data Encryption:</strong> HTTPS/TLS for all API communications</li>
+            <li><strong>Audit Trail:</strong> Complete logging of all warehouse transactions</li>
+        </ul>
+
+        <h3>Compliance Features</h3>
+        <ul>
+            <li>GS1 EPC standard compliance for RFID tags</li>
+            <li>Traceability requirements for item movements</li>
+            <li>Regulatory reporting capabilities</li>
+            <li>Quality control and validation workflows</li>
+        </ul>
+
+        <h2>Installation & Setup</h2>
+        
+        <h3>Prerequisites</h3>
+        <ul>
+            <li>PILOT Fleet Management System (compatible version)</li>
+            <li>Zebra EMDK installation for RFID support</li>
+            <li>Warehouse Management API backend deployment</li>
+            <li>PostgreSQL database with warehouse schema</li>
+        </ul>
+
+        <h3>Installation Steps</h3>
+        <ol>
+            <li>Deploy extension files to PILOT extensions directory</li>
+            <li>Register extension in PILOT admin console</li>
+            <li>Configure API endpoints and database connections</li>
+            <li>Set up RFID hardware and network connectivity</li>
+            <li>Perform initial data setup (items, locations, users)</li>
+            <li>Activate extension for target accounts/contracts</li>
+        </ol>
+
+        <div class="warning">
+            <strong>Important:</strong> Ensure all RFID hardware is properly configured and network accessible before activating the extension. Test RFID connectivity using Zebra's diagnostic tools.
+        </div>
+
+        <h2>Troubleshooting</h2>
+        
+        <h3>Common Issues</h3>
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>Issue</th>
+                    <th>Possible Cause</th>
+                    <th>Solution</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>RFID reader not connecting</td>
+                    <td>Network connectivity, EMDK not installed</td>
+                    <td>Check network settings, reinstall EMDK</td>
+                </tr>
+                <tr>
+                    <td>API calls failing</td>
+                    <td>Backend service down, wrong endpoint</td>
+                    <td>Verify API service status and configuration</td>
+                </tr>
+                <tr>
+                    <td>Dashboard not loading</td>
+                    <td>Database connection issue</td>
+                    <td>Check database connectivity and permissions</td>
+                </tr>
+                <tr>
+                    <td>Tags not reading</td>
+                    <td>Tag damage, antenna positioning</td>
+                    <td>Check tag integrity and reader positioning</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Support & Documentation</h2>
+        
+        <h3>Additional Resources</h3>
+        <ul>
+            <li><strong>API Documentation:</strong> Complete REST API specification with examples</li>
+            <li><strong>User Manual:</strong> Step-by-step operational procedures</li>
+            <li><strong>Admin Guide:</strong> System administration and configuration</li>
+            <li><strong>RFID Integration Guide:</strong> Hardware setup and troubleshooting</li>
+        </ul>
+
+        <h3>Contact Information</h3>
+        <p>For technical support and additional information, please contact the system administrator or refer to your PILOT support channels.</p>
+
+        <div class="info">
+            <strong>Version History:</strong><br>
+            v1.0.0 - Initial release with core warehouse operations<br>
+            - RFID integration with Zebra hardware<br>
+            - Complete workflow automation<br>
+            - Real-time dashboard and reporting<br>
+            - AWS Lambda backend integration
+        </div>
+    </div>
+</body>
+</html>
