@@ -12,71 +12,28 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     initComponent: function() {
         var me = this;
         
-        // Create inbound deliveries store
+        // Create inbound deliveries store - INTEGRATED WITH BACKEND API
         var deliveriesStore = Ext.create('Ext.data.Store', {
             fields: [
-                'deliveryNumber',
-                'supplierCode',
-                'supplierName',
-                'expectedDate',
-                'actualDate',
-                'purchaseOrder',
-                'totalItems',
-                'receivedItems',
+                'id',
+                'inbound_delivery_id',
+                'delivery_number',
+                'supplier_code',
+                'supplier_name',
                 'status',
-                'createdBy',
-                'createdDate',
-                'confirmedBy',
-                'confirmedDate'
+                'expected_delivery_date',
+                'actual_delivery_date',
+                'total_items',
+                'total_quantity',
+                'created_by_name',
+                'created_at',
+                'updated_at'
             ],
-            data: [
-                {
-                    deliveryNumber: 'GRN-2024-001',
-                    supplierCode: 'CAT001',
-                    supplierName: 'Caterpillar Inc.',
-                    expectedDate: '2024-04-15',
-                    actualDate: '2024-04-15',
-                    purchaseOrder: 'PO-2024-100',
-                    totalItems: 5,
-                    receivedItems: 5,
-                    status: 'Confirmed',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-10',
-                    confirmedBy: 'warehouse_staff',
-                    confirmedDate: '2024-04-15'
-                },
-                {
-                    deliveryNumber: 'GRN-2024-002',
-                    supplierCode: 'CAT002',
-                    supplierName: 'Caterpillar Parts',
-                    expectedDate: '2024-04-16',
-                    actualDate: null,
-                    purchaseOrder: 'PO-2024-101',
-                    totalItems: 3,
-                    receivedItems: 0,
-                    status: 'Created',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-12',
-                    confirmedBy: null,
-                    confirmedDate: null
-                },
-                {
-                    deliveryNumber: 'GRN-2024-003',
-                    supplierCode: 'CAT003',
-                    supplierName: 'Caterpillar Equipment',
-                    expectedDate: '2024-04-17',
-                    actualDate: null,
-                    purchaseOrder: 'PO-2024-102',
-                    totalItems: 8,
-                    receivedItems: 0,
-                    status: 'Pending',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-14',
-                    confirmedBy: null,
-                    confirmedDate: null
-                }
-            ]
+            data: [] // Will be loaded from API
         });
+        
+        // Load data from backend API on component initialization
+        me.loadInboundDeliveries();
 
         this.items = [
             // Toolbar
@@ -151,8 +108,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         text: 'Refresh',
                         iconCls: 'fa fa-refresh',
                         handler: function() {
-                            deliveriesStore.reload();
-                            Ext.Msg.alert('Info', 'Deliveries list refreshed');
+                            me.loadInboundDeliveries();
+                            Ext.Msg.alert('Info', 'Loading deliveries from backend...');
                         }
                     }
                 ]
@@ -166,7 +123,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 columns: [
                     {
                         text: 'Delivery Number',
-                        dataIndex: 'deliveryNumber',
+                        dataIndex: 'delivery_number',
                         width: 140,
                         renderer: function(value) {
                             return '<strong>' + value + '</strong>';
@@ -174,23 +131,25 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     },
                     {
                         text: 'Supplier',
-                        dataIndex: 'supplierName',
+                        dataIndex: 'supplier_name',
                         flex: 2
                     },
                     {
-                        text: 'PO Number',
-                        dataIndex: 'purchaseOrder',
+                        text: 'Supplier Code',
+                        dataIndex: 'supplier_code',
                         width: 120
                     },
                     {
                         text: 'Expected Date',
-                        dataIndex: 'expectedDate',
+                        dataIndex: 'expected_delivery_date',
                         width: 110,
-                        renderer: Ext.util.Format.dateRenderer('d M Y')
+                        renderer: function(value) {
+                            return value ? Ext.util.Format.date(new Date(value), 'd M Y') : '-';
+                        }
                     },
                     {
                         text: 'Actual Date',
-                        dataIndex: 'actualDate',
+                        dataIndex: 'actual_delivery_date',
                         width: 110,
                         renderer: function(value) {
                             return value ? Ext.util.Format.date(new Date(value), 'd M Y') : '-';
@@ -198,13 +157,20 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     },
                     {
                         text: 'Items',
-                        dataIndex: 'totalItems',
+                        dataIndex: 'total_items',
                         width: 80,
                         align: 'center',
                         renderer: function(value, metaData, record) {
-                            var received = record.get('receivedItems');
-                            var color = received === value ? 'green' : received > 0 ? 'orange' : 'black';
-                            return '<span style="color: ' + color + ';">' + received + '/' + value + '</span>';
+                            return '<span style="font-weight: bold;">' + (value || 0) + '</span>';
+                        }
+                    },
+                    {
+                        text: 'Quantity',
+                        dataIndex: 'total_quantity',
+                        width: 80,
+                        align: 'center',
+                        renderer: function(value) {
+                            return '<span style="font-weight: bold;">' + (value || 0) + '</span>';
                         }
                     },
                     {
@@ -214,7 +180,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         renderer: function(value) {
                             var colorMap = {
                                 'Created': '#007bff',
-                                'Pending': '#ffc107', 
+                                'Pending': '#ffc107',
                                 'Confirmed': '#28a745',
                                 'Cancelled': '#dc3545'
                             };
@@ -224,14 +190,16 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     },
                     {
                         text: 'Created By',
-                        dataIndex: 'createdBy',
+                        dataIndex: 'created_by_name',
                         width: 120
                     },
                     {
                         text: 'Created Date',
-                        dataIndex: 'createdDate',
+                        dataIndex: 'created_at',
                         width: 110,
-                        renderer: Ext.util.Format.dateRenderer('d M Y')
+                        renderer: function(value) {
+                            return value ? Ext.util.Format.date(new Date(value), 'd M Y') : '-';
+                        }
                     }
                 ],
                 listeners: {
@@ -261,6 +229,33 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         ];
 
         this.callParent(arguments);
+    },
+
+    // Load inbound deliveries from backend API
+    loadInboundDeliveries: function() {
+        var me = this;
+        var controller = Store.warehouse.app.getController('WarehouseController');
+        
+        if (controller) {
+            controller.getInboundDeliveries()
+                .then(function(response) {
+                    var store = me.down('grid').getStore();
+                    store.removeAll();
+                    
+                    if (response && response.length > 0) {
+                        store.add(response);
+                    }
+                    
+                    Ext.Msg.alert('Success', 'Loaded ' + (response ? response.length : 0) + ' deliveries from backend.');
+                })
+                .catch(function(error) {
+                    console.error('Error loading inbound deliveries:', error);
+                    Ext.Msg.alert('Error', 'Failed to load deliveries from backend: ' + error.message);
+                });
+        } else {
+            console.error('WarehouseController not found');
+            Ext.Msg.alert('Error', 'Controller not available. Please check application configuration.');
+        }
     },
 
     showDeliveryForm: function(record) {
