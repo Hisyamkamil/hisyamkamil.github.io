@@ -152,42 +152,49 @@ Ext.define('Store.warehouse.view.Dashboard', {
         var me = this;
         var controller = me.getWarehouseController();
         
-        console.log('🔍 DEBUG: Loading dashboard data, controller available:', !!controller);
+        console.log('🔍 DEBUG: Loading dashboard data');
+        console.log('🔍 DEBUG: Controller available:', !!controller);
+        console.log('🔍 DEBUG: Controller type:', controller ? controller.$className : 'null');
+        console.log('🔍 DEBUG: Controller methods:', controller ? Object.keys(controller).filter(k => typeof controller[k] === 'function') : 'none');
         
         if (!controller) {
-            console.log('⚠️ INFO: WarehouseController not available, using demo data');
+            console.error('❌ ERROR: WarehouseController not available - using demo mode');
+            console.log('🔍 DEBUG: Component config:', me.config);
+            me.loadDemoData();
+            return;
+        }
+        
+        // Verify controller has required methods
+        if (!controller.loadDashboardMetrics) {
+            console.error('❌ ERROR: Controller missing loadDashboardMetrics method');
             me.loadDemoData();
             return;
         }
         
         try {
-            // Load dashboard metrics
-            controller.getDashboardMetrics()
-                .then(function(metrics) {
-                    console.log('✅ DEBUG: Dashboard metrics loaded:', metrics);
-                    me.updateMetricsCards(metrics);
-                })
-                .catch(function(error) {
-                    console.error('❌ ERROR loading dashboard metrics:', error);
-                    me.loadDemoData();
-                });
+            // Load dashboard metrics (controller handles UI updates directly)
+            controller.loadDashboardMetrics();
             
-            // Load recent activities
-            controller.getDashboardActivities()
-                .then(function(activities) {
-                    console.log('✅ DEBUG: Dashboard activities loaded:', activities);
-                    var activitiesGrid = me.down('#activitiesGrid');
-                    if (activitiesGrid) {
-                        var store = activitiesGrid.getStore();
-                        store.removeAll();
-                        if (activities && activities.length > 0) {
-                            store.add(activities);
-                        }
+            // Dashboard controller doesn't have activities method yet, so load demo activities
+            var activitiesGrid = me.down('#activitiesGrid');
+            if (activitiesGrid) {
+                var store = activitiesGrid.getStore();
+                store.removeAll();
+                store.add([
+                    {
+                        activity_type: 'Good Receive',
+                        description: 'Delivery GRN-2024-001 received',
+                        user_name: 'admin',
+                        timestamp: new Date()
+                    },
+                    {
+                        activity_type: 'Put Away',
+                        description: 'Items moved to GOLD-ROOM-A',
+                        user_name: 'operator1',
+                        timestamp: new Date(Date.now() - 300000)
                     }
-                })
-                .catch(function(error) {
-                    console.error('❌ ERROR loading dashboard activities:', error);
-                });
+                ]);
+            }
         } catch (error) {
             console.error('❌ ERROR in loadDashboardData:', error);
             me.loadDemoData();
