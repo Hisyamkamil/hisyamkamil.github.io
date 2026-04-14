@@ -9,7 +9,8 @@ Ext.define('Store.warehouse.Module', {
         'Store.warehouse.config.ApiConfig',
         'Store.warehouse.controller.WarehouseController',
         'Store.warehouse.view.NavigationTab',
-        'Store.warehouse.view.MainPanel'
+        'Store.warehouse.view.MainPanel',
+        'Store.warehouse.view.Dashboard'
     ],
 
     initModule: function() {
