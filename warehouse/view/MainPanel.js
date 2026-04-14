@@ -7,7 +7,9 @@ Ext.define('Store.warehouse.view.MainPanel', {
     
     requires: [
         'Store.warehouse.view.MasterDataPanel',
-        'Store.warehouse.view.GoodReceivePanel'
+        'Store.warehouse.view.GoodReceivePanel',
+        'Store.warehouse.view.PickingPanel',
+        'Store.warehouse.view.PutAwayPanel'
     ],
     
     layout: 'card',
@@ -33,13 +35,17 @@ Ext.define('Store.warehouse.view.MainPanel', {
                 itemId: 'putaway',
                 title: 'Put Away',
                 layout: 'fit',
-                html: '<div style="padding: 20px; text-align: center; color: #666;"><h2>Put Away</h2><p>Transfer orders from inbound area to storage locations.</p></div>'
+                items: [
+                    Ext.create('Store.warehouse.view.PutAwayPanel')
+                ]
             },
             {
                 itemId: 'picking',
                 title: 'Picking',
                 layout: 'fit',
-                html: '<div style="padding: 20px; text-align: center; color: #666;"><h2>Picking</h2><p>Outbound delivery and picking task management.</p></div>'
+                items: [
+                    Ext.create('Store.warehouse.view.PickingPanel')
+                ]
             },
             {
                 itemId: 'stockopname',
