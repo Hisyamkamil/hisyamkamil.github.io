@@ -267,8 +267,26 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         var me = this;
         var isEdit = !!record;
         
-        var form = Ext.create('Ext.form.Panel', {
+        // Create items store from master data
+        var itemsStore = Ext.create('Ext.data.Store', {
+            fields: ['itemCode', 'itemName', 'category', 'unitOfMeasure', 'expectedQuantity'],
+            data: []
+        });
+
+        // Master data items (should be loaded from Master Data module)
+        var masterDataItems = [
+            { itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', category: 'Piping', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM002', itemName: 'Hydraulic Hose', category: 'Hydraulics', unitOfMeasure: 'MTR' },
+            { itemCode: 'ITM003', itemName: 'Mining Drill Bit', category: 'Tools', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM004', itemName: 'Safety Helmet', category: 'Safety', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM005', itemName: 'Industrial Grease', category: 'Lubricants', unitOfMeasure: 'KG' }
+        ];
+
+        var formPanel = Ext.create('Ext.form.Panel', {
+            region: 'north',
+            height: 280,
             bodyPadding: 15,
+            title: 'Delivery Information',
             defaults: {
                 anchor: '100%',
                 labelWidth: 150
@@ -287,21 +305,21 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     name: 'supplierCode',
                     fieldLabel: 'Supplier Code *',
                     allowBlank: false,
-                    value: isEdit ? record.get('supplierCode') : ''
+                    value: isEdit ? record.get('supplierCode') : 'CAT001'
                 },
                 {
                     xtype: 'textfield',
                     name: 'supplierName',
                     fieldLabel: 'Supplier Name *',
                     allowBlank: false,
-                    value: isEdit ? record.get('supplierName') : ''
+                    value: isEdit ? record.get('supplierName') : 'Caterpillar Inc.'
                 },
                 {
                     xtype: 'textfield',
                     name: 'purchaseOrder',
                     fieldLabel: 'Purchase Order *',
                     allowBlank: false,
-                    value: isEdit ? record.get('purchaseOrder') : ''
+                    value: isEdit ? record.get('purchaseOrder') : 'PO-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 999) + 100)
                 },
                 {
                     xtype: 'datefield',
@@ -312,28 +330,85 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     value: isEdit ? new Date(record.get('expectedDate')) : new Date()
                 },
                 {
-                    xtype: 'numberfield',
-                    name: 'totalItems',
-                    fieldLabel: 'Total Items',
-                    value: isEdit ? record.get('totalItems') : 1,
-                    minValue: 1
-                },
-                {
                     xtype: 'textarea',
                     name: 'notes',
                     fieldLabel: 'Notes',
-                    height: 60
+                    height: 50
                 }
             ]
+        });
+
+        var itemsPanel = Ext.create('Ext.panel.Panel', {
+            region: 'center',
+            layout: 'border',
+            title: 'Delivery Items',
+            items: [
+                {
+                    region: 'north',
+                    xtype: 'toolbar',
+                    items: [
+                        {
+                            text: 'Add Item',
+                            iconCls: 'fa fa-plus',
+                            handler: function() {
+                                me.showItemSelectionWindow(itemsStore, masterDataItems);
+                            }
+                        },
+                        {
+                            text: 'Remove Item',
+                            iconCls: 'fa fa-minus',
+                            handler: function() {
+                                var grid = itemsPanel.down('grid');
+                                var selection = grid.getSelection();
+                                if (selection.length > 0) {
+                                    itemsStore.remove(selection[0]);
+                                    me.updateTotalItems(formPanel, itemsStore);
+                                }
+                            }
+                        },
+                        '->',
+                        {
+                            xtype: 'displayfield',
+                            itemId: 'totalItemsDisplay',
+                            fieldLabel: 'Total Items:',
+                            value: '0'
+                        }
+                    ]
+                },
+                {
+                    region: 'center',
+                    xtype: 'grid',
+                    store: itemsStore,
+                    columns: [
+                        { text: 'Item Code', dataIndex: 'itemCode', width: 100 },
+                        { text: 'Item Name', dataIndex: 'itemName', flex: 2 },
+                        { text: 'Category', dataIndex: 'category', width: 120 },
+                        { text: 'Unit', dataIndex: 'unitOfMeasure', width: 80 },
+                        {
+                            text: 'Expected Qty',
+                            dataIndex: 'expectedQuantity',
+                            width: 100,
+                            renderer: function(value) {
+                                return '<strong>' + (value || 0) + '</strong>';
+                            }
+                        }
+                    ]
+                }
+            ]
+        });
+
+        var mainPanel = Ext.create('Ext.panel.Panel', {
+            layout: 'border',
+            items: [formPanel, itemsPanel]
         });
 
         var window = Ext.create('Ext.window.Window', {
             title: isEdit ? 'Edit Delivery: ' + record.get('deliveryNumber') : 'Create Inbound Delivery',
             modal: true,
-            width: 500,
-            height: 400,
+            width: 700,
+            height: 600,
             layout: 'fit',
-            items: [form],
+            items: [mainPanel],
             buttons: [
                 {
                     text: 'Cancel',
@@ -343,10 +418,17 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 },
                 {
                     text: isEdit ? 'Update Delivery' : 'Create Delivery',
-                    formBind: true,
                     handler: function() {
-                        if (form.isValid()) {
-                            var values = form.getValues();
+                        if (formPanel.isValid() && itemsStore.getCount() > 0) {
+                            var values = formPanel.getValues();
+                            var totalItems = 0;
+                            
+                            // Calculate total items from the items store
+                            itemsStore.each(function(record) {
+                                totalItems += parseInt(record.get('expectedQuantity') || 0);
+                            });
+                            
+                            values.totalItems = totalItems;
                             
                             if (isEdit) {
                                 record.set(values);
@@ -358,9 +440,11 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                 values.receivedItems = 0;
                                 var store = me.down('grid').getStore();
                                 store.add(values);
-                                Ext.Msg.alert('Success', 'Delivery "' + values.deliveryNumber + '" created successfully!');
+                                Ext.Msg.alert('Success', 'Delivery "' + values.deliveryNumber + '" created successfully with ' + totalItems + ' items!');
                             }
                             window.close();
+                        } else {
+                            Ext.Msg.alert('Validation Error', 'Please fill all required fields and add at least one item.');
                         }
                     }
                 }
@@ -368,6 +452,124 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         });
         
         window.show();
+    },
+
+    showItemSelectionWindow: function(itemsStore, masterDataItems) {
+        var me = this;
+        
+        var selectionStore = Ext.create('Ext.data.Store', {
+            fields: ['itemCode', 'itemName', 'category', 'unitOfMeasure'],
+            data: masterDataItems
+        });
+
+        var form = Ext.create('Ext.form.Panel', {
+            region: 'south',
+            height: 80,
+            bodyPadding: 10,
+            items: [
+                {
+                    xtype: 'numberfield',
+                    name: 'expectedQuantity',
+                    fieldLabel: 'Expected Quantity *',
+                    allowBlank: false,
+                    value: 1,
+                    minValue: 1,
+                    anchor: '100%'
+                }
+            ]
+        });
+
+        var grid = Ext.create('Ext.grid.Panel', {
+            region: 'center',
+            store: selectionStore,
+            columns: [
+                { text: 'Item Code', dataIndex: 'itemCode', width: 100 },
+                { text: 'Item Name', dataIndex: 'itemName', flex: 2 },
+                { text: 'Category', dataIndex: 'category', width: 120 },
+                { text: 'Unit', dataIndex: 'unitOfMeasure', width: 80 }
+            ],
+            selModel: {
+                type: 'rowmodel',
+                mode: 'SINGLE'
+            }
+        });
+
+        var panel = Ext.create('Ext.panel.Panel', {
+            layout: 'border',
+            items: [
+                {
+                    region: 'north',
+                    html: '<div style="padding: 10px; background: #f0f0f0;">Select an item from the master data and specify the expected quantity:</div>',
+                    height: 40
+                },
+                grid,
+                form
+            ]
+        });
+
+        var window = Ext.create('Ext.window.Window', {
+            title: 'Add Item to Delivery',
+            modal: true,
+            width: 600,
+            height: 400,
+            layout: 'fit',
+            items: [panel],
+            buttons: [
+                {
+                    text: 'Cancel',
+                    handler: function() {
+                        window.close();
+                    }
+                },
+                {
+                    text: 'Add Item',
+                    handler: function() {
+                        var selection = grid.getSelection();
+                        var quantity = form.getValues().expectedQuantity;
+                        
+                        if (selection.length > 0 && quantity > 0) {
+                            var selectedItem = selection[0];
+                            
+                            // Check if item already exists
+                            var existingItem = itemsStore.findRecord('itemCode', selectedItem.get('itemCode'));
+                            if (existingItem) {
+                                Ext.Msg.alert('Warning', 'Item "' + selectedItem.get('itemCode') + '" already exists in the delivery.');
+                                return;
+                            }
+                            
+                            // Add item to delivery
+                            var newItem = {
+                                itemCode: selectedItem.get('itemCode'),
+                                itemName: selectedItem.get('itemName'),
+                                category: selectedItem.get('category'),
+                                unitOfMeasure: selectedItem.get('unitOfMeasure'),
+                                expectedQuantity: quantity
+                            };
+                            
+                            itemsStore.add(newItem);
+                            me.updateTotalItems(window.up().down('form'), itemsStore);
+                            window.close();
+                        } else {
+                            Ext.Msg.alert('Selection Required', 'Please select an item and specify quantity.');
+                        }
+                    }
+                }
+            ]
+        });
+        
+        window.show();
+    },
+
+    updateTotalItems: function(formPanel, itemsStore) {
+        var totalItems = 0;
+        itemsStore.each(function(record) {
+            totalItems += parseInt(record.get('expectedQuantity') || 0);
+        });
+        
+        var display = formPanel.up().down('#totalItemsDisplay');
+        if (display) {
+            display.setValue(totalItems);
+        }
     },
 
     showDeliveryDetails: function(record) {
