@@ -474,11 +474,201 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                           '<tr><td style="font-weight: bold; padding: 5px;">Estimated Time:</td><td style="padding: 5px;">' + record.get('estimatedTime') + '</td></tr>' +
                           '</table>'
                 },
-                // Items List (placeholder)
+                // Items List Grid
                 {
                     region: 'center',
                     title: 'Items to Transfer',
-                    html: '<div style="padding: 20px; text-align: center; color: #666;"><p>Items list for transfer order <strong>' + record.get('transferNumber') + '</strong> would be displayed here.</p><p>Features: Item details, source bins, destination bins, transfer status per item.</p></div>'
+                    xtype: 'grid',
+                    store: Ext.create('Ext.data.Store', {
+                        fields: [
+                            'itemCode',
+                            'itemName',
+                            'category',
+                            'unitOfMeasure',
+                            'quantity',
+                            'movedQuantity',
+                            'sourceBin',
+                            'destinationBin',
+                            'epcCode',
+                            'transferStatus',
+                            'sourceScanned',
+                            'destinationPlaced'
+                        ],
+                        data: [
+                            {
+                                itemCode: 'ITM001',
+                                itemName: 'Steel Pipe 6 inch',
+                                category: 'Piping',
+                                unitOfMeasure: 'PCS',
+                                quantity: 2,
+                                movedQuantity: record.get('status') === 'Completed' ? 2 : (record.get('status') === 'In Progress' ? 1 : 0),
+                                sourceBin: record.get('fromLocation'),
+                                destinationBin: record.get('toLocation') + '-A01',
+                                epcCode: '3014257BF7194E4000001A85',
+                                transferStatus: record.get('status') === 'Completed' ? 'Moved' : (record.get('status') === 'In Progress' ? 'Moving' : 'Pending'),
+                                sourceScanned: record.get('status') !== 'Created' ? 'Yes' : 'No',
+                                destinationPlaced: record.get('status') === 'Completed' ? 'Yes' : 'No'
+                            },
+                            {
+                                itemCode: 'ITM002',
+                                itemName: 'Hydraulic Hose',
+                                category: 'Hydraulics',
+                                unitOfMeasure: 'MTR',
+                                quantity: 50,
+                                movedQuantity: record.get('status') === 'Completed' ? 50 : (record.get('status') === 'In Progress' ? 50 : 0),
+                                sourceBin: record.get('fromLocation'),
+                                destinationBin: record.get('toLocation') + '-A02',
+                                epcCode: '3014257BF7194E4000001A86',
+                                transferStatus: record.get('status') === 'Completed' ? 'Moved' : (record.get('status') === 'In Progress' ? 'Moved' : 'Pending'),
+                                sourceScanned: record.get('status') !== 'Created' ? 'Yes' : 'No',
+                                destinationPlaced: record.get('status') === 'Completed' ? 'Yes' : (record.get('status') === 'In Progress' ? 'Yes' : 'No')
+                            },
+                            {
+                                itemCode: 'ITM005',
+                                itemName: 'Industrial Grease',
+                                category: 'Lubricants',
+                                unitOfMeasure: 'KG',
+                                quantity: 10,
+                                movedQuantity: record.get('status') === 'Completed' ? 10 : 0,
+                                sourceBin: record.get('fromLocation'),
+                                destinationBin: record.get('toLocation') + '-B01',
+                                epcCode: '3014257BF7194E4000001A87',
+                                transferStatus: record.get('status') === 'Completed' ? 'Moved' : 'Pending',
+                                sourceScanned: record.get('status') === 'Completed' ? 'Yes' : 'No',
+                                destinationPlaced: record.get('status') === 'Completed' ? 'Yes' : 'No'
+                            }
+                        ]
+                    }),
+                    columns: [
+                        {
+                            text: 'Item Code',
+                            dataIndex: 'itemCode',
+                            width: 100,
+                            renderer: function(value) {
+                                return '<strong>' + value + '</strong>';
+                            }
+                        },
+                        {
+                            text: 'Item Name',
+                            dataIndex: 'itemName',
+                            flex: 2
+                        },
+                        {
+                            text: 'Category',
+                            dataIndex: 'category',
+                            width: 100
+                        },
+                        {
+                            text: 'Unit',
+                            dataIndex: 'unitOfMeasure',
+                            width: 60,
+                            align: 'center'
+                        },
+                        {
+                            text: 'Quantity',
+                            dataIndex: 'quantity',
+                            width: 80,
+                            align: 'center',
+                            renderer: function(value) {
+                                return '<strong>' + value + '</strong>';
+                            }
+                        },
+                        {
+                            text: 'Moved Qty',
+                            dataIndex: 'movedQuantity',
+                            width: 90,
+                            align: 'center',
+                            renderer: function(value, metaData, record) {
+                                var total = record.get('quantity');
+                                var color = value === total ? 'green' : value > 0 ? 'orange' : 'black';
+                                return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'Source Bin',
+                            dataIndex: 'sourceBin',
+                            width: 120
+                        },
+                        {
+                            text: 'Destination Bin',
+                            dataIndex: 'destinationBin',
+                            width: 130
+                        },
+                        {
+                            text: 'EPC Code',
+                            dataIndex: 'epcCode',
+                            width: 180,
+                            renderer: function(value) {
+                                var style = 'color: #007bff; font-family: monospace; font-size: 11px;';
+                                return '<span style="' + style + '">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'Source Scanned',
+                            dataIndex: 'sourceScanned',
+                            width: 110,
+                            renderer: function(value) {
+                                var color = value === 'Yes' ? 'green' : '#6c757d';
+                                return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'Dest. Placed',
+                            dataIndex: 'destinationPlaced',
+                            width: 100,
+                            renderer: function(value) {
+                                var color = value === 'Yes' ? 'green' : '#6c757d';
+                                return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'Transfer Status',
+                            dataIndex: 'transferStatus',
+                            width: 110,
+                            renderer: function(value) {
+                                var colorMap = {
+                                    'Moved': 'green',
+                                    'Moving': 'orange',
+                                    'Pending': '#6c757d'
+                                };
+                                var color = colorMap[value] || '#6c757d';
+                                return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            }
+                        }
+                    ],
+                    tbar: [
+                        {
+                            text: 'Assign Bins',
+                            iconCls: 'fa fa-map-marker-alt',
+                            disabled: record.get('status') !== 'Created',
+                            handler: function() {
+                                Ext.Msg.alert('Bin Assignment', 'Destination bins would be assigned for each item in the transfer.');
+                            }
+                        },
+                        '-',
+                        {
+                            text: 'Start Put Away',
+                            iconCls: 'fa fa-play',
+                            disabled: record.get('status') !== 'Created',
+                            handler: function() {
+                                me.startPutAway(record);
+                            }
+                        },
+                        '-',
+                        {
+                            text: 'RFID Validation',
+                            iconCls: 'fa fa-wifi',
+                            disabled: record.get('status') !== 'In Progress',
+                            handler: function() {
+                                me.showRFIDValidation(record);
+                            }
+                        },
+                        '->',
+                        {
+                            xtype: 'displayfield',
+                            value: '<strong>Total Items: ' + record.get('totalItems') + ' | Status: </strong><span style="color: ' + me.getStatusColor(record.get('status')) + '; font-weight: bold;">' + record.get('status') + '</span>'
+                        }
+                    ]
                 }
             ]
         });
