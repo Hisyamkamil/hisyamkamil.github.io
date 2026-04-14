@@ -12,70 +12,27 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
     initComponent: function() {
         var me = this;
         
-        // Create items store
+        // Create items store - INTEGRATED WITH BACKEND API
         var itemsStore = Ext.create('Ext.data.Store', {
             fields: [
-                'itemCode',
-                'itemName', 
+                'item_id',
+                'item_code',
+                'item_name', 
                 'category',
-                'unitOfMeasure',
+                'unit_of_measure',
                 'description',
                 'status',
-                'createdDate',
-                'lastModified'
+                'created_at',
+                'updated_at'
             ],
-            data: [
-                {
-                    itemCode: 'ITM001',
-                    itemName: 'Steel Pipe 6 inch',
-                    category: 'Piping',
-                    unitOfMeasure: 'PCS',
-                    description: 'Steel pipe 6 inch diameter, 6 meter length',
-                    status: 'Active',
-                    createdDate: '2024-01-15',
-                    lastModified: '2024-04-10'
-                },
-                {
-                    itemCode: 'ITM002', 
-                    itemName: 'Hydraulic Hose',
-                    category: 'Hydraulics',
-                    unitOfMeasure: 'MTR',
-                    description: 'High pressure hydraulic hose 1/2 inch',
-                    status: 'Active',
-                    createdDate: '2024-01-20',
-                    lastModified: '2024-04-12'
-                },
-                {
-                    itemCode: 'ITM003',
-                    itemName: 'Mining Drill Bit',
-                    category: 'Tools',
-                    unitOfMeasure: 'PCS',
-                    description: 'Carbide tipped drill bit 10mm diameter',
-                    status: 'Active',
-                    createdDate: '2024-02-01',
-                    lastModified: '2024-04-14'
-                },
-                {
-                    itemCode: 'ITM004',
-                    itemName: 'Safety Helmet',
-                    category: 'Safety',
-                    unitOfMeasure: 'PCS', 
-                    description: 'Hard hat safety helmet with chin strap',
-                    status: 'Inactive',
-                    createdDate: '2024-02-15',
-                    lastModified: '2024-03-20'
-                },
-                {
-                    itemCode: 'ITM005',
-                    itemName: 'Industrial Grease',
-                    category: 'Lubricants',
-                    unitOfMeasure: 'KG',
-                    description: 'Multi-purpose industrial grease',
-                    status: 'Active',
-                    createdDate: '2024-03-01',
-                    lastModified: '2024-04-08'
-                }
-            ]
+            data: [] // Will be loaded from API
+        });
+        
+        // Load data after component is fully rendered
+        me.on('afterrender', function() {
+            setTimeout(function() {
+                me.loadItems();
+            }, 50);
         });
 
         this.items = [
@@ -134,8 +91,8 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                         text: 'Refresh',
                         iconCls: 'fa fa-refresh',
                         handler: function() {
-                            itemsStore.reload();
-                            Ext.Msg.alert('Info', 'Items list refreshed');
+                            me.loadItems();
+                            Ext.Msg.alert('Info', 'Loading items from backend...');
                         }
                     }
                 ]
@@ -149,15 +106,15 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                 columns: [
                     {
                         text: 'Item Code',
-                        dataIndex: 'itemCode',
+                        dataIndex: 'item_code',
                         width: 120,
                         renderer: function(value) {
-                            return '<strong>' + value + '</strong>';
+                            return '<strong>' + (value || 'N/A') + '</strong>';
                         }
                     },
                     {
                         text: 'Item Name',
-                        dataIndex: 'itemName',
+                        dataIndex: 'item_name',
                         flex: 2
                     },
                     {
@@ -167,7 +124,7 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                     },
                     {
                         text: 'Unit',
-                        dataIndex: 'unitOfMeasure',
+                        dataIndex: 'unit_of_measure',
                         width: 80,
                         align: 'center'
                     },
@@ -182,20 +139,24 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                         width: 100,
                         renderer: function(value) {
                             var color = value === 'Active' ? 'green' : 'red';
-                            return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            return '<span style="color: ' + color + '; font-weight: bold;">' + (value || 'N/A') + '</span>';
                         }
                     },
                     {
                         text: 'Created Date',
-                        dataIndex: 'createdDate',
+                        dataIndex: 'created_at',
                         width: 120,
-                        renderer: Ext.util.Format.dateRenderer('d M Y')
+                        renderer: function(value) {
+                            return value ? Ext.util.Format.date(new Date(value), 'd M Y') : 'N/A';
+                        }
                     },
                     {
                         text: 'Last Modified',
-                        dataIndex: 'lastModified', 
+                        dataIndex: 'updated_at', 
                         width: 120,
-                        renderer: Ext.util.Format.dateRenderer('d M Y')
+                        renderer: function(value) {
+                            return value ? Ext.util.Format.date(new Date(value), 'd M Y') : 'N/A';
+                        }
                     }
                 ],
                 listeners: {
@@ -234,18 +195,18 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
             items: [
                 {
                     xtype: 'textfield',
-                    name: 'itemCode',
+                    name: 'item_code',
                     fieldLabel: 'Item Code *',
                     allowBlank: false,
                     readOnly: isEdit,
-                    value: isEdit ? record.get('itemCode') : ''
+                    value: isEdit ? record.get('item_code') : ''
                 },
                 {
                     xtype: 'textfield',
-                    name: 'itemName',
+                    name: 'item_name',
                     fieldLabel: 'Item Name *',
                     allowBlank: false,
-                    value: isEdit ? record.get('itemName') : ''
+                    value: isEdit ? record.get('item_name') : ''
                 },
                 {
                     xtype: 'combobox',
@@ -257,11 +218,11 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                 },
                 {
                     xtype: 'combobox',
-                    name: 'unitOfMeasure',
+                    name: 'unit_of_measure',
                     fieldLabel: 'Unit of Measure *',
                     allowBlank: false,
                     store: ['PCS', 'MTR', 'KG', 'LTR', 'BOX', 'SET', 'ROLL'],
-                    value: isEdit ? record.get('unitOfMeasure') : ''
+                    value: isEdit ? record.get('unit_of_measure') : ''
                 },
                 {
                     xtype: 'textarea',
@@ -282,7 +243,7 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
         });
 
         var window = Ext.create('Ext.window.Window', {
-            title: isEdit ? 'Edit Item: ' + record.get('itemCode') : 'Add New Item',
+            title: isEdit ? 'Edit Item: ' + record.get('item_code') : 'Add New Item',
             modal: true,
             width: 500,
             height: 400,
@@ -301,16 +262,16 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                     handler: function() {
                         if (form.isValid()) {
                             var values = form.getValues();
-                            values.lastModified = new Date().toISOString().split('T')[0];
+                            values.updated_at = new Date().toISOString().split('T')[0];
                             
                             if (isEdit) {
                                 record.set(values);
-                                Ext.Msg.alert('Success', 'Item "' + values.itemName + '" updated successfully!');
+                                Ext.Msg.alert('Success', 'Item "' + values.item_name + '" updated successfully!');
                             } else {
-                                values.createdDate = new Date().toISOString().split('T')[0];
+                                values.created_at = new Date().toISOString().split('T')[0];
                                 var store = me.down('grid').getStore();
                                 store.add(values);
-                                Ext.Msg.alert('Success', 'Item "' + values.itemName + '" created successfully!');
+                                Ext.Msg.alert('Success', 'Item "' + values.item_name + '" created successfully!');
                             }
                             window.close();
                         }
@@ -330,7 +291,7 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
         if (selection.length > 0) {
             var record = selection[0];
             Ext.Msg.confirm('Delete Item', 
-                'Are you sure you want to delete item "' + record.get('itemName') + '"?',
+                'Are you sure you want to delete item "' + record.get('item_name') + '"?',
                 function(btn) {
                     if (btn === 'yes') {
                         grid.getStore().remove(record);
@@ -349,15 +310,43 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
         
         if (searchValue) {
             store.filterBy(function(record) {
-                var itemCode = record.get('itemCode').toLowerCase();
-                var itemName = record.get('itemName').toLowerCase();
-                var category = record.get('category').toLowerCase();
+                var itemCode = (record.get('item_code') || '').toLowerCase();
+                var itemName = (record.get('item_name') || '').toLowerCase();
+                var category = (record.get('category') || '').toLowerCase();
                 var search = searchValue.toLowerCase();
                 
                 return itemCode.indexOf(search) >= 0 || 
                        itemName.indexOf(search) >= 0 || 
                        category.indexOf(search) >= 0;
             });
+        }
+    },
+
+    // Load items from backend API
+    loadItems: function() {
+        var me = this;
+        
+        // Access the global warehouse controller
+        var controller = window.warehouseController;
+        
+        if (controller && controller.loadItems) {
+            console.log('✅ Loading items via global warehouse controller');
+            controller.loadItems();
+        } else {
+            console.error('❌ WarehouseController not available globally for Master Data');
+            console.error('Debug info - window.warehouseController:', !!window.warehouseController);
+            console.error('Debug info - loadItems method:', !!(window.warehouseController && window.warehouseController.loadItems));
+            
+            // Clear grid and show error message
+            var grid = me.down('grid');
+            if (grid && grid.getStore) {
+                var store = grid.getStore();
+                store.removeAll();
+                console.log('⚠️ Master Data grid cleared due to missing controller');
+            }
+            
+            // Show user-friendly error
+            Ext.Msg.alert('API Error', 'Unable to connect to warehouse backend for Master Data. Please refresh the page or contact IT support.');
         }
     }
 });
