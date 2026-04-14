@@ -59,6 +59,8 @@ Ext.define('Store.warehouse.Module', {
             console.log('🔍 DEBUG: Creating WarehouseController...');
             var warehouseController = Ext.create('Store.warehouse.controller.WarehouseController');
             console.log('✅ DEBUG: WarehouseController created successfully');
+            console.log('🔍 DEBUG: Controller type:', warehouseController.$className);
+            console.log('🔍 DEBUG: Controller methods:', Object.keys(warehouseController).filter(k => typeof warehouseController[k] === 'function').slice(0, 10));
 
             // 1. CREATE NAVIGATION TAB COMPONENT
             console.log('🔍 DEBUG: Creating NavigationTab...');
@@ -76,6 +78,8 @@ Ext.define('Store.warehouse.Module', {
                 warehouseController: warehouseController
             });
             console.log('✅ DEBUG: MainPanel created successfully');
+            console.log('🔍 DEBUG: MainPanel controller passed:', !!warehouseController);
+            console.log('🔍 DEBUG: MainPanel config warehouseController:', !!mainPanel.getWarehouseController());
 
             // 3. LINK COMPONENTS TOGETHER (MANDATORY)
             console.log('🔍 DEBUG: Linking components...');
