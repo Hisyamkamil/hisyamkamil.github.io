@@ -146,25 +146,25 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                 columns: [
                     {
                         text: 'Transfer Number',
-                        dataIndex: 'transferNumber',
+                        dataIndex: 'transfer_number',
                         width: 140,
                         renderer: function(value) {
-                            return '<strong>' + value + '</strong>';
+                            return '<strong>' + (value || 'N/A') + '</strong>';
                         }
                     },
                     {
-                        text: 'Source Delivery',
-                        dataIndex: 'sourceDelivery',
+                        text: 'Delivery ID',
+                        dataIndex: 'inbound_delivery_id',
                         width: 130
                     },
                     {
                         text: 'From Location',
-                        dataIndex: 'fromLocation',
+                        dataIndex: 'source_location',
                         flex: 1
                     },
                     {
                         text: 'To Location',
-                        dataIndex: 'toLocation',
+                        dataIndex: 'destination_location',
                         flex: 1
                     },
                     {
@@ -178,18 +178,19 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                 'Normal': '#28a745'
                             };
                             var color = colorMap[value] || '#6c757d';
-                            return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            return '<span style="color: ' + color + '; font-weight: bold;">' + (value || 'N/A') + '</span>';
                         }
                     },
                     {
                         text: 'Items',
-                        dataIndex: 'totalItems',
+                        dataIndex: 'total_items',
                         width: 80,
                         align: 'center',
                         renderer: function(value, metaData, record) {
-                            var moved = record.get('movedItems');
-                            var color = moved === value ? 'green' : moved > 0 ? 'orange' : 'black';
-                            return '<span style="color: ' + color + ';">' + moved + '/' + value + '</span>';
+                            var moved = record.get('moved_items') || 0;
+                            var total = value || 0;
+                            var color = moved === total ? 'green' : moved > 0 ? 'orange' : 'black';
+                            return '<span style="color: ' + color + ';">' + moved + '/' + total + '</span>';
                         }
                     },
                     {
@@ -199,29 +200,34 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                         renderer: function(value) {
                             var colorMap = {
                                 'Created': '#007bff',
-                                'In Progress': '#ffc107', 
+                                'In Progress': '#ffc107',
                                 'Completed': '#28a745',
                                 'Cancelled': '#dc3545'
                             };
                             var color = colorMap[value] || '#6c757d';
-                            return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            return '<span style="color: ' + color + '; font-weight: bold;">' + (value || 'N/A') + '</span>';
                         }
                     },
                     {
                         text: 'Assigned To',
-                        dataIndex: 'assignedTo',
+                        dataIndex: 'assigned_to',
                         width: 120
                     },
                     {
-                        text: 'Est. Time',
-                        dataIndex: 'estimatedTime',
-                        width: 100
+                        text: 'Est. Duration',
+                        dataIndex: 'estimated_duration',
+                        width: 100,
+                        renderer: function(value) {
+                            return value ? value + ' min' : 'N/A';
+                        }
                     },
                     {
                         text: 'Created Date',
-                        dataIndex: 'createdDate',
+                        dataIndex: 'created_at',
                         width: 110,
-                        renderer: Ext.util.Format.dateRenderer('d M Y')
+                        renderer: function(value) {
+                            return value ? Ext.util.Format.date(new Date(value), 'd M Y') : 'N/A';
+                        }
                     }
                 ],
                 listeners: {
