@@ -6,7 +6,8 @@ Ext.define('Store.warehouse.view.MainPanel', {
     extend: 'Ext.panel.Panel',
     
     requires: [
-        'Store.warehouse.view.MasterDataPanel'
+        'Store.warehouse.view.MasterDataPanel',
+        'Store.warehouse.view.GoodReceivePanel'
     ],
     
     layout: 'card',
@@ -24,7 +25,9 @@ Ext.define('Store.warehouse.view.MainPanel', {
                 itemId: 'goodreceive',
                 title: 'Good Receive',
                 layout: 'fit',
-                html: '<div style="padding: 20px; text-align: center; color: #666;"><h2>Good Receive</h2><p>Inbound delivery management and RFID confirmation interface.</p></div>'
+                items: [
+                    Ext.create('Store.warehouse.view.GoodReceivePanel')
+                ]
             },
             {
                 itemId: 'putaway',
