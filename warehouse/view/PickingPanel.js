@@ -667,11 +667,180 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                           '<tr><td style="font-weight: bold; padding: 5px;">Assigned To:</td><td style="padding: 5px;">' + record.get('assignedTo') + '</td></tr>' +
                           '</table>'
                 },
-                // Items List (placeholder)
+                // Items List Grid
                 {
                     region: 'center',
                     title: 'Picking List',
-                    html: '<div style="padding: 20px; text-align: center; color: #666;"><p>Items list for picking task <strong>' + record.get('pickingNumber') + '</strong> would be displayed here.</p><p>Features: Item details, quantities, locations, pick status.</p></div>'
+                    xtype: 'grid',
+                    store: Ext.create('Ext.data.Store', {
+                        fields: [
+                            'itemCode',
+                            'itemName',
+                            'category',
+                            'unitOfMeasure',
+                            'requestedQuantity',
+                            'pickedQuantity',
+                            'sourceLocation',
+                            'binLocation',
+                            'epcCode',
+                            'pickingStatus',
+                            'allocatedEPC'
+                        ],
+                        data: [
+                            {
+                                itemCode: 'ITM001',
+                                itemName: 'Steel Pipe 6 inch',
+                                category: 'Piping',
+                                unitOfMeasure: 'PCS',
+                                requestedQuantity: 1,
+                                pickedQuantity: record.get('status') === 'Completed' ? 1 : (record.get('status') === 'Picking' ? 1 : 0),
+                                sourceLocation: 'GOLD-ROOM-A',
+                                binLocation: 'A-01-01',
+                                epcCode: record.get('status') !== 'Created' ? '3014257BF7194E4000001A85' : 'Not Allocated',
+                                pickingStatus: record.get('status') === 'Completed' ? 'Picked' : (record.get('status') === 'Picking' ? 'Picking' : 'Pending'),
+                                allocatedEPC: record.get('status') !== 'Created' ? '3014257BF7194E4000001A85' : null
+                            },
+                            {
+                                itemCode: 'ITM002',
+                                itemName: 'Hydraulic Hose',
+                                category: 'Hydraulics',
+                                unitOfMeasure: 'MTR',
+                                requestedQuantity: 25,
+                                pickedQuantity: record.get('status') === 'Completed' ? 25 : (record.get('status') === 'Picking' ? 15 : 0),
+                                sourceLocation: 'GOLD-ROOM-B',
+                                binLocation: 'B-01-02',
+                                epcCode: record.get('status') !== 'Created' ? '3014257BF7194E4000001A86' : 'Not Allocated',
+                                pickingStatus: record.get('status') === 'Completed' ? 'Picked' : (record.get('status') === 'Picking' ? 'Picking' : 'Pending'),
+                                allocatedEPC: record.get('status') !== 'Created' ? '3014257BF7194E4000001A86' : null
+                            },
+                            {
+                                itemCode: 'ITM003',
+                                itemName: 'Mining Drill Bit',
+                                category: 'Tools',
+                                unitOfMeasure: 'PCS',
+                                requestedQuantity: 3,
+                                pickedQuantity: record.get('status') === 'Completed' ? 3 : (record.get('status') === 'Picking' ? 0 : 0),
+                                sourceLocation: 'STORAGE-A1',
+                                binLocation: 'A1-02-05',
+                                epcCode: record.get('status') === 'Completed' ? '3014257BF7194E4000001A87' : 'Not Allocated',
+                                pickingStatus: record.get('status') === 'Completed' ? 'Picked' : (record.get('status') === 'Picking' ? 'Pending' : 'Pending'),
+                                allocatedEPC: record.get('status') === 'Completed' ? '3014257BF7194E4000001A87' : null
+                            }
+                        ]
+                    }),
+                    columns: [
+                        {
+                            text: 'Item Code',
+                            dataIndex: 'itemCode',
+                            width: 100,
+                            renderer: function(value) {
+                                return '<strong>' + value + '</strong>';
+                            }
+                        },
+                        {
+                            text: 'Item Name',
+                            dataIndex: 'itemName',
+                            flex: 2
+                        },
+                        {
+                            text: 'Category',
+                            dataIndex: 'category',
+                            width: 100
+                        },
+                        {
+                            text: 'Unit',
+                            dataIndex: 'unitOfMeasure',
+                            width: 60,
+                            align: 'center'
+                        },
+                        {
+                            text: 'Requested Qty',
+                            dataIndex: 'requestedQuantity',
+                            width: 110,
+                            align: 'center',
+                            renderer: function(value) {
+                                return '<strong>' + value + '</strong>';
+                            }
+                        },
+                        {
+                            text: 'Picked Qty',
+                            dataIndex: 'pickedQuantity',
+                            width: 90,
+                            align: 'center',
+                            renderer: function(value, metaData, record) {
+                                var requested = record.get('requestedQuantity');
+                                var color = value === requested ? 'green' : value > 0 ? 'orange' : 'black';
+                                return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'Source Location',
+                            dataIndex: 'sourceLocation',
+                            width: 120
+                        },
+                        {
+                            text: 'Bin Location',
+                            dataIndex: 'binLocation',
+                            width: 100
+                        },
+                        {
+                            text: 'EPC Code',
+                            dataIndex: 'epcCode',
+                            width: 180,
+                            renderer: function(value) {
+                                var color = value === 'Not Allocated' ? '#6c757d' : '#007bff';
+                                var style = 'color: ' + color + '; font-family: monospace; font-size: 11px;';
+                                return '<span style="' + style + '">' + value + '</span>';
+                            }
+                        },
+                        {
+                            text: 'Pick Status',
+                            dataIndex: 'pickingStatus',
+                            width: 100,
+                            renderer: function(value) {
+                                var colorMap = {
+                                    'Picked': 'green',
+                                    'Picking': 'orange',
+                                    'Pending': '#6c757d'
+                                };
+                                var color = colorMap[value] || '#6c757d';
+                                return '<span style="color: ' + color + '; font-weight: bold;">' + value + '</span>';
+                            }
+                        }
+                    ],
+                    tbar: [
+                        {
+                            text: 'Allocate Items',
+                            iconCls: 'fa fa-tags',
+                            disabled: record.get('status') !== 'Created',
+                            handler: function() {
+                                Ext.Msg.alert('Item Allocation', 'Items would be allocated from available stock with EPC assignment.');
+                            }
+                        },
+                        '-',
+                        {
+                            text: 'Start Picking',
+                            iconCls: 'fa fa-play',
+                            disabled: record.get('status') !== 'Created',
+                            handler: function() {
+                                me.startPicking(record);
+                            }
+                        },
+                        '-',
+                        {
+                            text: 'Gate Scanning',
+                            iconCls: 'fa fa-wifi',
+                            disabled: record.get('status') !== 'Picking',
+                            handler: function() {
+                                me.showGateScanning(record);
+                            }
+                        },
+                        '->',
+                        {
+                            xtype: 'displayfield',
+                            value: '<strong>Total Items: ' + record.get('totalItems') + ' | Status: </strong><span style="color: ' + me.getStatusColor(record.get('status')) + '; font-weight: bold;">' + record.get('status') + '</span>'
+                        }
+                    ]
                 }
             ]
         });
