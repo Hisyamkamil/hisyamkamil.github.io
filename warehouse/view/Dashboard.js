@@ -5,6 +5,10 @@
 Ext.define('Store.warehouse.view.Dashboard', {
     extend: 'Ext.panel.Panel',
     
+    config: {
+        warehouseController: null
+    },
+    
     title: 'Warehouse Dashboard',
     layout: 'border',
     border: false,
@@ -256,7 +260,7 @@ Ext.define('Store.warehouse.view.Dashboard', {
     // Load dashboard data from backend APIs
     loadDashboardData: function() {
         var me = this;
-        var controller = Store.warehouse.app.getController('WarehouseController');
+        var controller = me.getWarehouseController();
         
         if (!controller) {
             console.error('WarehouseController not found');
