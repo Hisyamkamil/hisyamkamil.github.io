@@ -12,78 +12,35 @@ Ext.define('Store.warehouse.view.PickingPanel', {
     initComponent: function() {
         var me = this;
         
-        // Create picking tasks store
+        // Create picking tasks store - INTEGRATED WITH BACKEND API
         var pickingStore = Ext.create('Ext.data.Store', {
             fields: [
-                'pickingNumber',
-                'customerCode',
-                'customerName',
-                'deliveryDate',
-                'shippingAddress',
-                'salesOrder',
-                'totalItems',
-                'pickedItems',
+                'id',
+                'picking_task_id',
+                'outbound_delivery_number',
+                'customer_code',
+                'customer_name',
+                'delivery_date',
+                'shipping_address',
+                'sales_order_number',
+                'total_items',
+                'picked_items',
                 'status',
-                'assignedTo',
-                'createdBy',
-                'createdDate',
-                'completedBy',
-                'completedDate',
+                'assigned_to',
+                'created_by_name',
+                'created_at',
+                'completed_by_name',
+                'completed_at',
                 'priority'
             ],
-            data: [
-                {
-                    pickingNumber: 'PKG-2024-001',
-                    customerCode: 'CUST001',
-                    customerName: 'PT Mining Solutions',
-                    deliveryDate: '2024-04-16',
-                    shippingAddress: 'Jakarta Industrial Estate',
-                    salesOrder: 'SO-2024-100',
-                    totalItems: 3,
-                    pickedItems: 3,
-                    status: 'Completed',
-                    assignedTo: 'picker_001',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-15',
-                    completedBy: 'picker_001',
-                    completedDate: '2024-04-16',
-                    priority: 'High'
-                },
-                {
-                    pickingNumber: 'PKG-2024-002',
-                    customerCode: 'CUST002',
-                    customerName: 'CV Equipment Rental',
-                    deliveryDate: '2024-04-17',
-                    shippingAddress: 'Surabaya Mining Complex',
-                    salesOrder: 'SO-2024-101',
-                    totalItems: 5,
-                    pickedItems: 2,
-                    status: 'Picking',
-                    assignedTo: 'picker_002',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-16',
-                    completedBy: null,
-                    completedDate: null,
-                    priority: 'Medium'
-                },
-                {
-                    pickingNumber: 'PKG-2024-003',
-                    customerCode: 'CUST003',
-                    customerName: 'PT Heavy Machinery',
-                    deliveryDate: '2024-04-18',
-                    shippingAddress: 'Bandung Industrial Park',
-                    salesOrder: 'SO-2024-102',
-                    totalItems: 8,
-                    pickedItems: 0,
-                    status: 'Created',
-                    assignedTo: 'picker_003',
-                    createdBy: 'admin',
-                    createdDate: '2024-04-17',
-                    completedBy: null,
-                    completedDate: null,
-                    priority: 'Normal'
-                }
-            ]
+            data: [] // Will be loaded from API
+        });
+        
+        // Load data after component is fully rendered
+        me.on('afterrender', function() {
+            setTimeout(function() {
+                me.loadPickingTasks();
+            }, 50);
         });
 
         this.items = [
@@ -174,8 +131,8 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                         text: 'Refresh',
                         iconCls: 'fa fa-refresh',
                         handler: function() {
-                            pickingStore.reload();
-                            Ext.Msg.alert('Info', 'Picking tasks refreshed');
+                            me.loadPickingTasks();
+                            Ext.Msg.alert('Info', 'Loading picking tasks from backend...');
                         }
                     }
                 ]
@@ -189,27 +146,29 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                 columns: [
                     {
                         text: 'Picking Number',
-                        dataIndex: 'pickingNumber',
+                        dataIndex: 'outbound_delivery_number',
                         width: 140,
                         renderer: function(value) {
-                            return '<strong>' + value + '</strong>';
+                            return '<strong>' + (value || 'N/A') + '</strong>';
                         }
                     },
                     {
                         text: 'Customer',
-                        dataIndex: 'customerName',
+                        dataIndex: 'customer_name',
                         flex: 2
                     },
                     {
                         text: 'Sales Order',
-                        dataIndex: 'salesOrder',
+                        dataIndex: 'sales_order_number',
                         width: 120
                     },
                     {
                         text: 'Delivery Date',
-                        dataIndex: 'deliveryDate',
+                        dataIndex: 'delivery_date',
                         width: 110,
-                        renderer: Ext.util.Format.dateRenderer('d M Y')
+                        renderer: function(value) {
+                            return value ? Ext.util.Format.date(new Date(value), 'd M Y') : 'N/A';
+                        }
                     },
                     {
                         text: 'Priority',
@@ -227,13 +186,14 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                     },
                     {
                         text: 'Items',
-                        dataIndex: 'totalItems',
+                        dataIndex: 'total_items',
                         width: 80,
                         align: 'center',
                         renderer: function(value, metaData, record) {
-                            var picked = record.get('pickedItems');
-                            var color = picked === value ? 'green' : picked > 0 ? 'orange' : 'black';
-                            return '<span style="color: ' + color + ';">' + picked + '/' + value + '</span>';
+                            var picked = record.get('picked_items') || 0;
+                            var total = value || 0;
+                            var color = picked === total ? 'green' : picked > 0 ? 'orange' : 'black';
+                            return '<span style="color: ' + color + ';">' + picked + '/' + total + '</span>';
                         }
                     },
                     {
@@ -253,14 +213,16 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                     },
                     {
                         text: 'Assigned To',
-                        dataIndex: 'assignedTo',
+                        dataIndex: 'assigned_to',
                         width: 120
                     },
                     {
                         text: 'Created Date',
-                        dataIndex: 'createdDate',
+                        dataIndex: 'created_at',
                         width: 110,
-                        renderer: Ext.util.Format.dateRenderer('d M Y')
+                        renderer: function(value) {
+                            return value ? Ext.util.Format.date(new Date(value), 'd M Y') : 'N/A';
+                        }
                     }
                 ],
                 listeners: {
@@ -1095,5 +1057,33 @@ Ext.define('Store.warehouse.view.PickingPanel', {
             'Cancelled': '#dc3545'
         };
         return colorMap[status] || '#6c757d';
+    },
+
+    // Load picking tasks from backend API
+    loadPickingTasks: function() {
+        var me = this;
+        
+        // Access the global warehouse controller
+        var controller = window.warehouseController;
+        
+        if (controller && controller.loadPickingTasks) {
+            console.log('✅ Loading picking tasks via global warehouse controller');
+            controller.loadPickingTasks();
+        } else {
+            console.error('❌ WarehouseController not available globally for Picking');
+            console.error('Debug info - window.warehouseController:', !!window.warehouseController);
+            console.error('Debug info - loadPickingTasks method:', !!(window.warehouseController && window.warehouseController.loadPickingTasks));
+            
+            // Clear grid and show error message
+            var grid = me.down('grid');
+            if (grid && grid.getStore) {
+                var store = grid.getStore();
+                store.removeAll();
+                console.log('⚠️ Picking grid cleared due to missing controller');
+            }
+            
+            // Show user-friendly error
+            Ext.Msg.alert('API Error', 'Unable to connect to warehouse backend for Picking tasks. Please refresh the page or contact IT support.');
+        }
     }
 });
