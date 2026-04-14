@@ -32,8 +32,12 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             data: [] // Will be loaded from API
         });
         
-        // Load data from backend API on component initialization
-        me.loadInboundDeliveries();
+        // Load data after component is fully rendered
+        me.on('afterrender', function() {
+            setTimeout(function() {
+                me.loadInboundDeliveries();
+            }, 50);
+        });
 
         this.items = [
             // Toolbar
@@ -237,27 +241,20 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         var controller = me.getWarehouseController ? me.getWarehouseController() : null;
         
         if (controller) {
-            controller.getInboundDeliveries()
-                .then(function(response) {
-                    var store = me.down('grid').getStore();
-                    store.removeAll();
-                    
-                    if (response && response.length > 0) {
-                        store.add(response);
-                    }
-                    
-                    Ext.Msg.alert('Success', 'Loaded ' + (response ? response.length : 0) + ' deliveries from backend.');
-                })
-                .catch(function(error) {
-                    console.error('Error loading inbound deliveries:', error);
-                    Ext.Msg.alert('Error', 'Failed to load deliveries from backend: ' + error.message);
-                });
+            // Controller method handles UI updates directly, no need for promises
+            controller.loadInboundDeliveries();
+            console.log('✅ Loading inbound deliveries via controller');
         } else {
             console.log('WarehouseController not available - using demo mode');
-            // Fallback to demo data for now
-            var store = me.down('grid').getStore();
-            store.removeAll();
-            Ext.Msg.alert('Info', 'Controller not available - running in demo mode');
+            // Fallback to demo data for now - with null check
+            var grid = me.down('grid');
+            if (grid && grid.getStore) {
+                var store = grid.getStore();
+                store.removeAll();
+                console.log('✅ Demo mode: grid cleared');
+            } else {
+                console.warn('⚠️ Grid not available yet, skipping demo data load');
+            }
         }
     },
 
