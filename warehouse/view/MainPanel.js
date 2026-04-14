@@ -23,6 +23,15 @@ Ext.define('Store.warehouse.view.MainPanel', {
     initComponent: function() {
         var warehouseController = this.getWarehouseController();
         
+        console.log('🔍 DEBUG: MainPanel initComponent');
+        console.log('🔍 DEBUG: MainPanel controller available:', !!warehouseController);
+        console.log('🔍 DEBUG: MainPanel controller type:', warehouseController ? warehouseController.$className : 'null');
+        console.log('🔍 DEBUG: MainPanel config:', this.config);
+        
+        if (!warehouseController) {
+            console.error('❌ ERROR: MainPanel - WarehouseController not received from Module.js');
+        }
+        
         this.items = [
             {
                 itemId: 'dashboard',
