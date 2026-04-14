@@ -36,11 +36,11 @@ Ext.define('Store.warehouse.Module', {
         return Ext.create('Ext.panel.Panel', {
             title: 'Warehouse Management',
             iconCls: 'fa fa-warehouse',
-            iconAlign: 'top',
             layout: 'accordion',
             border: false,
             
             items: [{
+                xtype: 'panel',
                 title: 'Dashboard',
                 iconCls: 'fa fa-tachometer-alt',
                 layout: 'fit',
@@ -53,6 +53,7 @@ Ext.define('Store.warehouse.Module', {
                     }
                 }]
             }, {
+                xtype: 'panel',
                 title: 'Good Receive',
                 iconCls: 'fa fa-truck-loading',
                 layout: 'vbox',
@@ -83,6 +84,7 @@ Ext.define('Store.warehouse.Module', {
                     }
                 }]
             }, {
+                xtype: 'panel',
                 title: 'Put Away',
                 iconCls: 'fa fa-dolly',
                 layout: 'vbox',
@@ -106,6 +108,7 @@ Ext.define('Store.warehouse.Module', {
                     }
                 }]
             }, {
+                xtype: 'panel',
                 title: 'Picking',
                 iconCls: 'fa fa-hand-paper',
                 layout: 'vbox',
@@ -129,6 +132,7 @@ Ext.define('Store.warehouse.Module', {
                     }
                 }]
             }, {
+                xtype: 'panel',
                 title: 'Stock Opname',
                 iconCls: 'fa fa-clipboard-check',
                 layout: 'fit',
@@ -141,6 +145,7 @@ Ext.define('Store.warehouse.Module', {
                     }
                 }]
             }, {
+                xtype: 'panel',
                 title: 'Reports',
                 iconCls: 'fa fa-chart-bar',
                 layout: 'vbox',
@@ -164,6 +169,7 @@ Ext.define('Store.warehouse.Module', {
                     }
                 }]
             }, {
+                xtype: 'panel',
                 title: 'Master Data',
                 iconCls: 'fa fa-database',
                 layout: 'vbox',
@@ -897,6 +903,40 @@ Ext.define('Store.warehouse.Module', {
         
         mainPanel.removeAll();
         mainPanel.add(locationGrid);
+    },
+
+    /**
+     * Report Methods - Placeholder implementations
+     */
+    showInventoryReport: function () {
+        var mainPanel = this.getMainPanel();
+        var reportPanel = Ext.create('Ext.panel.Panel', {
+            title: 'Inventory Report',
+            html: '<div style="padding: 20px;"><h3>Inventory Report</h3><p>Comprehensive inventory reporting functionality would be implemented here.</p></div>'
+        });
+        mainPanel.removeAll();
+        mainPanel.add(reportPanel);
+    },
+
+    showActivityReport: function () {
+        var mainPanel = this.getMainPanel();
+        var reportPanel = Ext.create('Ext.panel.Panel', {
+            title: 'Activity Report',
+            html: '<div style="padding: 20px;"><h3>Activity Report</h3><p>Warehouse activity reporting functionality would be implemented here.</p></div>'
+        });
+        mainPanel.removeAll();
+        mainPanel.add(reportPanel);
+    },
+
+    /**
+     * Transfer and Picking Methods - Placeholder implementations
+     */
+    showCreateTransfer: function () {
+        Ext.Msg.alert('Info', 'Create Transfer Order functionality would be implemented here.');
+    },
+
+    showCreatePicking: function () {
+        Ext.Msg.alert('Info', 'Create Picking Task functionality would be implemented here.');
     },
 
     /**
