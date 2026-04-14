@@ -5,6 +5,10 @@
 Ext.define('Store.warehouse.view.PutAwayPanel', {
     extend: 'Ext.panel.Panel',
     
+    config: {
+        warehouseController: null
+    },
+    
     title: 'Put Away - Transfer Orders Management',
     layout: 'border',
     border: false,
@@ -127,8 +131,8 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                         text: 'Refresh',
                         iconCls: 'fa fa-refresh',
                         handler: function() {
-                            putAwayStore.reload();
-                            Ext.Msg.alert('Info', 'Transfer orders refreshed');
+                            me.loadPutAwayTasks();
+                            Ext.Msg.alert('Info', 'Loading transfer orders from backend...');
                         }
                     }
                 ]
@@ -250,6 +254,36 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         ];
 
         this.callParent(arguments);
+    },
+
+    // Load put away tasks from backend API
+    loadPutAwayTasks: function() {
+        var me = this;
+        var controller = me.getWarehouseController ? me.getWarehouseController() : null;
+        
+        if (controller) {
+            controller.getPutAwayTasks()
+                .then(function(response) {
+                    var store = me.down('grid').getStore();
+                    store.removeAll();
+                    
+                    if (response && response.length > 0) {
+                        store.add(response);
+                    }
+                    
+                    Ext.Msg.alert('Success', 'Loaded ' + (response ? response.length : 0) + ' put away tasks from backend.');
+                })
+                .catch(function(error) {
+                    console.error('Error loading put away tasks:', error);
+                    Ext.Msg.alert('Error', 'Failed to load put away tasks from backend: ' + error.message);
+                });
+        } else {
+            console.log('WarehouseController not available - using demo mode');
+            // Fallback to demo data for now
+            var store = me.down('grid').getStore();
+            store.removeAll();
+            Ext.Msg.alert('Info', 'Controller not available - running in demo mode');
+        }
     },
 
     showTransferForm: function(record) {
