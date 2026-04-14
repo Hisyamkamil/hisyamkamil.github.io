@@ -629,19 +629,49 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         });
     },
     
-    processPutAwayTasks: function(response) {
+    processPutAwayTasks: function(response, textStatus, jqXHR) {
+        console.log('Put Away API Response:', response);
+        
         try {
             var result = Ext.decode(response.responseText);
             console.log('Put away tasks API Response:', result);
             
-            if (result.status === 200 && result.body) {
-                this.updatePutAwayGrid(result.body);
+            // Handle direct response format from Postman collection
+            var tasks = null;
+            var pagination = null;
+            
+            if (result.putAwayTasks && Array.isArray(result.putAwayTasks)) {
+                // Direct format from Postman collection
+                tasks = result.putAwayTasks;
+                pagination = result.pagination;
+                console.log(`Processing ${tasks.length} put away tasks from API`);
+            } else if (result.status === 200 && result.body && result.body.putAwayTasks) {
+                // Wrapped format (fallback)
+                tasks = result.body.putAwayTasks;
+                pagination = result.body.pagination;
+                console.log(`Processing ${tasks.length} put away tasks from wrapped API`);
             } else {
                 console.error('Invalid put away response format:', result);
+                this.showAlert('Invalid API response format', 'error');
                 this.handlePutAwayLoadFailure();
+                return;
             }
+            
+            if (tasks !== null) {
+                this.updatePutAwayGrid(tasks);
+                
+                // Update pagination info if available
+                if (pagination) {
+                    this.updatePaginationInfo(pagination);
+                }
+                
+                console.log('✅ Put away tasks loaded successfully');
+                this.showAlert(`Loaded ${tasks.length} put away tasks`, 'success');
+            }
+            
         } catch (e) {
             console.error('Error parsing put away response:', e);
+            this.showAlert('Error processing put away tasks: ' + e.message, 'error');
             this.handlePutAwayLoadFailure();
         }
     },
@@ -651,24 +681,54 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         if (grid && grid.getStore()) {
             var store = grid.getStore();
             
-            // Convert API response to grid format
-            var gridData = (tasks.putAwayTasks || tasks).map(function(task) {
+            // Convert API response to grid format - tasks is already the correct array
+            var gridData = tasks.map(function(task) {
                 return {
                     id: task.putAwayId,
                     transferOrderNumber: task.transferOrderNumber,
                     fromLocation: task.fromLocation,
                     toLocation: task.toLocation,
-                    totalItems: task.items?.length || 0,
+                    totalItems: task.totalItems || 0,
+                    totalQuantity: task.totalQuantity || 0,
                     status: task.status,
+                    priority: task.priority,
                     assignedTo: task.assignedTo,
+                    createdBy: task.createdBy,
                     createdDate: task.createdDate,
-                    estimatedCompletion: task.estimatedCompletion
+                    estimatedCompletion: task.estimatedCompletion,
+                    startedAt: task.startedAt,
+                    completedAt: task.completedAt,
+                    sapConfirmed: task.sapConfirmed
                 };
             });
             
             store.loadData(gridData);
             console.log('✅ Put away grid updated with', gridData.length, 'tasks');
         }
+    },
+    
+    /**
+     * Show alert message to user
+     */
+    showAlert: function(message, type) {
+        type = type || 'info';
+        var title = type === 'error' ? 'Error' : type === 'success' ? 'Success' : 'Information';
+        var iconType = type === 'error' ? Ext.Msg.ERROR : type === 'success' ? Ext.Msg.INFO : Ext.Msg.INFO;
+        
+        Ext.Msg.show({
+            title: title,
+            message: message,
+            buttons: Ext.Msg.OK,
+            icon: iconType
+        });
+    },
+    
+    /**
+     * Get put away store - utility method
+     */
+    getPutAwayStore: function() {
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=putAwayGrid]')[0];
+        return grid ? grid.getStore() : null;
     },
     
     handlePutAwayLoadFailure: function(response) {
@@ -1155,7 +1215,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
      * Find dashboard panel
      */
     findDashboardPanel: function() {
-        return Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.DashboardPanel')[0];
+        return Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.Dashboard')[0];
     },
     
     /**
