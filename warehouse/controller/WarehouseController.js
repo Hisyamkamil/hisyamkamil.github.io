@@ -1260,10 +1260,20 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
     
     updateItemsGrid: function(items) {
-        var grid = Ext.ComponentQuery.query('gridpanel[itemId=itemsGrid]')[0];
+        var grid = null;
+        
+        // First try to find master data panel and its grid
+        var masterDataPanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.MasterDataPanel')[0];
+        if (masterDataPanel) {
+            grid = masterDataPanel.down('grid');
+            console.log('✅ Found master data panel with grid');
+        }
+        
+        // Fallback: Find grid by field detection
         if (!grid) {
-            // Try fallback grid detection methods
             var grids = Ext.ComponentQuery.query('grid');
+            console.log('🔍 Searching through', grids.length, 'grids for master data fields');
+            
             for (var i = 0; i < grids.length; i++) {
                 var testGrid = grids[i];
                 if (testGrid.getStore) {
@@ -1272,18 +1282,23 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                         try {
                             var fields = store.getFields();
                             var hasItemFields = false;
+                            var fieldNames = [];
+                            
                             for (var j = 0; j < fields.length; j++) {
                                 var fieldName = fields[j].name;
+                                fieldNames.push(fieldName);
+                                // Check for master data specific fields based on MasterDataPanel.js
                                 if (fieldName === 'item_code' ||
                                     fieldName === 'item_name' ||
-                                    fieldName === 'material_type') {
+                                    fieldName === 'category' ||
+                                    fieldName === 'unit_of_measure') {
                                     hasItemFields = true;
-                                    break;
                                 }
                             }
+                            
                             if (hasItemFields) {
                                 grid = testGrid;
-                                console.log('✅ Found items grid via field detection');
+                                console.log('✅ Found items grid via field detection, fields:', fieldNames);
                                 break;
                             }
                         } catch (e) {
@@ -1297,66 +1312,58 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         if (grid && grid.getStore()) {
             var store = grid.getStore();
             
-            // Convert API response to grid format with camelCase to snake_case mapping
+            // Convert API response to match MasterDataPanel store fields
             var gridData = items.map(function(item) {
                 return {
-                    id: item.itemId || item.item_id,
+                    item_id: item.itemId || item.item_id,
                     item_code: item.itemCode || item.item_code,
                     item_name: item.itemName || item.item_name,
-                    material_type: item.materialType || item.material_type,
-                    base_unit: item.baseUnit || item.base_unit,
-                    item_group: item.itemGroup || item.item_group,
-                    storage_location: item.storageLocation || item.storage_location,
-                    current_stock: item.currentStock || item.current_stock || 0,
-                    reserved_stock: item.reservedStock || item.reserved_stock || 0,
-                    available_stock: item.availableStock || item.available_stock || 0,
-                    last_movement_date: item.lastMovementDate || item.last_movement_date,
-                    created_by: item.createdBy || item.created_by,
-                    created_date: item.createdDate || item.created_date,
-                    updated_by: item.updatedBy || item.updated_by,
-                    updated_date: item.updatedDate || item.updated_date,
-                    status: item.status || 'active'
+                    category: item.category || item.itemGroup || item.item_group || 'General',
+                    unit_of_measure: item.unitOfMeasure || item.unit_of_measure || item.baseUnit || item.base_unit || 'PCS',
+                    description: item.description || item.itemName || item.item_name,
+                    status: item.status === 'active' ? 'Active' : (item.status === 'inactive' ? 'Inactive' : 'Active'),
+                    created_at: item.createdDate || item.created_date || item.createdAt || new Date().toISOString(),
+                    updated_at: item.updatedDate || item.updated_date || item.updatedAt || new Date().toISOString()
                 };
             });
             
             store.loadData(gridData);
             console.log('✅ Items grid updated with', gridData.length, 'items');
+            console.log('Sample mapped data:', gridData[0]);
         } else {
-            console.error('❌ Items grid not found - Available grids:',
-                Ext.ComponentQuery.query('grid').length);
+            console.error('❌ Items grid not found after all attempts');
+            console.error('Available panel types:', Ext.ComponentQuery.query('panel').map(function(p) { return p.$className; }));
+            console.error('Master data panel search result:', !!masterDataPanel);
             
-            // Try to find master data panel and get its grid
-            var masterDataPanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.MasterDataPanel')[0];
-            if (masterDataPanel) {
-                var panelGrid = masterDataPanel.down('grid');
-                if (panelGrid && panelGrid.getStore()) {
-                    var gridData = items.map(function(item) {
-                        return {
-                            id: item.itemId || item.item_id,
-                            item_code: item.itemCode || item.item_code,
-                            item_name: item.itemName || item.item_name,
-                            material_type: item.materialType || item.material_type,
-                            base_unit: item.baseUnit || item.base_unit,
-                            item_group: item.itemGroup || item.item_group,
-                            storage_location: item.storageLocation || item.storage_location,
-                            current_stock: item.currentStock || item.current_stock || 0,
-                            reserved_stock: item.reservedStock || item.reserved_stock || 0,
-                            available_stock: item.availableStock || item.available_stock || 0,
-                            last_movement_date: item.lastMovementDate || item.last_movement_date,
-                            created_by: item.createdBy || item.created_by,
-                            created_date: item.createdDate || item.created_date,
-                            updated_by: item.updatedBy || item.updated_by,
-                            updated_date: item.updatedDate || item.updated_date,
-                            status: item.status || 'active'
-                        };
-                    });
-                    panelGrid.getStore().loadData(gridData);
-                    console.log('✅ Found items grid via panel query, updated with', items.length, 'items');
-                } else {
-                    console.error('❌ No grid found in master data panel');
+            // Last attempt: try to find any panel with "master" in the class name
+            var panels = Ext.ComponentQuery.query('panel');
+            for (var k = 0; k < panels.length; k++) {
+                if (panels[k].$className && panels[k].$className.toLowerCase().indexOf('master') >= 0) {
+                    console.log('Found potential master panel:', panels[k].$className);
+                    var potentialGrid = panels[k].down('grid');
+                    if (potentialGrid) {
+                        console.log('✅ Found grid in potential master panel, attempting update');
+                        var store = potentialGrid.getStore();
+                        if (store) {
+                            var gridData = items.map(function(item) {
+                                return {
+                                    item_id: item.itemId || item.item_id,
+                                    item_code: item.itemCode || item.item_code,
+                                    item_name: item.itemName || item.item_name,
+                                    category: item.category || item.itemGroup || 'General',
+                                    unit_of_measure: item.unitOfMeasure || item.baseUnit || 'PCS',
+                                    description: item.description || item.itemName,
+                                    status: item.status === 'active' ? 'Active' : 'Active',
+                                    created_at: item.createdDate || new Date().toISOString(),
+                                    updated_at: item.updatedDate || new Date().toISOString()
+                                };
+                            });
+                            store.loadData(gridData);
+                            console.log('✅ Updated grid in potential master panel with', items.length, 'items');
+                        }
+                        break;
+                    }
                 }
-            } else {
-                console.error('❌ Master data panel not found');
             }
         }
     },
