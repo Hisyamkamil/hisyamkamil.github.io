@@ -910,12 +910,38 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             var result = Ext.decode(response.responseText);
             console.log('Picking tasks API Response:', result);
             
-            if (result.status === 200 && result.body) {
-                this.updatePickingGrid(result.body);
+            // Handle direct response format from Postman collection
+            var tasks = null;
+            var pagination = null;
+            
+            if (result.pickingTasks && Array.isArray(result.pickingTasks)) {
+                // Direct format from Postman collection
+                tasks = result.pickingTasks;
+                pagination = result.pagination;
+                console.log(`Processing ${tasks.length} picking tasks from API`);
+            } else if (result.status === 200 && result.body && result.body.pickingTasks) {
+                // Wrapped format (fallback)
+                tasks = result.body.pickingTasks;
+                pagination = result.body.pagination;
+                console.log(`Processing ${tasks.length} picking tasks from wrapped API`);
             } else {
                 console.error('Invalid picking response format:', result);
+                console.error('Expected pickingTasks array, got:', typeof result.pickingTasks);
                 this.handlePickingLoadFailure();
+                return;
             }
+            
+            if (tasks !== null) {
+                this.updatePickingGrid(tasks);
+                
+                // Update pagination info if available
+                if (pagination) {
+                    this.updatePaginationInfo(pagination);
+                }
+                
+                console.log('✅ Picking tasks loaded successfully');
+            }
+            
         } catch (e) {
             console.error('Error parsing picking response:', e);
             this.handlePickingLoadFailure();
@@ -924,26 +950,50 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     
     updatePickingGrid: function(tasks) {
         var grid = Ext.ComponentQuery.query('gridpanel[itemId=pickingGrid]')[0];
+        if (!grid) {
+            // Try alternative grid queries
+            grid = Ext.ComponentQuery.query('grid[store.fields]')[0];
+            if (grid) {
+                var store = grid.getStore();
+                if (store && store.getFields && store.getFields().some(function(field) {
+                    return field.name === 'outbound_delivery_number' || field.name === 'customer_name';
+                })) {
+                    // This looks like the picking grid
+                    console.log('✅ Found picking grid via alternative query');
+                } else {
+                    grid = null;
+                }
+            }
+        }
+        
         if (grid && grid.getStore()) {
             var store = grid.getStore();
             
-            // Convert API response to grid format
-            var gridData = (tasks.pickingTasks || tasks).map(function(task) {
+            // Convert API response to grid format - tasks is already the correct array
+            var gridData = tasks.map(function(task) {
                 return {
-                    id: task.pickingId,
-                    outboundDeliveryNumber: task.outboundDeliveryNumber,
-                    customerName: task.customerName,
-                    deliveryDate: task.deliveryDate,
-                    totalItems: task.pickingList?.length || 0,
+                    id: task.picking_task_id || task.pickingId,
+                    outbound_delivery_number: task.outbound_delivery_number,
+                    customer_name: task.customer_name,
+                    customer_code: task.customer_code,
+                    delivery_date: task.delivery_date,
+                    sales_order_number: task.sales_order_number,
+                    total_items: task.total_items || 0,
+                    picked_items: task.picked_items || 0,
                     status: task.status,
-                    assignedTo: task.assignedTo,
-                    createdDate: task.createdDate,
-                    estimatedCompletion: task.estimatedCompletion
+                    priority: task.priority,
+                    assigned_to: task.assigned_to,
+                    created_at: task.created_at,
+                    created_by_name: task.created_by_name,
+                    completed_at: task.completed_at,
+                    completed_by_name: task.completed_by_name
                 };
             });
             
             store.loadData(gridData);
             console.log('✅ Picking grid updated with', gridData.length, 'tasks');
+        } else {
+            console.error('❌ Picking grid not found');
         }
     },
     
