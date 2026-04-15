@@ -1221,12 +1221,38 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             var result = Ext.decode(response.responseText);
             console.log('Items API Response:', result);
             
-            if (result.status === 200 && result.body) {
-                this.updateItemsGrid(result.body.items || result.body);
+            // Handle direct response format from backend: {items: Array, pagination: Object}
+            var items = null;
+            var pagination = null;
+            
+            if (result.items && Array.isArray(result.items)) {
+                // Direct format from backend
+                items = result.items;
+                pagination = result.pagination;
+                console.log(`Processing ${items.length} items from direct API response`);
+            } else if (result.status === 200 && result.body && result.body.items) {
+                // Wrapped format (fallback)
+                items = result.body.items;
+                pagination = result.body.pagination;
+                console.log(`Processing ${items.length} items from wrapped API response`);
             } else {
                 console.error('Invalid items response format:', result);
+                console.error('Expected items array, got:', typeof result.items);
                 this.handleItemsLoadFailure();
+                return;
             }
+            
+            if (items !== null) {
+                this.updateItemsGrid(items);
+                
+                // Update pagination info if available
+                if (pagination) {
+                    this.updatePaginationInfo(pagination);
+                }
+                
+                console.log('✅ Items loaded successfully');
+            }
+            
         } catch (e) {
             console.error('Error parsing items response:', e);
             this.handleItemsLoadFailure();
@@ -1235,10 +1261,103 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     
     updateItemsGrid: function(items) {
         var grid = Ext.ComponentQuery.query('gridpanel[itemId=itemsGrid]')[0];
+        if (!grid) {
+            // Try fallback grid detection methods
+            var grids = Ext.ComponentQuery.query('grid');
+            for (var i = 0; i < grids.length; i++) {
+                var testGrid = grids[i];
+                if (testGrid.getStore) {
+                    var store = testGrid.getStore();
+                    if (store && store.getFields) {
+                        try {
+                            var fields = store.getFields();
+                            var hasItemFields = false;
+                            for (var j = 0; j < fields.length; j++) {
+                                var fieldName = fields[j].name;
+                                if (fieldName === 'item_code' ||
+                                    fieldName === 'item_name' ||
+                                    fieldName === 'material_type') {
+                                    hasItemFields = true;
+                                    break;
+                                }
+                            }
+                            if (hasItemFields) {
+                                grid = testGrid;
+                                console.log('✅ Found items grid via field detection');
+                                break;
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        
         if (grid && grid.getStore()) {
             var store = grid.getStore();
-            store.loadData(items);
-            console.log('✅ Items grid updated with', items.length, 'items');
+            
+            // Convert API response to grid format with camelCase to snake_case mapping
+            var gridData = items.map(function(item) {
+                return {
+                    id: item.itemId || item.item_id,
+                    item_code: item.itemCode || item.item_code,
+                    item_name: item.itemName || item.item_name,
+                    material_type: item.materialType || item.material_type,
+                    base_unit: item.baseUnit || item.base_unit,
+                    item_group: item.itemGroup || item.item_group,
+                    storage_location: item.storageLocation || item.storage_location,
+                    current_stock: item.currentStock || item.current_stock || 0,
+                    reserved_stock: item.reservedStock || item.reserved_stock || 0,
+                    available_stock: item.availableStock || item.available_stock || 0,
+                    last_movement_date: item.lastMovementDate || item.last_movement_date,
+                    created_by: item.createdBy || item.created_by,
+                    created_date: item.createdDate || item.created_date,
+                    updated_by: item.updatedBy || item.updated_by,
+                    updated_date: item.updatedDate || item.updated_date,
+                    status: item.status || 'active'
+                };
+            });
+            
+            store.loadData(gridData);
+            console.log('✅ Items grid updated with', gridData.length, 'items');
+        } else {
+            console.error('❌ Items grid not found - Available grids:',
+                Ext.ComponentQuery.query('grid').length);
+            
+            // Try to find master data panel and get its grid
+            var masterDataPanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.MasterDataPanel')[0];
+            if (masterDataPanel) {
+                var panelGrid = masterDataPanel.down('grid');
+                if (panelGrid && panelGrid.getStore()) {
+                    var gridData = items.map(function(item) {
+                        return {
+                            id: item.itemId || item.item_id,
+                            item_code: item.itemCode || item.item_code,
+                            item_name: item.itemName || item.item_name,
+                            material_type: item.materialType || item.material_type,
+                            base_unit: item.baseUnit || item.base_unit,
+                            item_group: item.itemGroup || item.item_group,
+                            storage_location: item.storageLocation || item.storage_location,
+                            current_stock: item.currentStock || item.current_stock || 0,
+                            reserved_stock: item.reservedStock || item.reserved_stock || 0,
+                            available_stock: item.availableStock || item.available_stock || 0,
+                            last_movement_date: item.lastMovementDate || item.last_movement_date,
+                            created_by: item.createdBy || item.created_by,
+                            created_date: item.createdDate || item.created_date,
+                            updated_by: item.updatedBy || item.updated_by,
+                            updated_date: item.updatedDate || item.updated_date,
+                            status: item.status || 'active'
+                        };
+                    });
+                    panelGrid.getStore().loadData(gridData);
+                    console.log('✅ Found items grid via panel query, updated with', items.length, 'items');
+                } else {
+                    console.error('❌ No grid found in master data panel');
+                }
+            } else {
+                console.error('❌ Master data panel not found');
+            }
         }
     },
     
