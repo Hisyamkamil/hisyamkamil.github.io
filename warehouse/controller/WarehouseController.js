@@ -951,17 +951,35 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     updatePickingGrid: function(tasks) {
         var grid = Ext.ComponentQuery.query('gridpanel[itemId=pickingGrid]')[0];
         if (!grid) {
-            // Try alternative grid queries
-            grid = Ext.ComponentQuery.query('grid[store.fields]')[0];
-            if (grid) {
-                var store = grid.getStore();
-                if (store && store.getFields && store.getFields().some(function(field) {
-                    return field.name === 'outbound_delivery_number' || field.name === 'customer_name';
-                })) {
-                    // This looks like the picking grid
-                    console.log('✅ Found picking grid via alternative query');
-                } else {
-                    grid = null;
+            // Try alternative grid queries with valid selectors
+            var grids = Ext.ComponentQuery.query('grid');
+            for (var i = 0; i < grids.length; i++) {
+                var testGrid = grids[i];
+                if (testGrid.getStore) {
+                    var store = testGrid.getStore();
+                    if (store && store.getFields) {
+                        try {
+                            var fields = store.getFields();
+                            var hasPickingFields = false;
+                            for (var j = 0; j < fields.length; j++) {
+                                var fieldName = fields[j].name;
+                                if (fieldName === 'outbound_delivery_number' ||
+                                    fieldName === 'customer_name' ||
+                                    fieldName === 'sales_order_number') {
+                                    hasPickingFields = true;
+                                    break;
+                                }
+                            }
+                            if (hasPickingFields) {
+                                grid = testGrid;
+                                console.log('✅ Found picking grid via field detection');
+                                break;
+                            }
+                        } catch (e) {
+                            // Skip this grid if field detection fails
+                            continue;
+                        }
+                    }
                 }
             }
         }
@@ -993,7 +1011,41 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             store.loadData(gridData);
             console.log('✅ Picking grid updated with', gridData.length, 'tasks');
         } else {
-            console.error('❌ Picking grid not found');
+            console.error('❌ Picking grid not found - Available grids:',
+                Ext.ComponentQuery.query('grid').length);
+            console.error('❌ Looking for picking panel store directly...');
+            
+            // Try to find picking panel and get its grid
+            var pickingPanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.PickingPanel')[0];
+            if (pickingPanel) {
+                var panelGrid = pickingPanel.down('grid');
+                if (panelGrid && panelGrid.getStore()) {
+                    panelGrid.getStore().loadData(tasks.map(function(task) {
+                        return {
+                            id: task.picking_task_id || task.pickingId,
+                            outbound_delivery_number: task.outbound_delivery_number,
+                            customer_name: task.customer_name,
+                            customer_code: task.customer_code,
+                            delivery_date: task.delivery_date,
+                            sales_order_number: task.sales_order_number,
+                            total_items: task.total_items || 0,
+                            picked_items: task.picked_items || 0,
+                            status: task.status,
+                            priority: task.priority,
+                            assigned_to: task.assigned_to,
+                            created_at: task.created_at,
+                            created_by_name: task.created_by_name,
+                            completed_at: task.completed_at,
+                            completed_by_name: task.completed_by_name
+                        };
+                    }));
+                    console.log('✅ Found picking grid via panel query, updated with', tasks.length, 'tasks');
+                } else {
+                    console.error('❌ No grid found in picking panel');
+                }
+            } else {
+                console.error('❌ Picking panel not found');
+            }
         }
     },
     
