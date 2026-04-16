@@ -1281,14 +1281,30 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     updateItemsGrid: function(items) {
         var grid = null;
         
-        // First try to find master data panel and its grid
+        // Strategy 1: Find by exact panel class name
         var masterDataPanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.MasterDataPanel')[0];
         if (masterDataPanel) {
             grid = masterDataPanel.down('grid');
-            console.log('✅ Found master data panel with grid');
+            console.log('✅ Found master data panel with grid via exact class match');
         }
         
-        // Fallback: Find grid by field detection
+        // Strategy 2: Find by panel with "Master Data" in title
+        if (!grid) {
+            var panels = Ext.ComponentQuery.query('panel[title*=Master]');
+            console.log('🔍 Found', panels.length, 'panels with "Master" in title');
+            
+            for (var k = 0; k < panels.length; k++) {
+                var panel = panels[k];
+                var potentialGrid = panel.down('grid');
+                if (potentialGrid && potentialGrid.getStore()) {
+                    grid = potentialGrid;
+                    console.log('✅ Found master data grid via title matching');
+                    break;
+                }
+            }
+        }
+        
+        // Strategy 3: Find grid by field detection
         if (!grid) {
             var grids = Ext.ComponentQuery.query('grid');
             console.log('🔍 Searching through', grids.length, 'grids for master data fields');
@@ -1306,7 +1322,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                             for (var j = 0; j < fields.length; j++) {
                                 var fieldName = fields[j].name;
                                 fieldNames.push(fieldName);
-                                // Check for master data specific fields based on MasterDataPanel.js
+                                // Check for master data specific fields
                                 if (fieldName === 'item_code' ||
                                     fieldName === 'item_name' ||
                                     fieldName === 'category' ||
