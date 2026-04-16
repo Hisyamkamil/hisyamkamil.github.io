@@ -113,7 +113,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         iconCls: 'fa fa-refresh',
                         handler: function() {
                             me.loadInboundDeliveries();
-                            Ext.Msg.alert('Info', 'Loading deliveries from backend...');
+                            // WarehouseController will show the appropriate user feedback
                         }
                     }
                 ]
@@ -123,6 +123,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             {
                 region: 'center',
                 xtype: 'grid',
+                itemId: 'goodReceiveGrid',  // CRITICAL: Add itemId for WarehouseController to find this grid
                 store: deliveriesStore,
                 columns: [
                     {
@@ -245,118 +246,22 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         if (controller && controller.loadInboundDeliveries) {
             console.log('✅ Loading inbound deliveries via global warehouse controller');
             
-            // Call the controller method and set up polling to check for response
+            // Call the controller method - it will update the grid directly with user feedback
             controller.loadInboundDeliveries();
             
-            // Poll for response data
-            var pollCount = 0;
-            var maxPolls = 10;
-            
-            var pollForData = function() {
-                pollCount++;
-                console.log('🔍 Polling for data, attempt:', pollCount);
-                
-                // Check multiple possible response locations
-                var deliveries = null;
-                
-                if (controller.lastInboundDeliveriesResponse) {
-                    if (controller.lastInboundDeliveriesResponse.inboundDeliveries) {
-                        deliveries = controller.lastInboundDeliveriesResponse.inboundDeliveries;
-                        console.log('✅ Found deliveries in lastInboundDeliveriesResponse.inboundDeliveries');
-                    } else if (Array.isArray(controller.lastInboundDeliveriesResponse)) {
-                        deliveries = controller.lastInboundDeliveriesResponse;
-                        console.log('✅ Found deliveries as array in lastInboundDeliveriesResponse');
-                    }
-                }
-                
-                // Alternative: check if response is stored directly
-                if (!deliveries && controller.lastApiResponse && controller.lastApiResponse.inboundDeliveries) {
-                    deliveries = controller.lastApiResponse.inboundDeliveries;
-                    console.log('✅ Found deliveries in lastApiResponse.inboundDeliveries');
-                }
-                
-                if (deliveries && deliveries.length > 0) {
-                    console.log('✅ Found deliveries data, stopping polling:', deliveries.length, 'deliveries');
-                    console.log('💡 WarehouseController already updated the grid, no additional update needed');
-                    // No need to update grid - WarehouseController already did it
-                    return;
-                } else if (pollCount < maxPolls) {
-                    // Continue polling
-                    setTimeout(pollForData, 200);
-                } else {
-                    console.warn('⚠️ No deliveries data found after', maxPolls, 'polling attempts');
-                    console.log('🔍 Debug - controller.lastInboundDeliveriesResponse:', controller.lastInboundDeliveriesResponse);
-                    console.log('🔍 Debug - controller.lastApiResponse:', controller.lastApiResponse);
-                    
-                    // Show info message instead of error
-                    Ext.Msg.alert('Info', 'No inbound deliveries found in the system. Create a new delivery to get started.');
-                }
-            };
-            
-            // Start polling after a brief delay
-            setTimeout(pollForData, 300);
+            console.log('💡 WarehouseController handles grid updates and user feedback');
             
         } else {
             console.error('❌ WarehouseController not available globally');
-            console.error('Debug info - window.warehouseController:', !!window.warehouseController);
-            console.error('Debug info - loadInboundDeliveries method:', !!(window.warehouseController && window.warehouseController.loadInboundDeliveries));
-            
-            // Clear grid and show error message
-            var grid = me.down('grid');
-            if (grid && grid.getStore) {
-                var store = grid.getStore();
-                store.removeAll();
-                console.log('⚠️ Grid cleared due to missing controller');
-            }
-            
             // Show user-friendly error
-            Ext.Msg.alert('API Error', 'Unable to connect to warehouse backend. Please refresh the page or contact IT support.');
+            Ext.Msg.alert('Connection Error', 'Warehouse controller not initialized. Please refresh the page.');
         }
     },
     
-    // Update grid store with API response data
+    // DEPRECATED: This method is no longer needed as WarehouseController handles grid updates directly
     updateGridWithDeliveries: function(deliveries) {
-        var me = this;
-        var grid = me.down('grid');
-        
-        if (!grid || !grid.getStore) {
-            console.error('❌ Grid not found for updating deliveries');
-            return;
-        }
-        
-        var store = grid.getStore();
-        console.log('🔄 Updating store with', deliveries.length, 'deliveries');
-        
-        // Clear existing data
-        store.removeAll();
-        
-        // Transform backend data format to match grid fields
-        var transformedData = deliveries.map(function(delivery) {
-            return {
-                id: delivery.inbound_delivery_id,
-                inbound_delivery_id: delivery.inbound_delivery_id,
-                delivery_number: delivery.delivery_number,
-                supplier_code: delivery.supplier_code,
-                supplier_name: delivery.supplier_name,
-                status: delivery.status,
-                expected_delivery_date: delivery.expected_delivery_date,
-                actual_delivery_date: delivery.actual_delivery_date,
-                total_items: delivery.total_items || 0,
-                total_quantity: delivery.total_quantity || 0,
-                created_by_name: delivery.created_by_name,
-                created_at: delivery.created_at,
-                updated_at: delivery.updated_at
-            };
-        });
-        
-        // Load transformed data into store
-        store.loadData(transformedData);
-        console.log('✅ Grid updated with', transformedData.length, 'deliveries');
-        
-        // Show success message
-        Ext.Msg.alert('Success',
-            'Loaded ' + transformedData.length + ' inbound deliveries from backend database.'
-        );
+        console.log('⚠️ updateGridWithDeliveries is deprecated - WarehouseController now handles this directly');
+        // This method is kept for backward compatibility but should not be used
     },
 
     showDeliveryForm: function(record) {
