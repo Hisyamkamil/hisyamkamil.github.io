@@ -1027,34 +1027,60 @@ Ext.define('Store.warehouse.view.PickingPanel', {
     },
 
     startGateScanning: function(record) {
-        // Simulate gate RFID scanning
+        console.log('🚪 Starting RFID gate scanning via backend API');
+        
         var gateGrid = Ext.ComponentQuery.query('#gateGrid')[0];
         var store = gateGrid.getStore();
         
-        var demoItems = [
-            { epc: '3014257BF7194E4000001A85', itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', status: 'Exit Confirmed', rssi: '-35 dBm' },
-            { epc: '3014257BF7194E4000001A86', itemCode: 'ITM002', itemName: 'Hydraulic Hose', status: 'Exit Confirmed', rssi: '-32 dBm' },
-            { epc: '3014257BF7194E4000001A87', itemCode: 'ITM003', itemName: 'Mining Drill Bit', status: 'Exit Confirmed', rssi: '-40 dBm' }
-        ];
+        // Build RFID gate scan request data matching backend contract
+        var rfidGateScanData = {
+            pickingTaskId: record.get('picking_task_id') || record.get('id'),
+            gateId: 'EXIT-GATE-001',
+            scanType: 'exit_confirmation',
+            readerId: 'RFID-GATE-READER-001',
+            operatorId: 'current_user',
+            scanStartTime: new Date().toISOString()
+        };
         
-        var index = 0;
-        var interval = setInterval(function() {
-            if (index < demoItems.length && index < record.get('totalItems')) {
-                var item = demoItems[index];
-                item.timestamp = new Date().toLocaleString();
-                store.add(item);
-                index++;
-                
-                if (index >= record.get('totalItems')) {
-                    clearInterval(interval);
-                    var completeBtn = Ext.ComponentQuery.query('#completeBtn')[0];
-                    if (completeBtn) completeBtn.setDisabled(false);
-                    Ext.Msg.alert('Gate Scan Complete', 'All items have exited the warehouse gate!');
-                }
-            } else {
-                clearInterval(interval);
-            }
-        }, 2000);
+        // Call backend API via WarehouseController
+        var controller = window.warehouseController;
+        if (controller && controller.performRFIDGateScan) {
+            controller.performRFIDGateScan(rfidGateScanData)
+                .then(function(response) {
+                    console.log('✅ RFID gate scan response:', response);
+                    
+                    // Process exit scanned items and update grid
+                    if (response && response.exitScannedItems && response.exitScannedItems.length > 0) {
+                        store.removeAll();
+                        response.exitScannedItems.forEach(function(item) {
+                            store.add({
+                                epc: item.epc,
+                                itemCode: item.itemCode,
+                                itemName: item.itemName,
+                                status: 'Exit Confirmed',
+                                rssi: item.rssi + ' dBm',
+                                timestamp: new Date().toLocaleString()
+                            });
+                        });
+                        
+                        // Enable complete button if all items scanned
+                        if (response.exitScannedItems.length >= record.get('total_items')) {
+                            var completeBtn = Ext.ComponentQuery.query('#completeBtn')[0];
+                            if (completeBtn) completeBtn.setDisabled(false);
+                            Ext.Msg.alert('Gate Scan Complete', 'All items confirmed exiting warehouse via RFID gate!');
+                        }
+                    } else {
+                        Ext.Msg.alert('Warning', 'No items detected during RFID gate scanning.');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('❌ RFID gate scan failed:', error);
+                    Ext.Msg.alert('RFID Gate Scan Error', 'Unable to perform gate scanning. Please check RFID gate reader connection.');
+                });
+        } else {
+            console.error('❌ WarehouseController not available for RFID gate scanning');
+            Ext.Msg.alert('Backend Error', 'RFID gate scanning requires backend integration. Please contact IT support.');
+        }
     },
 
     completePicking: function(record) {
