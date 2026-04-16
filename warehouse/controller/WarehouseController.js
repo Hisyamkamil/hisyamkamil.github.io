@@ -1351,39 +1351,95 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             console.log('Sample mapped data:', gridData[0]);
         } else {
             console.error('❌ Items grid not found after all attempts');
-            console.error('Available panel types:', Ext.ComponentQuery.query('panel').map(function(p) { return p.$className; }));
+            
+            // Debug: List all panel class names to understand what's available
+            var panels = Ext.ComponentQuery.query('panel');
+            var panelTypes = panels.map(function(p) {
+                return p.$className || 'Unknown';
+            });
+            console.error('Available panel types (' + panels.length + '):', panelTypes);
             console.error('Master data panel search result:', !!masterDataPanel);
             
-            // Last attempt: try to find any panel with "master" in the class name
-            var panels = Ext.ComponentQuery.query('panel');
-            for (var k = 0; k < panels.length; k++) {
-                if (panels[k].$className && panels[k].$className.toLowerCase().indexOf('master') >= 0) {
-                    console.log('Found potential master panel:', panels[k].$className);
-                    var potentialGrid = panels[k].down('grid');
-                    if (potentialGrid) {
-                        console.log('✅ Found grid in potential master panel, attempting update');
+            // Debug: Try different component query approaches
+            var masterVariations = [
+                'Store\\.warehouse\\.view\\.MasterDataPanel',
+                '[xtype=masterdatapanel]',
+                'panel[title*=Master]',
+                'panel[title*=Items]'
+            ];
+            
+            for (var q = 0; q < masterVariations.length; q++) {
+                var query = masterVariations[q];
+                var result = Ext.ComponentQuery.query(query);
+                console.log('Query "' + query + '" found:', result.length, 'components');
+                if (result.length > 0) {
+                    var potentialPanel = result[0];
+                    var potentialGrid = potentialPanel.down('grid');
+                    if (potentialGrid && potentialGrid.getStore()) {
+                        console.log('✅ Found working master data grid via query:', query);
                         var store = potentialGrid.getStore();
-                        if (store) {
-                            var gridData = items.map(function(item) {
-                                return {
-                                    item_id: item.itemId || item.item_id,
-                                    item_code: item.itemCode || item.item_code,
-                                    item_name: item.itemName || item.item_name,
-                                    category: item.category || item.itemGroup || 'General',
-                                    unit_of_measure: item.unitOfMeasure || item.baseUnit || 'PCS',
-                                    description: item.description || item.itemName,
-                                    status: item.status === 'active' ? 'Active' : 'Active',
-                                    created_at: item.createdDate || new Date().toISOString(),
-                                    updated_at: item.updatedDate || new Date().toISOString()
-                                };
-                            });
-                            store.loadData(gridData);
-                            console.log('✅ Updated grid in potential master panel with', items.length, 'items');
-                        }
-                        break;
+                        var gridData = items.map(function(item) {
+                            return {
+                                item_id: item.itemId || item.item_id,
+                                item_code: item.itemCode || item.item_code,
+                                item_name: item.itemName || item.item_name,
+                                category: item.category || item.itemGroup || 'General',
+                                unit_of_measure: item.unitOfMeasure || item.baseUnit || 'PCS',
+                                description: item.description || item.itemName,
+                                status: item.status === 'active' ? 'Active' : 'Active',
+                                created_at: item.createdDate || new Date().toISOString(),
+                                updated_at: item.updatedDate || new Date().toISOString()
+                            };
+                        });
+                        store.loadData(gridData);
+                        console.log('✅ Updated master data grid via fallback with', items.length, 'items');
+                        return; // Success, exit early
                     }
                 }
             }
+            
+            // Last attempt: Search by title or content
+            for (var k = 0; k < panels.length; k++) {
+                var panel = panels[k];
+                var title = panel.title || '';
+                var className = panel.$className || '';
+                
+                if (title.toLowerCase().indexOf('master') >= 0 ||
+                    title.toLowerCase().indexOf('item') >= 0 ||
+                    className.toLowerCase().indexOf('master') >= 0) {
+                    
+                    console.log('🔍 Checking panel:', {
+                        className: className,
+                        title: title,
+                        hasGrid: !!panel.down('grid')
+                    });
+                    
+                    var potentialGrid = panel.down('grid');
+                    if (potentialGrid && potentialGrid.getStore()) {
+                        console.log('✅ Found grid in panel with title/class matching master/item');
+                        var store = potentialGrid.getStore();
+                        var gridData = items.map(function(item) {
+                            return {
+                                item_id: item.itemId || item.item_id,
+                                item_code: item.itemCode || item.item_code,
+                                item_name: item.itemName || item.item_name,
+                                category: item.category || item.itemGroup || 'General',
+                                unit_of_measure: item.unitOfMeasure || item.baseUnit || 'PCS',
+                                description: item.description || item.itemName,
+                                status: item.status === 'active' ? 'Active' : 'Active',
+                                created_at: item.createdDate || new Date().toISOString(),
+                                updated_at: item.updatedDate || new Date().toISOString()
+                            };
+                        });
+                        store.loadData(gridData);
+                        console.log('✅ Updated grid via title/class search with', items.length, 'items');
+                        return; // Success, exit early
+                    }
+                }
+            }
+            
+            console.error('❌ All master data grid detection methods failed');
+            console.error('📊 Items data available but cannot find target grid:', items.length, 'items');
         }
     },
     
@@ -1395,6 +1451,481 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         var grid = Ext.ComponentQuery.query('gridpanel[itemId=itemsGrid]')[0];
         if (grid && grid.getStore()) {
             grid.getStore().removeAll();
+        }
+    },
+    
+    /**
+     * Create new item via backend API
+     * POST /api/warehouse/items
+     */
+    createItem: function(itemData) {
+        console.log('Creating item via backend API:', itemData);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestData = {
+            itemCode: itemData.item_code,
+            itemName: itemData.item_name,
+            description: itemData.description || '',
+            unitOfMeasure: itemData.unit_of_measure,
+            category: itemData.category,
+            weight: parseFloat(itemData.weight) || 0,
+            dimensions: itemData.dimensions || '',
+            isActive: itemData.status === 'Active'
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('itemsCreate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('Item created successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    if (result.itemId || response.status === 201) {
+                        var itemInfo = result.itemId ? result : result;
+                        Ext.Msg.alert('Success',
+                            'Item "' + (itemInfo.itemName || itemData.item_name) + '" created successfully!\n\n' +
+                            'Item Code: ' + (itemInfo.itemCode || itemData.item_code)
+                        );
+                        this.loadItems(); // Refresh grid
+                    } else {
+                        Ext.Msg.alert('Error', result.message || 'Failed to create item');
+                    }
+                } catch (e) {
+                    console.error('Error parsing create item response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to create item:', response);
+                var errorMsg = 'Failed to create item. ';
+                try {
+                    var errorResult = Ext.decode(response.responseText);
+                    errorMsg += errorResult.error || 'Network error occurred.';
+                } catch (e) {
+                    errorMsg += 'Network error occurred.';
+                }
+                Ext.Msg.alert('Error', errorMsg);
+            }.bind(this)
+        });
+    },
+    
+    /**
+     * Update existing item via backend API
+     * PUT /api/warehouse/items/{itemId}
+     */
+    updateItem: function(itemId, itemData) {
+        console.log('Updating item via backend API:', itemId, itemData);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestData = {
+            itemName: itemData.item_name,
+            description: itemData.description || '',
+            unitOfMeasure: itemData.unit_of_measure,
+            category: itemData.category,
+            weight: parseFloat(itemData.weight) || 0,
+            dimensions: itemData.dimensions || '',
+            isActive: itemData.status === 'Active'
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('itemsUpdate', {itemId: itemId}),
+            method: 'PUT',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('Item updated successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    if (result.itemId || response.status === 200) {
+                        Ext.Msg.alert('Success',
+                            'Item "' + (result.itemName || itemData.item_name) + '" updated successfully!'
+                        );
+                        this.loadItems(); // Refresh grid
+                    } else {
+                        Ext.Msg.alert('Error', result.message || 'Failed to update item');
+                    }
+                } catch (e) {
+                    console.error('Error parsing update item response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to update item:', response);
+                var errorMsg = 'Failed to update item. ';
+                try {
+                    var errorResult = Ext.decode(response.responseText);
+                    errorMsg += errorResult.error || 'Network error occurred.';
+                } catch (e) {
+                    errorMsg += 'Network error occurred.';
+                }
+                Ext.Msg.alert('Error', errorMsg);
+            }.bind(this)
+        });
+    },
+    
+    /**
+     * Delete item via backend API
+     * DELETE /api/warehouse/items/{itemId}
+     */
+    deleteItem: function(itemId, itemCode, itemName) {
+        console.log('Deleting item via backend API:', itemId);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('itemsDelete', {itemId: itemId}),
+            method: 'DELETE',
+            headers: apiConfig.getStandardHeaders(),
+            timeout: 15000,
+            success: function(response) {
+                console.log('Item deleted successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    if (result.itemId || response.status === 200) {
+                        Ext.Msg.alert('Success',
+                            'Item "' + (result.itemName || itemName) + '" has been deactivated successfully!\n\n' +
+                            'Note: Item data is preserved for historical records.'
+                        );
+                        this.loadItems(); // Refresh grid
+                    } else {
+                        Ext.Msg.alert('Error', result.message || 'Failed to delete item');
+                    }
+                } catch (e) {
+                    console.error('Error parsing delete item response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to delete item:', response);
+                var errorMsg = 'Failed to delete item. ';
+                try {
+                    var errorResult = Ext.decode(response.responseText);
+                    if (response.status === 409) {
+                        errorMsg = errorResult.error || 'Cannot delete item due to business rules.';
+                    } else {
+                        errorMsg += errorResult.error || 'Network error occurred.';
+                    }
+                } catch (e) {
+                    errorMsg += 'Network error occurred.';
+                }
+                Ext.Msg.alert('Error', errorMsg);
+            }.bind(this)
+        });
+    },
+    
+    // ===== STOCK OPNAME METHODS =====
+    
+    /**
+     * Load stock opname sessions from API
+     * Aligns with GET /api/warehouse/stockopname
+     */
+    loadStockOpnameSessions: function(filters) {
+        console.log('Loading stock opname sessions from API...');
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var params = this.buildQueryParams(filters);
+        var url = apiConfig.getUrl('stockOpnameList') + (params ? '?' + params : '');
+        
+        Ext.Ajax.request({
+            url: url,
+            method: 'GET',
+            headers: apiConfig.getStandardHeaders(),
+            timeout: 15000,
+            success: function(response) {
+                console.log('Stock opname sessions loaded successfully');
+                this.processStockOpnameSessions(response);
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load stock opname sessions:', response);
+                this.handleStockOpnameLoadFailure(response);
+            }.bind(this)
+        });
+    },
+
+    /**
+     * Create stock opname session - aligns with POST /api/warehouse/stockopname
+     */
+    createStockOpnameSession: function(sessionData) {
+        console.log('Creating stock opname session:', sessionData);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestData = {
+            sessionName: sessionData.sessionName,
+            locationId: sessionData.locationId || 'loc-default-001', // Default location ID
+            plannedDate: sessionData.scheduledDate || new Date().toISOString(),
+            description: sessionData.description || '',
+            itemFilter: sessionData.itemFilter || {}
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('stockOpnameCreate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('Stock opname session created successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    
+                    if (result.sessionId || response.status === 201) {
+                        var sessionInfo = result.sessionId ? result : result;
+                        var message = 'Stock opname session created successfully!\n\n' +
+                                    'Session ID: ' + (sessionInfo.sessionId || 'Generated') + '\n' +
+                                    'Session Name: ' + (sessionInfo.sessionName || sessionData.sessionName) + '\n' +
+                                    'Total Items: ' + (sessionInfo.totalItems || 0) + '\n' +
+                                    'Location: ' + (sessionInfo.locationName || 'N/A');
+                        
+                        Ext.Msg.alert('Success', message);
+                        this.loadStockOpnameSessions(); // Refresh grid
+                    } else {
+                        Ext.Msg.alert('Error', result.message || 'Failed to create stock opname session');
+                    }
+                } catch (e) {
+                    console.error('Error parsing create session response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to create stock opname session:', response);
+                Ext.Msg.alert('Error', 'Failed to create stock opname session. Network error occurred.');
+            }
+        });
+    },
+
+    /**
+     * Start stock opname session - aligns with POST /api/warehouse/stockopname/{sessionId}/start
+     */
+    startStockOpnameSession: function(sessionData) {
+        console.log('Starting stock opname session:', sessionData);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var sessionId = sessionData.sessionId || sessionData.session_id;
+        var requestData = {
+            startedBy: sessionData.startedBy || 'current_user'
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('stockOpnameStart', {sessionId: sessionId}),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('Stock opname session started successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    if (result.sessionId || response.status === 200) {
+                        var message = 'Stock counting session started!\n\n' +
+                                    'Session: ' + (result.sessionName || 'N/A') + '\n' +
+                                    'Location: ' + (result.locationName || 'N/A') + '\n' +
+                                    'Started: ' + (result.actualStartDate || 'Now') + '\n\n' +
+                                    'Begin physical inventory counting via RFID scanning.';
+                        
+                        Ext.Msg.alert('Session Started', message);
+                        this.loadStockOpnameSessions(); // Refresh grid
+                    } else {
+                        Ext.Msg.alert('Error', result.message || 'Failed to start session');
+                    }
+                } catch (e) {
+                    console.error('Error parsing start session response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to start stock opname session:', response);
+                Ext.Msg.alert('Error', 'Failed to start stock opname session. Please try again.');
+            }
+        });
+    },
+
+    /**
+     * Complete stock opname session - aligns with POST /api/warehouse/stockopname/{sessionId}/complete
+     */
+    completeStockOpnameSession: function(sessionData) {
+        console.log('Completing stock opname session:', sessionData);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var sessionId = sessionData.sessionId || sessionData.session_id;
+        var requestData = {
+            completedBy: sessionData.completedBy || 'current_user',
+            notes: sessionData.notes || 'Stock opname session completed via warehouse management system'
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('stockOpnameComplete', {sessionId: sessionId}),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('Stock opname session completed successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    if (result.sessionId || response.status === 200) {
+                        var summary = result.summary || {};
+                        var message = 'Stock Opname Session Completed Successfully!\n\n' +
+                                    'Session: ' + (result.sessionName || 'N/A') + '\n' +
+                                    'Total Items: ' + (summary.totalItems || 0) + '\n' +
+                                    'Counted Items: ' + (summary.countedItems || 0) + '\n' +
+                                    'Discrepancies: ' + (summary.discrepancies || 0) + '\n' +
+                                    'Completed: ' + (result.completedAt || 'Now') + '\n\n' +
+                                    '📊 Stock variance analysis and adjustments can now be processed.';
+                        
+                        Ext.Msg.alert('Session Completed', message);
+                        this.loadStockOpnameSessions(); // Refresh grid
+                        this.loadDashboardMetrics(); // Update dashboard with new inventory data
+                    } else {
+                        Ext.Msg.alert('Error', result.message || 'Failed to complete session');
+                    }
+                } catch (e) {
+                    console.error('Error parsing complete session response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to complete stock opname session:', response);
+                Ext.Msg.alert('Error', 'Failed to complete stock opname session. Please try again.');
+            }
+        });
+    },
+
+    processStockOpnameSessions: function(response) {
+        try {
+            var result = Ext.decode(response.responseText);
+            console.log('Stock opname sessions API Response:', result);
+            
+            // Handle direct response format from backend
+            var sessions = null;
+            var pagination = null;
+            
+            if (result.sessions && Array.isArray(result.sessions)) {
+                // Direct format from backend
+                sessions = result.sessions;
+                pagination = result.pagination;
+                console.log(`Processing ${sessions.length} stock opname sessions from API`);
+            } else if (result.status === 200 && result.body && result.body.sessions) {
+                // Wrapped format (fallback)
+                sessions = result.body.sessions;
+                pagination = result.body.pagination;
+                console.log(`Processing ${sessions.length} stock opname sessions from wrapped API`);
+            } else {
+                console.error('Invalid stock opname response format:', result);
+                this.handleStockOpnameLoadFailure();
+                return;
+            }
+            
+            if (sessions !== null) {
+                this.updateStockOpnameGrid(sessions);
+                
+                // Update pagination info if available
+                if (pagination) {
+                    this.updatePaginationInfo(pagination);
+                }
+                
+                console.log('✅ Stock opname sessions loaded successfully');
+            }
+            
+        } catch (e) {
+            console.error('Error parsing stock opname response:', e);
+            this.handleStockOpnameLoadFailure();
+        }
+    },
+    
+    updateStockOpnameGrid: function(sessions) {
+        var grid = null;
+        
+        // First try to find stock opname panel and its grid
+        var stockOpnamePanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.StockOpnamePanel')[0];
+        if (stockOpnamePanel) {
+            grid = stockOpnamePanel.down('grid');
+            console.log('✅ Found stock opname panel with grid');
+        }
+        
+        // Fallback: Find grid by field detection
+        if (!grid) {
+            var grids = Ext.ComponentQuery.query('grid');
+            console.log('🔍 Searching through', grids.length, 'grids for stock opname fields');
+            
+            for (var i = 0; i < grids.length; i++) {
+                var testGrid = grids[i];
+                if (testGrid.getStore) {
+                    var store = testGrid.getStore();
+                    if (store && store.getFields) {
+                        try {
+                            var fields = store.getFields();
+                            var hasStockOpnameFields = false;
+                            var fieldNames = [];
+                            
+                            for (var j = 0; j < fields.length; j++) {
+                                var fieldName = fields[j].name;
+                                fieldNames.push(fieldName);
+                                // Check for stock opname specific fields
+                                if (fieldName === 'session_id' ||
+                                    fieldName === 'session_name' ||
+                                    fieldName === 'counted_items' ||
+                                    fieldName === 'variance_items') {
+                                    hasStockOpnameFields = true;
+                                }
+                            }
+                            
+                            if (hasStockOpnameFields) {
+                                grid = testGrid;
+                                console.log('✅ Found stock opname grid via field detection, fields:', fieldNames);
+                                break;
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (grid && grid.getStore()) {
+            var store = grid.getStore();
+            
+            // Convert API response to match StockOpnamePanel store fields
+            var gridData = sessions.map(function(session) {
+                return {
+                    session_id: session.sessionId,
+                    session_name: session.sessionName,
+                    location: session.locationName,
+                    status: session.status,
+                    scheduled_date: session.plannedDate,
+                    started_date: session.actualStartDate,
+                    completed_date: session.actualEndDate,
+                    total_items: session.totalItems || 0,
+                    counted_items: session.countedItems || 0,
+                    variance_items: session.discrepancies || 0,
+                    created_by_name: session.createdBy,
+                    assigned_to: 'stockkeeper_001' // Default assignment
+                };
+            });
+            
+            store.loadData(gridData);
+            console.log('✅ Stock opname grid updated with', gridData.length, 'sessions');
+            console.log('Sample mapped data:', gridData[0]);
+        } else {
+            console.error('❌ Stock opname grid not found after all attempts');
+        }
+    },
+    
+    handleStockOpnameLoadFailure: function(response) {
+        console.error('Stock opname load failure:', response);
+        Ext.Msg.alert('Error', 'Failed to load stock opname sessions. Please try again.');
+        
+        // Clear grid if found
+        var stockOpnamePanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.StockOpnamePanel')[0];
+        if (stockOpnamePanel) {
+            var grid = stockOpnamePanel.down('grid');
+            if (grid && grid.getStore()) {
+                grid.getStore().removeAll();
+            }
         }
     },
     
@@ -1541,6 +2072,23 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                 this.loadItems();
             }.bind(this),
             
+            // Stock Opname workflow methods - aligned with STOCK OPNAME SEQUENCE DIAGRAM
+            refreshStockOpname: function() {
+                this.loadStockOpnameSessions();
+            }.bind(this),
+            
+            createStockOpnameSession: function(sessionData) {
+                this.createStockOpnameSession(sessionData);
+            }.bind(this),
+            
+            startStockOpnameSession: function(sessionData) {
+                this.startStockOpnameSession(sessionData);
+            }.bind(this),
+            
+            completeStockOpnameSession: function(sessionData) {
+                this.completeStockOpnameSession(sessionData);
+            }.bind(this),
+            
             // RFID processing methods - aligned with RFID INTEGRATION FLOW
             processRFID: function(scanData) {
                 this.processRFIDScan(scanData);
@@ -1586,6 +2134,12 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                 scanBarcode: window.warehouse.processBarcodePicking, // NEW: Barcode scan for picking
                 validate: window.warehouse.validatePicking,
                 confirm: window.warehouse.confirmPicking
+            },
+            stockOpname: {
+                create: window.warehouse.createStockOpnameSession,
+                start: window.warehouse.startStockOpnameSession,
+                complete: window.warehouse.completeStockOpnameSession,
+                refresh: window.warehouse.refreshStockOpname
             },
             security: {
                 validateMovement: window.warehouse.validateMovement,
