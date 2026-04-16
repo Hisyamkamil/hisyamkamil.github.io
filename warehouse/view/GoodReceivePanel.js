@@ -245,27 +245,54 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         if (controller && controller.loadInboundDeliveries) {
             console.log('✅ Loading inbound deliveries via global warehouse controller');
             
-            // Store reference to original method
-            var originalMethod = controller.loadInboundDeliveries;
+            // Call the controller method and set up polling to check for response
+            controller.loadInboundDeliveries();
             
-            // Override method to capture response
-            controller.loadInboundDeliveries = function() {
-                // Call original method
-                originalMethod.apply(controller, arguments);
+            // Poll for response data
+            var pollCount = 0;
+            var maxPolls = 10;
+            
+            var pollForData = function() {
+                pollCount++;
+                console.log('🔍 Polling for data, attempt:', pollCount);
                 
-                // Set timeout to allow API response to complete
-                setTimeout(function() {
-                    if (controller.lastInboundDeliveriesResponse && controller.lastInboundDeliveriesResponse.inboundDeliveries) {
-                        console.log('🔄 Updating Good Receive grid with fetched data');
-                        me.updateGridWithDeliveries(controller.lastInboundDeliveriesResponse.inboundDeliveries);
-                    } else {
-                        console.warn('⚠️ No deliveries data found in controller response');
+                // Check multiple possible response locations
+                var deliveries = null;
+                
+                if (controller.lastInboundDeliveriesResponse) {
+                    if (controller.lastInboundDeliveriesResponse.inboundDeliveries) {
+                        deliveries = controller.lastInboundDeliveriesResponse.inboundDeliveries;
+                        console.log('✅ Found deliveries in lastInboundDeliveriesResponse.inboundDeliveries');
+                    } else if (Array.isArray(controller.lastInboundDeliveriesResponse)) {
+                        deliveries = controller.lastInboundDeliveriesResponse;
+                        console.log('✅ Found deliveries as array in lastInboundDeliveriesResponse');
                     }
-                }, 500);
+                }
+                
+                // Alternative: check if response is stored directly
+                if (!deliveries && controller.lastApiResponse && controller.lastApiResponse.inboundDeliveries) {
+                    deliveries = controller.lastApiResponse.inboundDeliveries;
+                    console.log('✅ Found deliveries in lastApiResponse.inboundDeliveries');
+                }
+                
+                if (deliveries && deliveries.length > 0) {
+                    console.log('🔄 Updating Good Receive grid with', deliveries.length, 'deliveries');
+                    me.updateGridWithDeliveries(deliveries);
+                } else if (pollCount < maxPolls) {
+                    // Continue polling
+                    setTimeout(pollForData, 200);
+                } else {
+                    console.warn('⚠️ No deliveries data found after', maxPolls, 'polling attempts');
+                    console.log('🔍 Debug - controller.lastInboundDeliveriesResponse:', controller.lastInboundDeliveriesResponse);
+                    console.log('🔍 Debug - controller.lastApiResponse:', controller.lastApiResponse);
+                    
+                    // Show info message instead of error
+                    Ext.Msg.alert('Info', 'No inbound deliveries found in the system. Create a new delivery to get started.');
+                }
             };
             
-            // Call the modified method
-            controller.loadInboundDeliveries();
+            // Start polling after a brief delay
+            setTimeout(pollForData, 300);
             
         } else {
             console.error('❌ WarehouseController not available globally');
@@ -1035,37 +1062,28 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     },
     
     simulateRFIDTagScanning: function(record) {
-        // Simulate RFID scanning with generated EPCs from backend
+        // RFID scanning now handled via backend API only
         var scanGrid = Ext.ComponentQuery.query('#scanGrid')[0];
-        var store = scanGrid.getStore();
+        var store = scanGrid ? scanGrid.getStore() : null;
         
-        var demoItems = [
-            { epc: '3014257BF7194E4000001A85', itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', status: 'Confirmed', rssi: '-42 dBm' },
-            { epc: '3014257BF7194E4000001A86', itemCode: 'ITM002', itemName: 'Hydraulic Hose', status: 'Confirmed', rssi: '-38 dBm' },
-            { epc: '3014257BF7194E4000001A87', itemCode: 'ITM005', itemName: 'Industrial Grease', status: 'Confirmed', rssi: '-45 dBm' }
-        ];
+        if (!store) {
+            console.error('❌ RFID scan grid not found');
+            Ext.Msg.alert('Error', 'RFID scanning interface not available');
+            return;
+        }
         
-        var index = 0;
-        var interval = setInterval(function() {
-            if (index < demoItems.length && index < record.get('totalItems')) {
-                var item = demoItems[index];
-                item.timestamp = new Date().toLocaleString();
-                store.add(item);
-                index++;
-                
-                // Update progress
-                var progress = (index / record.get('totalItems')) * 100;
-                
-                if (index >= record.get('totalItems')) {
-                    clearInterval(interval);
-                    var confirmBtn = Ext.ComponentQuery.query('#confirmBtn')[0];
-                    if (confirmBtn) confirmBtn.setDisabled(false);
-                    Ext.Msg.alert('RFID Scan Complete', 'All items scanned successfully! Ready for confirmation.');
-                }
-            } else {
-                clearInterval(interval);
-            }
-        }, 2000);
+        // Clear any existing data
+        store.removeAll();
+        
+        console.log('🔄 RFID scanning will be handled by backend API');
+        console.log('💡 Backend should return real EPC codes from database');
+        
+        // Show message that backend integration is required
+        Ext.Msg.alert('RFID Integration Required',
+            'RFID scanning requires backend API integration.\n\n' +
+            'Real EPC codes will be loaded from warehouse database.\n\n' +
+            'Contact IT team if RFID reader is not responding.'
+        );
     },
 
     confirmReceipt: function(record) {
