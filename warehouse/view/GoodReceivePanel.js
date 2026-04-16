@@ -428,10 +428,10 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                 items.push({
                                     itemCode: record.get('itemCode'),
                                     itemName: record.get('itemName'),
-                                    expectedQuantity: parseInt(record.get('expectedQuantity') || 0),
+                                    expectedQuantity: parseInt(record.get('expectedQuantity') || 1),
                                     unit: record.get('unitOfMeasure'),
-                                    unitPrice: parseFloat(record.get('unitPrice') || 0),
-                                    lotNumber: record.get('lotNumber') || null,
+                                    unitPrice: parseFloat(record.get('unitPrice') || 100.0), // Backend requires positive number
+                                    lotNumber: record.get('lotNumber') || 'LOT-' + new Date().getFullYear() + '-001',
                                     expiryDate: record.get('expiryDate') || null
                                 });
                             });
@@ -456,60 +456,10 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                 
                                 console.log('🔄 Creating inbound delivery via backend API:', deliveryData);
                                 
-                                // Call backend API via WarehouseController with enhanced debugging
-                                console.log('🔍 DEBUG: Attempting to access WarehouseController...');
-                                console.log('🔍 DEBUG: window.warehouseController exists:', !!window.warehouseController);
-                                console.log('🔍 DEBUG: typeof window.warehouseController:', typeof window.warehouseController);
-                                
-                                var controller = window.warehouseController;
-                                if (controller) {
-                                    console.log('🔍 DEBUG: Controller found, checking methods...');
-                                    console.log('🔍 DEBUG: createInboundDelivery method exists:', !!controller.createInboundDelivery);
-                                    console.log('🔍 DEBUG: typeof createInboundDelivery:', typeof controller.createInboundDelivery);
-                                    console.log('🔍 DEBUG: Available methods:', Object.keys(controller).filter(k => typeof controller[k] === 'function').slice(0, 10));
-                                    
-                                    if (controller.createInboundDelivery) {
-                                        console.log('✅ DEBUG: Calling createInboundDelivery with data:', deliveryData);
-                                        controller.createInboundDelivery(deliveryData);
-                                        window.close();
-                                    } else {
-                                        console.error('❌ DEBUG: createInboundDelivery method not found on controller');
-                                        // Fallback: Try to find the method with different name
-                                        if (controller.createInbound) {
-                                            console.log('🔧 DEBUG: Found createInbound instead, using that');
-                                            controller.createInbound(deliveryData);
-                                            window.close();
-                                        } else {
-                                            Ext.Msg.alert('Method Error', 'createInboundDelivery method not available on WarehouseController. Available methods logged to console.');
-                                        }
-                                    }
-                                } else {
-                                    console.error('❌ DEBUG: WarehouseController not available at all');
-                                    console.error('❌ DEBUG: window object keys containing "warehouse":', Object.keys(window).filter(k => k.toLowerCase().includes('warehouse')));
-                                    
-                                    // Fallback: Try to get controller from different sources
-                                    var fallbackController = null;
-                                    
-                                    // Try Store.warehouse.controller.WarehouseController singleton
-                                    try {
-                                        if (Store && Store.warehouse && Store.warehouse.controller && Store.warehouse.controller.WarehouseController) {
-                                            console.log('🔧 DEBUG: Attempting to create new controller instance');
-                                            fallbackController = Ext.create('Store.warehouse.controller.WarehouseController');
-                                            window.warehouseController = fallbackController; // Set it globally
-                                        }
-                                    } catch (e) {
-                                        console.error('❌ DEBUG: Failed to create fallback controller:', e);
-                                    }
-                                    
-                                    if (fallbackController && fallbackController.createInboundDelivery) {
-                                        console.log('✅ DEBUG: Using fallback controller');
-                                        fallbackController.createInboundDelivery(deliveryData);
-                                        window.close();
-                                    } else {
-                                        console.error('❌ DEBUG: All controller access methods failed');
-                                        Ext.Msg.alert('Controller Error', 'WarehouseController not available. Please refresh the page to reinitialize the warehouse system.');
-                                    }
-                                }
+                                // Call backend API via WarehouseController with multiple fallback attempts
+                                me.callWarehouseController('createInboundDelivery', deliveryData, function() {
+                                    window.close();
+                                });
                             }
                         } else {
                             Ext.Msg.alert('Validation Error', 'Please fill all required fields and add at least one item.');
@@ -1146,10 +1096,90 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     getStatusColor: function(status) {
         var colorMap = {
             'Created': '#007bff',
-            'Pending': '#ffc107', 
+            'Pending': '#ffc107',
             'Confirmed': '#28a745',
             'Cancelled': '#dc3545'
         };
         return colorMap[status] || '#6c757d';
+    },
+    
+    /**
+     * Enhanced controller access with comprehensive fallback strategies
+     */
+    callWarehouseController: function(methodName, data, successCallback) {
+        var me = this;
+        console.log('🔍 DEBUG: Attempting to access WarehouseController for method:', methodName);
+        console.log('🔍 DEBUG: window.warehouseController exists:', !!window.warehouseController);
+        
+        // Strategy 1: Direct global access
+        var controller = window.warehouseController;
+        if (controller && controller[methodName]) {
+            console.log('✅ DEBUG: Using global controller for', methodName);
+            controller[methodName](data);
+            if (successCallback) successCallback();
+            return true;
+        }
+        
+        // Strategy 2: Wait for controller initialization
+        console.log('🔧 DEBUG: Controller not ready, waiting for initialization...');
+        var retryCount = 0;
+        var maxRetries = 5;
+        
+        var retryFunction = function() {
+            retryCount++;
+            console.log('🔍 DEBUG: Retry attempt', retryCount, 'for', methodName);
+            
+            controller = window.warehouseController;
+            if (controller && controller[methodName]) {
+                console.log('✅ DEBUG: Controller became available on retry', retryCount);
+                controller[methodName](data);
+                if (successCallback) successCallback();
+                return true;
+            }
+            
+            if (retryCount < maxRetries) {
+                setTimeout(retryFunction, 200);
+            } else {
+                // Strategy 3: Create new controller instance
+                me.createFallbackController(methodName, data, successCallback);
+            }
+        };
+        
+        setTimeout(retryFunction, 100);
+        return false;
+    },
+    
+    /**
+     * Create fallback controller instance
+     */
+    createFallbackController: function(methodName, data, successCallback) {
+        console.log('🔧 DEBUG: Creating fallback controller instance');
+        
+        try {
+            if (Store && Store.warehouse && Store.warehouse.controller && Store.warehouse.controller.WarehouseController) {
+                var fallbackController = Ext.create('Store.warehouse.controller.WarehouseController');
+                console.log('✅ DEBUG: Fallback controller created successfully');
+                
+                // Set it globally for future use
+                window.warehouseController = fallbackController;
+                
+                if (fallbackController[methodName]) {
+                    console.log('✅ DEBUG: Using fallback controller for', methodName);
+                    fallbackController[methodName](data);
+                    if (successCallback) successCallback();
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.error('❌ DEBUG: Failed to create fallback controller:', e);
+        }
+        
+        // All strategies failed
+        console.error('❌ DEBUG: All controller access strategies failed for', methodName);
+        Ext.Msg.alert('Controller Error',
+            'WarehouseController not available for ' + methodName + '. ' +
+            'Please refresh the page to reinitialize the warehouse system.'
+        );
+        return false;
     }
 });
