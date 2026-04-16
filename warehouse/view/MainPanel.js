@@ -106,49 +106,5 @@ Ext.define('Store.warehouse.view.MainPanel', {
         this.activeItem = 0;
 
         this.callParent(arguments);
-        
-        // Add layout listeners after component initialization
-        this.on('afterrender', function() {
-            console.log('🔧 MainPanel afterrender - setting up layout listeners');
-            
-            var layout = this.getLayout();
-            if (layout && layout.on) {
-                layout.on('activeitemchange', function(layout, newCard, oldCard) {
-                    if (newCard && newCard.itemId) {
-                        console.log('🔄 MainPanel card changed to:', newCard.itemId);
-                        
-                        // Trigger API calls when cards activate
-                        var controller = warehouseController || window.warehouseController;
-                        if (controller) {
-                            switch(newCard.itemId) {
-                                case 'goodreceive':
-                                    console.log('✅ MainPanel triggering loadInboundDeliveries');
-                                    controller.loadInboundDeliveries();
-                                    break;
-                                case 'putaway':
-                                    console.log('✅ MainPanel triggering loadPutAwayTasks');
-                                    controller.loadPutAwayTasks();
-                                    break;
-                                case 'picking':
-                                    console.log('✅ MainPanel triggering loadPickingTasks');
-                                    controller.loadPickingTasks();
-                                    break;
-                                case 'stockopname':
-                                    console.log('✅ MainPanel triggering loadStockOpnameSessions');
-                                    controller.loadStockOpnameSessions();
-                                    break;
-                                case 'masterdata':
-                                    console.log('✅ MainPanel triggering loadItems');
-                                    controller.loadItems();
-                                    break;
-                            }
-                        }
-                    }
-                });
-                console.log('✅ MainPanel layout listeners configured');
-            } else {
-                console.warn('⚠️ MainPanel layout not available for listeners');
-            }
-        }, this);
     }
 });
