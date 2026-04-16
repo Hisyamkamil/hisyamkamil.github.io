@@ -262,18 +262,36 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                     handler: function() {
                         if (form.isValid()) {
                             var values = form.getValues();
-                            values.updated_at = new Date().toISOString().split('T')[0];
                             
-                            if (isEdit) {
-                                record.set(values);
-                                Ext.Msg.alert('Success', 'Item "' + values.item_name + '" updated successfully!');
+                            // Access the global warehouse controller for backend integration
+                            var controller = window.warehouseController;
+                            
+                            if (controller) {
+                                if (isEdit) {
+                                    // Update existing item via backend API
+                                    var itemId = record.get('item_id');
+                                    controller.updateItem(itemId, values);
+                                } else {
+                                    // Create new item via backend API
+                                    controller.createItem(values);
+                                }
+                                window.close();
                             } else {
-                                values.created_at = new Date().toISOString().split('T')[0];
-                                var store = me.down('grid').getStore();
-                                store.add(values);
-                                Ext.Msg.alert('Success', 'Item "' + values.item_name + '" created successfully!');
+                                console.error('❌ WarehouseController not available for Master Data CRUD');
+                                
+                                // Fallback to local store update (demo mode)
+                                if (isEdit) {
+                                    record.set(values);
+                                    Ext.Msg.alert('Success', 'Item "' + values.item_name + '" updated successfully! (Local mode)');
+                                } else {
+                                    values.item_id = 'local-' + Date.now();
+                                    values.created_at = new Date().toISOString().split('T')[0];
+                                    var store = me.down('grid').getStore();
+                                    store.add(values);
+                                    Ext.Msg.alert('Success', 'Item "' + values.item_name + '" created successfully! (Local mode)');
+                                }
+                                window.close();
                             }
-                            window.close();
                         }
                     }
                 }
@@ -290,12 +308,28 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
         
         if (selection.length > 0) {
             var record = selection[0];
-            Ext.Msg.confirm('Delete Item', 
-                'Are you sure you want to delete item "' + record.get('item_name') + '"?',
+            var itemName = record.get('item_name');
+            var itemCode = record.get('item_code');
+            var itemId = record.get('item_id');
+            
+            Ext.Msg.confirm('Delete Item',
+                'Are you sure you want to delete item "' + itemName + '"?\n\n' +
+                'Note: This will deactivate the item (soft delete) but preserve data for historical records.',
                 function(btn) {
                     if (btn === 'yes') {
-                        grid.getStore().remove(record);
-                        Ext.Msg.alert('Success', 'Item deleted successfully!');
+                        // Access the global warehouse controller for backend integration
+                        var controller = window.warehouseController;
+                        
+                        if (controller && controller.deleteItem) {
+                            // Delete item via backend API
+                            controller.deleteItem(itemId, itemCode, itemName);
+                        } else {
+                            console.error('❌ WarehouseController not available for Master Data delete');
+                            
+                            // Fallback to local store removal (demo mode)
+                            grid.getStore().remove(record);
+                            Ext.Msg.alert('Success', 'Item deleted successfully! (Local mode)');
+                        }
                     }
                 }
             );
