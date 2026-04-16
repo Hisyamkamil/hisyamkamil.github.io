@@ -276,8 +276,10 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 }
                 
                 if (deliveries && deliveries.length > 0) {
-                    console.log('🔄 Updating Good Receive grid with', deliveries.length, 'deliveries');
-                    me.updateGridWithDeliveries(deliveries);
+                    console.log('✅ Found deliveries data, stopping polling:', deliveries.length, 'deliveries');
+                    console.log('💡 WarehouseController already updated the grid, no additional update needed');
+                    // No need to update grid - WarehouseController already did it
+                    return;
                 } else if (pollCount < maxPolls) {
                     // Continue polling
                     setTimeout(pollForData, 200);
