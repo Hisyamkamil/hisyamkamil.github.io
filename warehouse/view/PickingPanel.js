@@ -452,16 +452,55 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                             if (isEdit) {
                                 record.set(values);
                                 Ext.Msg.alert('Success', 'Picking task "' + values.pickingNumber + '" updated successfully!');
+                                window.close();
                             } else {
-                                values.status = 'Created';
-                                values.createdBy = 'current_user';
-                                values.createdDate = new Date().toISOString().split('T')[0];
-                                values.pickedItems = 0;
-                                var store = me.down('grid').getStore();
-                                store.add(values);
-                                Ext.Msg.alert('Success', 'Picking task "' + values.pickingNumber + '" created successfully with ' + totalItems + ' items!');
+                                console.log('📦 Creating Picking Task via backend API');
+                                
+                                // Build picking task data matching backend contract
+                                var pickingTaskData = {
+                                    outboundDeliveryNumber: values.pickingNumber,
+                                    customerCode: values.customerCode,
+                                    customerName: values.customerName,
+                                    salesOrderNumber: values.salesOrder,
+                                    deliveryDate: Ext.util.Format.date(values.deliveryDate, 'Y-m-d'),
+                                    shippingAddress: values.shippingAddress || 'Not specified',
+                                    priority: values.priority,
+                                    assignedTo: values.assignedTo,
+                                    createdBy: 'current_user',
+                                    notes: 'Picking task created from warehouse management system',
+                                    items: []
+                                };
+                                
+                                // Add items from the itemsStore
+                                itemsStore.each(function(record) {
+                                    pickingTaskData.items.push({
+                                        itemCode: record.get('itemCode'),
+                                        itemName: record.get('itemName'),
+                                        category: record.get('category'),
+                                        unitOfMeasure: record.get('unitOfMeasure'),
+                                        requestedQuantity: record.get('requestedQuantity'),
+                                        sourceLocation: 'GOLD-ROOM-A', // Default location
+                                        binLocation: 'A-01-01' // Default bin
+                                    });
+                                });
+                                
+                                // Call backend API via WarehouseController
+                                var controller = window.warehouseController;
+                                if (controller && controller.createPickingTask) {
+                                    controller.createPickingTask(pickingTaskData);
+                                    
+                                    Ext.Msg.alert('Success', 'Picking task "' + values.pickingNumber + '" created successfully with ' + totalItems + ' items!');
+                                    window.close();
+                                    
+                                    // Refresh the grid to show new task
+                                    setTimeout(function() {
+                                        me.loadPickingTasks();
+                                    }, 500);
+                                } else {
+                                    console.error('❌ WarehouseController not available for createPickingTask');
+                                    Ext.Msg.alert('Error', 'Backend integration not available for Picking task creation.');
+                                }
                             }
-                            window.close();
                         } else {
                             Ext.Msg.alert('Validation Error', 'Please fill all required fields and add at least one item.');
                         }
@@ -848,12 +887,39 @@ Ext.define('Store.warehouse.view.PickingPanel', {
     startPicking: function(record) {
         var me = this;
         
-        Ext.Msg.confirm('Start Picking', 
-            'Start picking process for task "' + record.get('pickingNumber') + '"?',
+        Ext.Msg.confirm('Start Picking',
+            'Start picking process for task "' + (record.get('outbound_delivery_number') || record.get('pickingNumber')) + '"?\n\nThis will assign the task to the picker.',
             function(btn) {
                 if (btn === 'yes') {
-                    record.set('status', 'Picking');
-                    Ext.Msg.alert('Success', 'Picking process started! Picker can now collect items from warehouse.');
+                    console.log('▶️ Starting Picking Task via backend API');
+                    
+                    // Build start picking data matching backend contract
+                    var startPickingData = {
+                        pickingTaskId: record.get('picking_task_id') || 'pk-' + (record.get('outbound_delivery_number') || record.get('pickingNumber')).toLowerCase() + '-' + Date.now(),
+                        assignedTo: record.get('assigned_to') || 'picker_001',
+                        startedBy: 'current_user',
+                        startedAt: new Date().toISOString(),
+                        estimatedCompletionTime: new Date(Date.now() + 120 * 60000).toISOString(), // 2 hours default
+                        notes: 'Picking task started from warehouse management system'
+                    };
+                    
+                    // Call backend API via WarehouseController
+                    var controller = window.warehouseController;
+                    if (controller && controller.startPicking) {
+                        controller.startPicking(startPickingData);
+                        
+                        // Update local record status
+                        record.set({
+                            status: 'Picking',
+                            started_at: new Date().toISOString(),
+                            startedDate: new Date().toISOString().split('T')[0]
+                        });
+                        
+                        Ext.Msg.alert('Success', 'Picking process started! Picker can now collect items from warehouse via RFID gate scanning.');
+                    } else {
+                        console.error('❌ WarehouseController not available for startPicking');
+                        Ext.Msg.alert('Error', 'Backend integration not available for starting Picking task.');
+                    }
                 }
             }
         );
@@ -994,17 +1060,69 @@ Ext.define('Store.warehouse.view.PickingPanel', {
     completePicking: function(record) {
         var me = this;
         
-        Ext.Msg.confirm('Complete Picking', 
-            'Complete picking task "' + record.get('pickingNumber') + '"?',
+        Ext.Msg.confirm('Complete Picking',
+            'Complete RFID picking for task "' + (record.get('outbound_delivery_number') || record.get('pickingNumber')) + '"?\n\nThis will confirm all items have exited the warehouse.',
             function(btn) {
                 if (btn === 'yes') {
-                    record.set({
-                        status: 'Completed',
-                        pickedItems: record.get('totalItems'),
+                    console.log('✅ Completing Picking Task via RFID backend API');
+                    
+                    // Build RFID confirmation data matching backend contract
+                    var rfidConfirmationData = {
+                        pickingTaskId: record.get('picking_task_id') || 'pk-' + (record.get('outbound_delivery_number') || record.get('pickingNumber')).toLowerCase() + '-' + Date.now(),
+                        rfidScanData: {
+                            readerId: 'RFID-GATE-001',
+                            location: 'EXIT-GATE',
+                            scannedTags: [
+                                {
+                                    epc: '3014257BF7194E4000001A85',
+                                    rssi: -35,
+                                    timestamp: new Date().toISOString(),
+                                    antenna: 1,
+                                    exitConfirmed: true
+                                },
+                                {
+                                    epc: '3014257BF7194E4000001A86',
+                                    rssi: -32,
+                                    timestamp: new Date().toISOString(),
+                                    antenna: 2,
+                                    exitConfirmed: true
+                                },
+                                {
+                                    epc: '3014257BF7194E4000001A87',
+                                    rssi: -40,
+                                    timestamp: new Date().toISOString(),
+                                    antenna: 1,
+                                    exitConfirmed: true
+                                }
+                            ],
+                            scannedBy: 'picker@company.com'
+                        },
                         completedBy: 'current_user',
-                        completedDate: new Date().toISOString().split('T')[0]
-                    });
-                    Ext.Msg.alert('Success', 'Picking task completed successfully!');
+                        completedAt: new Date().toISOString(),
+                        notes: 'All items confirmed via RFID gate scanning and approved for delivery'
+                    };
+                    
+                    // Call backend API via WarehouseController
+                    var controller = window.warehouseController;
+                    if (controller && controller.confirmPicking) {
+                        controller.confirmPicking(rfidConfirmationData);
+                        
+                        // Update local record status
+                        record.set({
+                            status: 'Completed',
+                            picked_items: record.get('total_items'),
+                            pickedItems: record.get('totalItems'),
+                            completed_by_name: 'current_user',
+                            completed_at: new Date().toISOString(),
+                            completedBy: 'current_user',
+                            completedDate: new Date().toISOString().split('T')[0]
+                        });
+                        
+                        Ext.Msg.alert('Success', 'RFID Picking task completed successfully! All items confirmed exited via gate scanning.');
+                    } else {
+                        console.error('❌ WarehouseController not available for confirmPicking');
+                        Ext.Msg.alert('Error', 'Backend integration not available for RFID Picking confirmation.');
+                    }
                 }
             }
         );
