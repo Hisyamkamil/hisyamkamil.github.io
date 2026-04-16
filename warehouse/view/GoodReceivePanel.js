@@ -244,7 +244,29 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         
         if (controller && controller.loadInboundDeliveries) {
             console.log('✅ Loading inbound deliveries via global warehouse controller');
+            
+            // Store reference to original method
+            var originalMethod = controller.loadInboundDeliveries;
+            
+            // Override method to capture response
+            controller.loadInboundDeliveries = function() {
+                // Call original method
+                originalMethod.apply(controller, arguments);
+                
+                // Set timeout to allow API response to complete
+                setTimeout(function() {
+                    if (controller.lastInboundDeliveriesResponse && controller.lastInboundDeliveriesResponse.inboundDeliveries) {
+                        console.log('🔄 Updating Good Receive grid with fetched data');
+                        me.updateGridWithDeliveries(controller.lastInboundDeliveriesResponse.inboundDeliveries);
+                    } else {
+                        console.warn('⚠️ No deliveries data found in controller response');
+                    }
+                }, 500);
+            };
+            
+            // Call the modified method
             controller.loadInboundDeliveries();
+            
         } else {
             console.error('❌ WarehouseController not available globally');
             console.error('Debug info - window.warehouseController:', !!window.warehouseController);
@@ -261,6 +283,51 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             // Show user-friendly error
             Ext.Msg.alert('API Error', 'Unable to connect to warehouse backend. Please refresh the page or contact IT support.');
         }
+    },
+    
+    // Update grid store with API response data
+    updateGridWithDeliveries: function(deliveries) {
+        var me = this;
+        var grid = me.down('grid');
+        
+        if (!grid || !grid.getStore) {
+            console.error('❌ Grid not found for updating deliveries');
+            return;
+        }
+        
+        var store = grid.getStore();
+        console.log('🔄 Updating store with', deliveries.length, 'deliveries');
+        
+        // Clear existing data
+        store.removeAll();
+        
+        // Transform backend data format to match grid fields
+        var transformedData = deliveries.map(function(delivery) {
+            return {
+                id: delivery.inbound_delivery_id,
+                inbound_delivery_id: delivery.inbound_delivery_id,
+                delivery_number: delivery.delivery_number,
+                supplier_code: delivery.supplier_code,
+                supplier_name: delivery.supplier_name,
+                status: delivery.status,
+                expected_delivery_date: delivery.expected_delivery_date,
+                actual_delivery_date: delivery.actual_delivery_date,
+                total_items: delivery.total_items || 0,
+                total_quantity: delivery.total_quantity || 0,
+                created_by_name: delivery.created_by_name,
+                created_at: delivery.created_at,
+                updated_at: delivery.updated_at
+            };
+        });
+        
+        // Load transformed data into store
+        store.loadData(transformedData);
+        console.log('✅ Grid updated with', transformedData.length, 'deliveries');
+        
+        // Show success message
+        Ext.Msg.alert('Success',
+            'Loaded ' + transformedData.length + ' inbound deliveries from backend database.'
+        );
     },
 
     showDeliveryForm: function(record) {
