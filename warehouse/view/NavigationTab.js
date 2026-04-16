@@ -10,6 +10,10 @@ Ext.define('Store.warehouse.view.NavigationTab', {
     tabRotation: 0,
     width: 250,
     
+    config: {
+        warehouseController: null
+    },
+    
     initComponent: function() {
         this.items = [
             {
@@ -88,35 +92,76 @@ Ext.define('Store.warehouse.view.NavigationTab', {
     },
 
     onDashboardActivate: function() {
-        console.log('Dashboard tab activated');
+        console.log('Dashboard tab activated - loading metrics');
+        if (this.getWarehouseController()) {
+            this.getWarehouseController().loadDashboardMetrics();
+        }
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('dashboard');
         }
     },
 
     onGoodReceiveActivate: function() {
-        console.log('Good Receive tab activated');
+        console.log('🔄 Good Receive tab activated - loading inbound deliveries');
+        
+        // Multiple strategies to access controller
+        var controller = this.getWarehouseController() || window.warehouseController;
+        
+        if (controller && controller.loadInboundDeliveries) {
+            console.log('✅ Calling loadInboundDeliveries via controller');
+            controller.loadInboundDeliveries();
+        } else {
+            console.error('❌ WarehouseController not available in NavigationTab');
+            console.error('Debug - this.getWarehouseController():', !!this.getWarehouseController());
+            console.error('Debug - window.warehouseController:', !!window.warehouseController);
+        }
+        
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('goodreceive');
         }
     },
 
     onPutAwayActivate: function() {
-        console.log('Put Away tab activated');
+        console.log('🔄 Put Away tab activated - loading put away tasks');
+        
+        // Multiple strategies to access controller
+        var controller = this.getWarehouseController() || window.warehouseController;
+        
+        if (controller && controller.loadPutAwayTasks) {
+            console.log('✅ Calling loadPutAwayTasks via controller');
+            controller.loadPutAwayTasks();
+        } else {
+            console.error('❌ WarehouseController not available for Put Away');
+        }
+        
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('putaway');
         }
     },
 
     onPickingActivate: function() {
-        console.log('Picking tab activated');
+        console.log('Picking tab activated - loading picking tasks');
+        if (this.getWarehouseController()) {
+            this.getWarehouseController().loadPickingTasks();
+        }
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('picking');
         }
     },
 
     onStockOpnameActivate: function() {
-        console.log('Stock Opname tab activated');
+        console.log('🔄 Stock Opname tab activated - loading stock opname sessions');
+        
+        // Multiple strategies to access controller
+        var controller = this.getWarehouseController() || window.warehouseController;
+        
+        if (controller && controller.loadStockOpnameSessions) {
+            console.log('✅ Calling loadStockOpnameSessions via controller');
+            controller.loadStockOpnameSessions();
+        } else {
+            console.error('❌ WarehouseController not available for Stock Opname');
+        }
+        
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('stockopname');
         }
@@ -130,7 +175,10 @@ Ext.define('Store.warehouse.view.NavigationTab', {
     },
 
     onMasterDataActivate: function() {
-        console.log('Master Data tab activated');
+        console.log('Master Data tab activated - loading items');
+        if (this.getWarehouseController()) {
+            this.getWarehouseController().loadItems();
+        }
         if (this.map_frame) {
             this.map_frame.getLayout().setActiveItem('masterdata');
         }
