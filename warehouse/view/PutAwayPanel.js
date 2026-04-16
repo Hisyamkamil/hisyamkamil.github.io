@@ -939,63 +939,111 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
     },
 
     performSourceScan: function(record) {
-        // Simulate source location RFID scanning
+        console.log('📡 Starting RFID source location scan via backend API');
+        
         var sourceGrid = Ext.ComponentQuery.query('#sourceGrid')[0];
         var store = sourceGrid.getStore();
         
-        var demoItems = [
-            { epc: '3014257BF7194E4000001A85', itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', status: 'Found' },
-            { epc: '3014257BF7194E4000001A86', itemCode: 'ITM002', itemName: 'Hydraulic Hose', status: 'Found' },
-            { epc: '3014257BF7194E4000001A87', itemCode: 'ITM003', itemName: 'Mining Drill Bit', status: 'Found' }
-        ];
+        // Build RFID scan request data matching backend contract
+        var rfidScanData = {
+            putAwayTaskId: record.get('putaway_task_id') || record.get('id'),
+            location: record.get('source_location') || record.get('fromLocation'),
+            scanType: 'source_validation',
+            readerId: 'RFID-READER-PA-SOURCE-001',
+            operatorId: 'current_user'
+        };
         
-        var index = 0;
-        var interval = setInterval(function() {
-            if (index < demoItems.length && index < record.get('totalItems')) {
-                store.add(demoItems[index]);
-                index++;
-                
-                if (index >= record.get('totalItems')) {
-                    clearInterval(interval);
-                    var scanDestBtn = Ext.ComponentQuery.query('#scanDestBtn')[0];
-                    if (scanDestBtn) scanDestBtn.setDisabled(false);
-                    Ext.Msg.alert('Source Scan Complete', 'All items validated at source location!');
-                }
-            } else {
-                clearInterval(interval);
-            }
-        }, 1500);
+        // Call backend API via WarehouseController
+        var controller = window.warehouseController;
+        if (controller && controller.performRFIDScan) {
+            controller.performRFIDScan(rfidScanData)
+                .then(function(response) {
+                    console.log('✅ RFID source scan response:', response);
+                    
+                    // Process scanned items and update grid
+                    if (response && response.scannedItems && response.scannedItems.length > 0) {
+                        store.removeAll();
+                        response.scannedItems.forEach(function(item) {
+                            store.add({
+                                epc: item.epc,
+                                itemCode: item.itemCode,
+                                itemName: item.itemName,
+                                status: 'Found'
+                            });
+                        });
+                        
+                        // Enable destination scan button
+                        var scanDestBtn = Ext.ComponentQuery.query('#scanDestBtn')[0];
+                        if (scanDestBtn) scanDestBtn.setDisabled(false);
+                        
+                        Ext.Msg.alert('Source Scan Complete', 'All items validated at source location via RFID!');
+                    } else {
+                        Ext.Msg.alert('Warning', 'No items found during RFID scan at source location.');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('❌ RFID source scan failed:', error);
+                    Ext.Msg.alert('RFID Scan Error', 'Unable to perform source location scan. Please check RFID reader connection.');
+                });
+        } else {
+            console.error('❌ WarehouseController not available for RFID scanning');
+            Ext.Msg.alert('Backend Error', 'RFID scanning requires backend integration. Please contact IT support.');
+        }
     },
 
     performDestinationScan: function(record) {
-        // Simulate destination scanning and placement
+        console.log('🎯 Starting RFID destination placement scan via backend API');
+        
         var destGrid = Ext.ComponentQuery.query('#destGrid')[0];
         var store = destGrid.getStore();
         
-        var demoItems = [
-            { itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', binLocation: 'A-01-01', status: 'Placed' },
-            { itemCode: 'ITM002', itemName: 'Hydraulic Hose', binLocation: 'A-01-02', status: 'Placed' },
-            { itemCode: 'ITM003', itemName: 'Mining Drill Bit', binLocation: 'A-01-03', status: 'Placed' }
-        ];
+        // Build RFID placement data matching backend contract
+        var rfidPlacementData = {
+            putAwayTaskId: record.get('putaway_task_id') || record.get('id'),
+            destinationLocation: record.get('destination_location') || record.get('toLocation'),
+            scanType: 'destination_placement',
+            readerId: 'RFID-READER-PA-DEST-001',
+            operatorId: 'current_user',
+            placementTimestamp: new Date().toISOString()
+        };
         
-        var index = 0;
-        var interval = setInterval(function() {
-            if (index < demoItems.length && index < record.get('totalItems')) {
-                var item = demoItems[index];
-                item.timestamp = new Date().toLocaleString();
-                store.add(item);
-                index++;
-                
-                if (index >= record.get('totalItems')) {
-                    clearInterval(interval);
-                    var completeBtn = Ext.ComponentQuery.query('#completeBtn')[0];
-                    if (completeBtn) completeBtn.setDisabled(false);
-                    Ext.Msg.alert('Placement Complete', 'All items placed in destination location!');
-                }
-            } else {
-                clearInterval(interval);
-            }
-        }, 2000);
+        // Call backend API via WarehouseController
+        var controller = window.warehouseController;
+        if (controller && controller.performRFIDPlacement) {
+            controller.performRFIDPlacement(rfidPlacementData)
+                .then(function(response) {
+                    console.log('✅ RFID destination placement response:', response);
+                    
+                    // Process placed items and update grid
+                    if (response && response.placedItems && response.placedItems.length > 0) {
+                        store.removeAll();
+                        response.placedItems.forEach(function(item) {
+                            store.add({
+                                itemCode: item.itemCode,
+                                itemName: item.itemName,
+                                binLocation: item.binLocation,
+                                timestamp: new Date().toLocaleString(),
+                                status: 'Placed'
+                            });
+                        });
+                        
+                        // Enable complete button
+                        var completeBtn = Ext.ComponentQuery.query('#completeBtn')[0];
+                        if (completeBtn) completeBtn.setDisabled(false);
+                        
+                        Ext.Msg.alert('Placement Complete', 'All items placed in destination location via RFID!');
+                    } else {
+                        Ext.Msg.alert('Warning', 'No items placed during RFID scan at destination location.');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('❌ RFID destination placement failed:', error);
+                    Ext.Msg.alert('RFID Placement Error', 'Unable to perform destination placement. Please check RFID reader connection.');
+                });
+        } else {
+            console.error('❌ WarehouseController not available for RFID placement');
+            Ext.Msg.alert('Backend Error', 'RFID placement requires backend integration. Please contact IT support.');
+        }
     },
 
     completePutAway: function(record) {
