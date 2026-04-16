@@ -142,6 +142,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
             {
                 region: 'center',
                 xtype: 'grid',
+                itemId: 'pickingGrid',  // CRITICAL: Add itemId for WarehouseController to find this grid
                 store: pickingStore,
                 columns: [
                     {
