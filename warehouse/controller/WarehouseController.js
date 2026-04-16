@@ -2088,17 +2088,37 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         }
     },
     
-    updateStockOpnameGrid: function(sessions) {
+    updateStockOpnameGrid: function(sessions, retryCount) {
+        var me = this;
+        retryCount = retryCount || 0;
         var grid = null;
         
-        // First try to find stock opname panel and its grid
+        console.log('🔍 updateStockOpnameGrid attempt', retryCount + 1, 'for', sessions.length, 'sessions');
+        
+        // Strategy 1: Find by exact panel class name
         var stockOpnamePanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.StockOpnamePanel')[0];
         if (stockOpnamePanel) {
             grid = stockOpnamePanel.down('grid');
-            console.log('✅ Found stock opname panel with grid');
+            console.log('✅ Found stock opname panel with grid via exact class match');
         }
         
-        // Fallback: Find grid by field detection
+        // Strategy 2: Find by panel with "Stock" in title
+        if (!grid) {
+            var panels = Ext.ComponentQuery.query('panel[title*=Stock]');
+            console.log('🔍 Found', panels.length, 'panels with "Stock" in title');
+            
+            for (var k = 0; k < panels.length; k++) {
+                var panel = panels[k];
+                var potentialGrid = panel.down('grid');
+                if (potentialGrid && potentialGrid.getStore()) {
+                    grid = potentialGrid;
+                    console.log('✅ Found stock opname grid via title matching');
+                    break;
+                }
+            }
+        }
+        
+        // Strategy 3: Find grid by field detection
         if (!grid) {
             var grids = Ext.ComponentQuery.query('grid');
             console.log('🔍 Searching through', grids.length, 'grids for stock opname fields');
@@ -2138,7 +2158,48 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             }
         }
         
+        // If grid found, update it immediately
         if (grid && grid.getStore()) {
+            console.log('✅ Stock opname grid found on attempt', retryCount + 1, ', updating now');
+            me.performStockOpnameGridUpdate(grid, sessions);
+            return true; // Success
+        }
+        
+        // If no grid found and haven't retried much, try again after delay
+        if (retryCount < 2) {
+            console.log('⏱️ Stock opname grid not found, retrying in 500ms... (attempt', retryCount + 2, '/3)');
+            setTimeout(function() {
+                me.updateStockOpnameGrid(sessions, retryCount + 1);
+            }, 500);
+            return false; // Will retry
+        }
+        
+        // All retries exhausted - graceful failure
+        console.error('❌ All stock opname grid retry attempts failed');
+        
+        // Store sessions data for later retrieval
+        if (window.warehouseController) {
+            window.warehouseController._cachedStockOpnameSessions = sessions;
+            console.log('💾 Cached', sessions.length, 'stock opname sessions for later use');
+        }
+        
+        // Show user-friendly message
+        Ext.Msg.show({
+            title: 'Stock Opname Display Issue',
+            message: 'Stock opname sessions loaded from backend (' + sessions.length + ' sessions) but cannot update display. ' +
+                    'Please navigate to Stock Opname tab and click Refresh, or contact support if issue persists.',
+            buttons: Ext.Msg.OK,
+            icon: Ext.Msg.WARNING
+        });
+        
+        return false; // Failed
+    },
+    
+    /**
+     * Separate method to perform the actual stock opname grid update
+     */
+    performStockOpnameGridUpdate: function(grid, sessions) {
+        try {
             var store = grid.getStore();
             
             // Convert API response to match StockOpnamePanel store fields
@@ -2160,10 +2221,13 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             });
             
             store.loadData(gridData);
-            console.log('✅ Stock opname grid updated with', gridData.length, 'sessions');
-            console.log('Sample mapped data:', gridData[0]);
-        } else {
-            console.error('❌ Stock opname grid not found after all attempts');
+            console.log('✅ SUCCESS: Stock opname grid updated with', gridData.length, 'sessions');
+            console.log('Sample stock opname data:', gridData.length > 0 ? gridData[0] : 'No sessions');
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Error updating stock opname grid:', error);
+            return false;
         }
     },
     
