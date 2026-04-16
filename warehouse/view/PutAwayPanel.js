@@ -146,6 +146,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
             {
                 region: 'center',
                 xtype: 'grid',
+                itemId: 'putAwayGrid',  // CRITICAL: Add itemId for WarehouseController to find this grid
                 store: putAwayStore,
                 columns: [
                     {
