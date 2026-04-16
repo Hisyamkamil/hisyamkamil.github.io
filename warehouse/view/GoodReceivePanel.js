@@ -456,14 +456,59 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                 
                                 console.log('🔄 Creating inbound delivery via backend API:', deliveryData);
                                 
-                                // Call backend API via WarehouseController
+                                // Call backend API via WarehouseController with enhanced debugging
+                                console.log('🔍 DEBUG: Attempting to access WarehouseController...');
+                                console.log('🔍 DEBUG: window.warehouseController exists:', !!window.warehouseController);
+                                console.log('🔍 DEBUG: typeof window.warehouseController:', typeof window.warehouseController);
+                                
                                 var controller = window.warehouseController;
-                                if (controller && controller.createInboundDelivery) {
-                                    controller.createInboundDelivery(deliveryData);
-                                    window.close();
+                                if (controller) {
+                                    console.log('🔍 DEBUG: Controller found, checking methods...');
+                                    console.log('🔍 DEBUG: createInboundDelivery method exists:', !!controller.createInboundDelivery);
+                                    console.log('🔍 DEBUG: typeof createInboundDelivery:', typeof controller.createInboundDelivery);
+                                    console.log('🔍 DEBUG: Available methods:', Object.keys(controller).filter(k => typeof controller[k] === 'function').slice(0, 10));
+                                    
+                                    if (controller.createInboundDelivery) {
+                                        console.log('✅ DEBUG: Calling createInboundDelivery with data:', deliveryData);
+                                        controller.createInboundDelivery(deliveryData);
+                                        window.close();
+                                    } else {
+                                        console.error('❌ DEBUG: createInboundDelivery method not found on controller');
+                                        // Fallback: Try to find the method with different name
+                                        if (controller.createInbound) {
+                                            console.log('🔧 DEBUG: Found createInbound instead, using that');
+                                            controller.createInbound(deliveryData);
+                                            window.close();
+                                        } else {
+                                            Ext.Msg.alert('Method Error', 'createInboundDelivery method not available on WarehouseController. Available methods logged to console.');
+                                        }
+                                    }
                                 } else {
-                                    console.error('❌ WarehouseController not available for createInboundDelivery');
-                                    Ext.Msg.alert('Error', 'Backend integration not available. Please contact IT support.');
+                                    console.error('❌ DEBUG: WarehouseController not available at all');
+                                    console.error('❌ DEBUG: window object keys containing "warehouse":', Object.keys(window).filter(k => k.toLowerCase().includes('warehouse')));
+                                    
+                                    // Fallback: Try to get controller from different sources
+                                    var fallbackController = null;
+                                    
+                                    // Try Store.warehouse.controller.WarehouseController singleton
+                                    try {
+                                        if (Store && Store.warehouse && Store.warehouse.controller && Store.warehouse.controller.WarehouseController) {
+                                            console.log('🔧 DEBUG: Attempting to create new controller instance');
+                                            fallbackController = Ext.create('Store.warehouse.controller.WarehouseController');
+                                            window.warehouseController = fallbackController; // Set it globally
+                                        }
+                                    } catch (e) {
+                                        console.error('❌ DEBUG: Failed to create fallback controller:', e);
+                                    }
+                                    
+                                    if (fallbackController && fallbackController.createInboundDelivery) {
+                                        console.log('✅ DEBUG: Using fallback controller');
+                                        fallbackController.createInboundDelivery(deliveryData);
+                                        window.close();
+                                    } else {
+                                        console.error('❌ DEBUG: All controller access methods failed');
+                                        Ext.Msg.alert('Controller Error', 'WarehouseController not available. Please refresh the page to reinitialize the warehouse system.');
+                                    }
                                 }
                             }
                         } else {
