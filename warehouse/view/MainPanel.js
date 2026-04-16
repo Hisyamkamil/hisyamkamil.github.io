@@ -10,7 +10,8 @@ Ext.define('Store.warehouse.view.MainPanel', {
         'Store.warehouse.view.MasterDataPanel',
         'Store.warehouse.view.GoodReceivePanel',
         'Store.warehouse.view.PickingPanel',
-        'Store.warehouse.view.PutAwayPanel'
+        'Store.warehouse.view.PutAwayPanel',
+        'Store.warehouse.view.StockOpnamePanel'
     ],
     
     config: {
@@ -77,7 +78,11 @@ Ext.define('Store.warehouse.view.MainPanel', {
                 itemId: 'stockopname',
                 title: 'Stock Opname',
                 layout: 'fit',
-                html: '<div style="padding: 20px; text-align: center; color: #666;"><h2>Stock Opname</h2><p>Physical inventory counting and reconciliation.<br>API integration ready for stock opname data.</p></div>'
+                items: [
+                    Ext.create('Store.warehouse.view.StockOpnamePanel', {
+                        warehouseController: warehouseController
+                    })
+                ]
             },
             {
                 itemId: 'reports',
