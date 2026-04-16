@@ -158,16 +158,16 @@ Ext.define('Store.warehouse.view.Dashboard', {
         console.log('🔍 DEBUG: Controller methods:', controller ? Object.keys(controller).filter(k => typeof controller[k] === 'function') : 'none');
         
         if (!controller) {
-            console.error('❌ ERROR: WarehouseController not available - using demo mode');
+            console.error('❌ ERROR: WarehouseController not available - cannot load dashboard');
             console.log('🔍 DEBUG: Component config:', me.config);
-            me.loadDemoData();
+            me.showBackendError();
             return;
         }
         
         // Verify controller has required methods
         if (!controller.loadDashboardMetrics) {
             console.error('❌ ERROR: Controller missing loadDashboardMetrics method');
-            me.loadDemoData();
+            me.showBackendError();
             return;
         }
         
@@ -175,61 +175,42 @@ Ext.define('Store.warehouse.view.Dashboard', {
             // Load dashboard metrics (controller handles UI updates directly)
             controller.loadDashboardMetrics();
             
-            // Dashboard controller doesn't have activities method yet, so load demo activities
+            // Clear activities grid - backend will populate when available
             var activitiesGrid = me.down('#activitiesGrid');
             if (activitiesGrid) {
                 var store = activitiesGrid.getStore();
                 store.removeAll();
-                store.add([
-                    {
-                        activity_type: 'Good Receive',
-                        description: 'Delivery GRN-2024-001 received',
-                        user_name: 'admin',
-                        timestamp: new Date()
-                    },
-                    {
-                        activity_type: 'Put Away',
-                        description: 'Items moved to GOLD-ROOM-A',
-                        user_name: 'operator1',
-                        timestamp: new Date(Date.now() - 300000)
-                    }
-                ]);
+                console.log('📊 INFO: Activities will be loaded from backend API');
             }
         } catch (error) {
             console.error('❌ ERROR in loadDashboardData:', error);
-            me.loadDemoData();
+            me.showBackendError();
         }
     },
 
-    // Load demo data when controller not available
-    loadDemoData: function() {
-        console.log('📊 INFO: Loading demo dashboard data');
+    // Show backend error - no demo data fallback
+    showBackendError: function() {
+        console.error('❌ Dashboard backend integration failed');
         
-        // Update metrics with demo data
+        // Show zero values instead of demo data
         this.updateMetricsCards({
-            total_deliveries: 15,
-            pending_tasks: 8,
-            total_items: 1247,
-            rfid_scans_today: 342
+            total_deliveries: 0,
+            pending_tasks: 0,
+            total_items: 0,
+            rfid_scans_today: 0
         });
         
-        // Load demo activities
+        // Show error message in activities grid
         var activitiesGrid = this.down('#activitiesGrid');
         if (activitiesGrid) {
             var store = activitiesGrid.getStore();
             store.removeAll();
             store.add([
                 {
-                    activity_type: 'Good Receive',
-                    description: 'Delivery GRN-2024-001 received',
-                    user_name: 'admin',
+                    activity_type: 'ERROR',
+                    description: 'Backend API unavailable - refresh page or contact IT',
+                    user_name: 'system',
                     timestamp: new Date()
-                },
-                {
-                    activity_type: 'Put Away',
-                    description: 'Items moved to GOLD-ROOM-A',
-                    user_name: 'operator1',
-                    timestamp: new Date(Date.now() - 300000)
                 }
             ]);
         }
@@ -312,7 +293,7 @@ Ext.define('Store.warehouse.view.Dashboard', {
             
         } catch (error) {
             console.error('❌ ERROR updating dashboard UI:', error);
-            // Fallback to demo data on error
+            // Show zero values on error - no demo data
             this.updateMetricsCards({
                 total_deliveries: 0,
                 pending_tasks: 0,
