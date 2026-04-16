@@ -12,7 +12,7 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
     initComponent: function() {
         var me = this;
         
-        // Create stock opname sessions store - READY FOR BACKEND API
+        // Create stock opname sessions store - INTEGRATED WITH BACKEND API
         var sessionsStore = Ext.create('Ext.data.Store', {
             fields: [
                 'session_id',
@@ -28,36 +28,7 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
                 'created_by_name',
                 'assigned_to'
             ],
-            data: [
-                {
-                    session_id: 'SO-2024-001',
-                    session_name: 'Monthly Count - Gold Room A',
-                    location: 'GOLD-ROOM-A',
-                    status: 'In Progress',
-                    scheduled_date: '2024-01-15',
-                    started_date: '2024-01-15 08:00',
-                    completed_date: null,
-                    total_items: 45,
-                    counted_items: 32,
-                    variance_items: 2,
-                    created_by_name: 'admin',
-                    assigned_to: 'stockkeeper_001'
-                },
-                {
-                    session_id: 'SO-2024-002',
-                    session_name: 'Weekly Count - Storage B1',
-                    location: 'STORAGE-B1',
-                    status: 'Completed',
-                    scheduled_date: '2024-01-10',
-                    started_date: '2024-01-10 09:00',
-                    completed_date: '2024-01-10 15:30',
-                    total_items: 28,
-                    counted_items: 28,
-                    variance_items: 0,
-                    created_by_name: 'admin',
-                    assigned_to: 'stockkeeper_002'
-                }
-            ] // Demo data - ready for backend API integration
+            data: [] // Will be loaded from API
         });
         
         // Load data after component is fully rendered
@@ -274,11 +245,20 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
             console.log('✅ Loading stock opname sessions via global warehouse controller');
             controller.loadStockOpnameSessions();
         } else {
-            console.log('⚠️ WarehouseController method not available - using demo data');
-            console.log('Stock Opname sessions loaded from demo data');
+            console.error('❌ WarehouseController not available globally for Stock Opname');
+            console.error('Debug info - window.warehouseController:', !!window.warehouseController);
+            console.error('Debug info - loadStockOpnameSessions method:', !!(window.warehouseController && window.warehouseController.loadStockOpnameSessions));
             
-            // Demo data is already loaded in the store
-            // In production, this would be replaced with actual API call
+            // Clear grid and show error message
+            var grid = me.down('grid');
+            if (grid && grid.getStore) {
+                var store = grid.getStore();
+                store.removeAll();
+                console.log('⚠️ Stock Opname grid cleared due to missing controller');
+            }
+            
+            // Show user-friendly error
+            Ext.Msg.alert('API Error', 'Unable to connect to warehouse backend for Stock Opname sessions. Please refresh the page or contact IT support.');
         }
     },
 
@@ -372,19 +352,8 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
                                     window.close();
                                     
                                 } else {
-                                    console.log('⚠️ Backend API not available - using local storage');
-                                    // Fallback to demo data
-                                    values.session_id = 'SO-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-                                    values.status = 'Scheduled';
-                                    values.created_by_name = 'current_user';
-                                    values.total_items = 0;
-                                    values.counted_items = 0;
-                                    values.variance_items = 0;
-                                    
-                                    var store = me.down('grid').getStore();
-                                    store.add(values);
-                                    Ext.Msg.alert('Success', 'Session "' + values.session_name + '" created successfully!');
-                                    window.close();
+                                    console.error('❌ WarehouseController not available for createStockOpnameSession');
+                                    Ext.Msg.alert('Error', 'Backend integration not available for Stock Opname session creation.');
                                 }
                             }
                         }
@@ -419,13 +388,8 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
                         controller.startStockOpnameSession(sessionData);
                         
                     } else {
-                        console.log('⚠️ Backend API not available - using local storage');
-                        // Fallback to demo data
-                        record.set({
-                            status: 'In Progress',
-                            started_date: new Date().toISOString()
-                        });
-                        Ext.Msg.alert('Success', 'Stock counting session started! Begin physical inventory counting.');
+                        console.error('❌ WarehouseController not available for startStockOpnameSession');
+                        Ext.Msg.alert('Error', 'Backend integration not available for starting Stock Opname session.');
                     }
                 }
             }
@@ -541,14 +505,8 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
                         controller.completeStockOpnameSession(sessionData);
                         
                     } else {
-                        console.log('⚠️ Backend API not available - using local storage');
-                        // Fallback to demo data
-                        record.set({
-                            status: 'Completed',
-                            completed_date: new Date().toISOString(),
-                            counted_items: record.get('total_items') || 0
-                        });
-                        Ext.Msg.alert('Success', 'Stock opname session completed successfully!');
+                        console.error('❌ WarehouseController not available for completeStockOpnameSession');
+                        Ext.Msg.alert('Error', 'Backend integration not available for completing Stock Opname session.');
                     }
                 }
             }
