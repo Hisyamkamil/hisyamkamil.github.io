@@ -102,6 +102,7 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
             {
                 region: 'center',
                 xtype: 'grid',
+                itemId: 'itemsGrid',  // CRITICAL: Add itemId for WarehouseController to find this grid
                 store: itemsStore,
                 columns: [
                     {
