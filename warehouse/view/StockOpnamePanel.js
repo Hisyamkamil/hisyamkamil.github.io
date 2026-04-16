@@ -126,6 +126,7 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
             {
                 region: 'center',
                 xtype: 'grid',
+                itemId: 'stockOpnameGrid',  // CRITICAL: Add itemId for WarehouseController to find this grid
                 store: sessionsStore,
                 columns: [
                     {
