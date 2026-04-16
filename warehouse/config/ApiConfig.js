@@ -164,13 +164,12 @@ Ext.define('Store.warehouse.config.ApiConfig', {
     
     /**
      * Create standardized request headers for warehouse API
+     * Simplified to avoid OPTIONS preflight requests
      * @return {object} Standard headers
      */
     getStandardHeaders: function() {
         return {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Source': 'PILOT-Warehouse-Extension'
+            'Content-Type': 'application/json'
         };
     },
     
