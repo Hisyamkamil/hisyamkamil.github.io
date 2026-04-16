@@ -61,6 +61,24 @@ Ext.define('Store.warehouse.Module', {
             console.log('✅ DEBUG: WarehouseController created successfully');
             console.log('🔍 DEBUG: Controller type:', warehouseController.$className);
             console.log('🔍 DEBUG: Controller methods:', Object.keys(warehouseController).filter(k => typeof warehouseController[k] === 'function').slice(0, 10));
+            
+            // CRITICAL: Force global controller registration immediately
+            console.log('🔧 DEBUG: Force setting global warehouseController');
+            window.warehouseController = warehouseController;
+            
+            // Double check global access
+            console.log('✅ DEBUG: Global warehouseController available:', !!window.warehouseController);
+            console.log('🔍 DEBUG: Global controller has createInboundDelivery:', !!(window.warehouseController && window.warehouseController.createInboundDelivery));
+            console.log('🔍 DEBUG: Global controller methods count:', window.warehouseController ? Object.keys(window.warehouseController).filter(k => typeof window.warehouseController[k] === 'function').length : 0);
+            
+            // Wait a moment then verify again
+            setTimeout(function() {
+                console.log('🔍 DEBUG: Post-delay verification - warehouseController still available:', !!window.warehouseController);
+                if (!window.warehouseController) {
+                    console.error('❌ CRITICAL: warehouseController lost after delay, recreating...');
+                    window.warehouseController = warehouseController;
+                }
+            }, 10);
 
             // 1. CREATE NAVIGATION TAB COMPONENT
             console.log('🔍 DEBUG: Creating NavigationTab...');
@@ -89,6 +107,32 @@ Ext.define('Store.warehouse.Module', {
             warehouseController.setMainPanel(mainPanel);
             warehouseController.setNavigationTab(navTab);
             console.log('✅ DEBUG: Components linked successfully');
+            
+            // FORCE API CALLS ON NAVIGATION - Cache-busting backup
+            console.log('🔧 DEBUG: Setting up navigation event listeners as backup');
+            navTab.on('tabchange', function(tabPanel, newCard, oldCard) {
+                console.log('🔄 BACKUP: Tab changed to:', newCard ? newCard.itemId : 'unknown');
+                if (newCard && newCard.itemId && window.warehouseController) {
+                    switch(newCard.itemId) {
+                        case 'goodreceive':
+                            console.log('✅ BACKUP: Calling loadInboundDeliveries');
+                            window.warehouseController.loadInboundDeliveries();
+                            break;
+                        case 'putaway':
+                            console.log('✅ BACKUP: Calling loadPutAwayTasks');
+                            window.warehouseController.loadPutAwayTasks();
+                            break;
+                        case 'picking':
+                            console.log('✅ BACKUP: Calling loadPickingTasks');
+                            window.warehouseController.loadPickingTasks();
+                            break;
+                        case 'stockopname':
+                            console.log('✅ BACKUP: Calling loadStockOpnameSessions');
+                            window.warehouseController.loadStockOpnameSessions();
+                            break;
+                    }
+                }
+            });
 
             // 4. ADD TO PILOT INTERFACE
             console.log('🔍 DEBUG: Adding to PILOT interface...');
