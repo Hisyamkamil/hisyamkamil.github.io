@@ -278,19 +278,7 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                                 window.close();
                             } else {
                                 console.error('❌ WarehouseController not available for Master Data CRUD');
-                                
-                                // Fallback to local store update (demo mode)
-                                if (isEdit) {
-                                    record.set(values);
-                                    Ext.Msg.alert('Success', 'Item "' + values.item_name + '" updated successfully! (Local mode)');
-                                } else {
-                                    values.item_id = 'local-' + Date.now();
-                                    values.created_at = new Date().toISOString().split('T')[0];
-                                    var store = me.down('grid').getStore();
-                                    store.add(values);
-                                    Ext.Msg.alert('Success', 'Item "' + values.item_name + '" created successfully! (Local mode)');
-                                }
-                                window.close();
+                                Ext.Msg.alert('Error', 'Backend integration not available for Master Data operations.');
                             }
                         }
                     }
@@ -325,10 +313,7 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                             controller.deleteItem(itemId, itemCode, itemName);
                         } else {
                             console.error('❌ WarehouseController not available for Master Data delete');
-                            
-                            // Fallback to local store removal (demo mode)
-                            grid.getStore().remove(record);
-                            Ext.Msg.alert('Success', 'Item deleted successfully! (Local mode)');
+                            Ext.Msg.alert('Error', 'Backend integration not available for Master Data deletion.');
                         }
                     }
                 }
