@@ -155,6 +155,14 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             }
             
             if (deliveries) {
+                // CRITICAL FIX: Store response data for GoodReceivePanel polling
+                this.lastInboundDeliveriesResponse = {
+                    inboundDeliveries: deliveries,
+                    pagination: pagination
+                };
+                this.lastApiResponse = result;
+                console.log('✅ Stored inbound deliveries response for polling access:', deliveries.length, 'deliveries');
+                
                 this.updateInboundGrid(deliveries);
                 
                 // Update pagination info if available
@@ -176,25 +184,46 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         if (grid && grid.getStore()) {
             var store = grid.getStore();
             
-            // Convert API response to grid format
+            // CRITICAL FIX: Convert API response to match GoodReceivePanel store field names exactly
             var gridData = deliveries.map(function(delivery) {
                 return {
-                    id: delivery.inboundDeliveryId,
-                    deliveryNumber: delivery.deliveryNumber,
-                    supplierName: delivery.supplierName,
-                    supplierCode: delivery.supplierCode,
-                    expectedDeliveryDate: delivery.expectedDeliveryDate,
-                    actualDeliveryDate: delivery.actualDeliveryDate,
-                    totalItems: delivery.totalItems,
-                    totalQuantity: delivery.totalQuantity,
+                    id: delivery.inboundDeliveryId || delivery.inbound_delivery_id,
+                    inbound_delivery_id: delivery.inboundDeliveryId || delivery.inbound_delivery_id,
+                    delivery_number: delivery.deliveryNumber || delivery.delivery_number,
+                    supplier_name: delivery.supplierName || delivery.supplier_name,
+                    supplier_code: delivery.supplierCode || delivery.supplier_code,
+                    expected_delivery_date: delivery.expectedDeliveryDate || delivery.expected_delivery_date,
+                    actual_delivery_date: delivery.actualDeliveryDate || delivery.actual_delivery_date,
+                    total_items: delivery.totalItems || delivery.total_items || 0,
+                    total_quantity: delivery.totalQuantity || delivery.total_quantity || 0,
                     status: delivery.status,
-                    createdBy: delivery.createdBy,
-                    createdDate: delivery.createdDate
+                    created_by_name: delivery.createdBy || delivery.created_by_name,
+                    created_at: delivery.createdDate || delivery.created_at,
+                    updated_at: delivery.updatedAt || delivery.updated_at
                 };
             });
             
             store.loadData(gridData);
             console.log('✅ Inbound grid updated with', gridData.length, 'deliveries');
+            
+            // Show success message to user
+            if (gridData.length > 0) {
+                Ext.Msg.show({
+                    title: 'Data Loaded',
+                    message: 'Successfully loaded ' + gridData.length + ' inbound deliveries from backend database.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            } else {
+                Ext.Msg.show({
+                    title: 'No Data',
+                    message: 'No inbound deliveries found in the system. Create a new delivery to get started.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            }
+        } else {
+            console.error('❌ Good Receive grid not found - itemId: goodReceiveGrid');
         }
     },
     
