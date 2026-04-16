@@ -224,17 +224,21 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                 try {
                     var result = Ext.decode(response.responseText);
                     
-                    // Handle direct response format from Postman collection
-                    if (result.inboundDeliveryId || (result.status === 200 || response.status === 201)) {
-                        var deliveryInfo = result.inboundDeliveryId ? result : result.body;
+                    // Handle backend response: HTTP 201 with direct response body
+                    if (result.inboundDeliveryId && result.status === 'created' || response.status === 201) {
+                        var deliveryInfo = result; // Backend returns direct response, no .body wrapper
                         var message = 'Inbound delivery created successfully!\n\n' +
                                     'Delivery ID: ' + (deliveryInfo.inboundDeliveryId || 'Generated') + '\n' +
-                                    'Delivery Number: ' + (deliveryInfo.deliveryNumber || 'N/A');
+                                    'Delivery Number: ' + (deliveryInfo.deliveryNumber || 'N/A') + '\n' +
+                                    'Status: ' + (deliveryInfo.status || 'Unknown') + '\n' +
+                                    'Total Items: ' + (deliveryInfo.totalItems || 0) + '\n' +
+                                    'Supplier: ' + (deliveryInfo.supplierName || 'N/A');
                         
                         Ext.Msg.alert('Success', message);
                         this.loadInboundDeliveries(); // Refresh grid
                     } else {
-                        Ext.Msg.alert('Error', result.message || 'Failed to create inbound delivery');
+                        console.error('Unexpected response format:', result);
+                        Ext.Msg.alert('Error', result.error || result.message || 'Failed to create inbound delivery');
                     }
                 } catch (e) {
                     console.error('Error parsing create response:', e);
