@@ -562,6 +562,49 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     // ===== PUT AWAY METHODS =====
     
     /**
+     * Create put away task - aligns with POST /api/warehouse/putaway
+     */
+    createPutAwayTask: function(putAwayTaskData) {
+        console.log('Creating put away task:', putAwayTaskData);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestConfig = apiConfig.createRequestConfig('putAwayCreate', 'POST', putAwayTaskData);
+        
+        Ext.Ajax.request(Ext.apply(requestConfig, {
+            success: function(response) {
+                console.log('Put away task created successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    if (result.putAwayId || response.status === 201) {
+                        var taskInfo = result.putAwayId ? result : result;
+                        Ext.Msg.alert('Success',
+                            'Put away task "' + (taskInfo.transferOrderNumber || putAwayTaskData.transferNumber) + '" created successfully!'
+                        );
+                        this.loadPutAwayTasks(); // Refresh grid
+                    } else {
+                        Ext.Msg.alert('Error', result.message || 'Failed to create put away task');
+                    }
+                } catch (e) {
+                    console.error('Error parsing create put away task response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to create put away task:', response);
+                Ext.Msg.alert('Error', 'Failed to create put away task. Network error occurred.');
+            }
+        }));
+    },
+
+    /**
+     * Start put away - wrapper method for panel compatibility
+     */
+    startPutAway: function(startPutAwayData) {
+        var putAwayTaskId = startPutAwayData.putAwayTaskId || startPutAwayData.id;
+        return this.startPutAwayTask(putAwayTaskId);
+    },
+    
+    /**
      * Load put away tasks from API
      * Aligns with GET /api/warehouse/putaway from sequence diagrams
      */
@@ -720,29 +763,50 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         if (grid && grid.getStore()) {
             var store = grid.getStore();
             
-            // Convert API response to grid format - tasks is already the correct array
+            // CRITICAL FIX: Convert API response to match PutAwayPanel store field names exactly
             var gridData = tasks.map(function(task) {
                 return {
-                    id: task.putAwayId,
-                    transferOrderNumber: task.transferOrderNumber,
-                    fromLocation: task.fromLocation,
-                    toLocation: task.toLocation,
-                    totalItems: task.totalItems || 0,
-                    totalQuantity: task.totalQuantity || 0,
+                    id: task.putAwayId || task.putaway_task_id,
+                    putaway_task_id: task.putAwayId || task.putaway_task_id,
+                    inbound_delivery_id: task.inboundDeliveryId || task.inbound_delivery_id,
+                    transfer_number: task.transferOrderNumber || task.transfer_number,
+                    source_location: task.fromLocation || task.source_location,
+                    destination_location: task.toLocation || task.destination_location,
                     status: task.status,
                     priority: task.priority,
-                    assignedTo: task.assignedTo,
-                    createdBy: task.createdBy,
-                    createdDate: task.createdDate,
-                    estimatedCompletion: task.estimatedCompletion,
-                    startedAt: task.startedAt,
-                    completedAt: task.completedAt,
-                    sapConfirmed: task.sapConfirmed
+                    assigned_to: task.assignedTo || task.assigned_to,
+                    created_by_name: task.createdBy || task.created_by_name,
+                    created_at: task.createdDate || task.created_at,
+                    started_at: task.startedAt || task.started_at,
+                    completed_at: task.completedAt || task.completed_at,
+                    completed_by_name: task.completedBy || task.completed_by_name,
+                    estimated_duration: task.estimatedCompletion || task.estimated_duration || 120,
+                    total_items: task.totalItems || task.total_items || 0,
+                    moved_items: task.movedItems || task.moved_items || 0
                 };
             });
             
             store.loadData(gridData);
             console.log('✅ Put away grid updated with', gridData.length, 'tasks');
+            
+            // Show success message to user
+            if (gridData.length > 0) {
+                Ext.Msg.show({
+                    title: 'Data Loaded',
+                    message: 'Successfully loaded ' + gridData.length + ' put away tasks from backend database.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            } else {
+                Ext.Msg.show({
+                    title: 'No Data',
+                    message: 'No put away tasks found in the system. Create a new transfer to get started.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            }
+        } else {
+            console.error('❌ Put Away grid not found - itemId: putAwayGrid');
         }
     },
     
@@ -782,6 +846,95 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
     
     // ===== PICKING METHODS =====
+    
+    /**
+     * Create picking task - aligns with POST /api/warehouse/picking
+     */
+    createPickingTask: function(pickingTaskData) {
+        console.log('Creating picking task:', pickingTaskData);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestConfig = apiConfig.createRequestConfig('pickingCreate', 'POST', pickingTaskData);
+        
+        Ext.Ajax.request(Ext.apply(requestConfig, {
+            success: function(response) {
+                console.log('Picking task created successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    if (result.pickingTaskId || response.status === 201) {
+                        var taskInfo = result.pickingTaskId ? result : result;
+                        Ext.Msg.alert('Success',
+                            'Picking task "' + (taskInfo.outboundDeliveryNumber || pickingTaskData.outboundDeliveryNumber) + '" created successfully!'
+                        );
+                        this.loadPickingTasks(); // Refresh grid
+                    } else {
+                        Ext.Msg.alert('Error', result.message || 'Failed to create picking task');
+                    }
+                } catch (e) {
+                    console.error('Error parsing create picking task response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to create picking task:', response);
+                Ext.Msg.alert('Error', 'Failed to create picking task. Network error occurred.');
+            }
+        }));
+    },
+
+    /**
+     * Start picking - wrapper method for panel compatibility
+     */
+    startPicking: function(startPickingData) {
+        var pickingTaskId = startPickingData.pickingTaskId || startPickingData.id;
+        return this.startPickingTask(pickingTaskId);
+    },
+
+    /**
+     * Confirm picking - wrapper method for panel compatibility
+     */
+    confirmPicking: function(confirmPickingData) {
+        var pickingTaskId = confirmPickingData.pickingTaskId || confirmPickingData.id;
+        return this.confirmPickingCompletion(pickingTaskId, confirmPickingData);
+    },
+
+    /**
+     * Perform RFID scan - wrapper method for panel compatibility
+     */
+    performRFIDScan: function(scanData) {
+        return new Promise(function(resolve, reject) {
+            var apiConfig = Store.warehouse.config.ApiConfig;
+            var requestConfig = apiConfig.createRequestConfig('rfidScan', 'POST', scanData);
+            
+            Ext.Ajax.request(Ext.apply(requestConfig, {
+                success: function(response) {
+                    try {
+                        var result = Ext.decode(response.responseText);
+                        resolve(result);
+                    } catch (e) {
+                        reject(e);
+                    }
+                },
+                failure: function(response) {
+                    reject(response);
+                }
+            }));
+        });
+    },
+
+    /**
+     * Perform RFID placement - wrapper method for panel compatibility
+     */
+    performRFIDPlacement: function(placementData) {
+        return this.performRFIDScan(placementData);
+    },
+
+    /**
+     * Perform RFID gate scan - wrapper method for panel compatibility
+     */
+    performRFIDGateScan: function(gateScanData) {
+        return this.performRFIDScan(gateScanData);
+    },
     
     /**
      * Load picking tasks from API
@@ -990,72 +1143,9 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     updatePickingGrid: function(tasks, retryCount) {
         var me = this;
         retryCount = retryCount || 0;
-        var grid = null;
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=pickingGrid]')[0];
         
         console.log('🔍 updatePickingGrid attempt', retryCount + 1, 'for', tasks.length, 'picking tasks');
-        
-        // Strategy 1: Find by exact panel class name
-        var pickingPanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.PickingPanel')[0];
-        if (pickingPanel) {
-            grid = pickingPanel.down('grid');
-            console.log('✅ Found picking panel with grid via exact class match');
-        }
-        
-        // Strategy 2: Find by panel with "Picking" in title
-        if (!grid) {
-            var panels = Ext.ComponentQuery.query('panel[title*=Pick]');
-            console.log('🔍 Found', panels.length, 'panels with "Pick" in title');
-            
-            for (var k = 0; k < panels.length; k++) {
-                var panel = panels[k];
-                var potentialGrid = panel.down('grid');
-                if (potentialGrid && potentialGrid.getStore()) {
-                    grid = potentialGrid;
-                    console.log('✅ Found picking grid via title matching');
-                    break;
-                }
-            }
-        }
-        
-        // Strategy 3: Find grid by field detection
-        if (!grid) {
-            var grids = Ext.ComponentQuery.query('grid');
-            console.log('🔍 Searching through', grids.length, 'grids for picking fields');
-            
-            for (var i = 0; i < grids.length; i++) {
-                var testGrid = grids[i];
-                if (testGrid.getStore) {
-                    var store = testGrid.getStore();
-                    if (store && store.getFields) {
-                        try {
-                            var fields = store.getFields();
-                            var hasPickingFields = false;
-                            var fieldNames = [];
-                            
-                            for (var j = 0; j < fields.length; j++) {
-                                var fieldName = fields[j].name;
-                                fieldNames.push(fieldName);
-                                // Check for picking specific fields
-                                if (fieldName === 'outbound_delivery_number' ||
-                                    fieldName === 'customer_name' ||
-                                    fieldName === 'sales_order_number' ||
-                                    fieldName === 'picking_task_id') {
-                                    hasPickingFields = true;
-                                }
-                            }
-                            
-                            if (hasPickingFields) {
-                                grid = testGrid;
-                                console.log('✅ Found picking grid via field detection, fields:', fieldNames);
-                                break;
-                            }
-                        } catch (e) {
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
         
         // If grid found, update it immediately
         if (grid && grid.getStore()) {
@@ -1101,25 +1191,25 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         try {
             var store = grid.getStore();
             
-            // Convert API response to match PickingPanel store fields exactly
+            // CRITICAL FIX: Convert API response to match PickingPanel store fields exactly
             var gridData = tasks.map(function(task) {
                 return {
                     id: task.picking_task_id || task.pickingId,
                     picking_task_id: task.picking_task_id || task.pickingId,
-                    outbound_delivery_number: task.outbound_delivery_number,
-                    customer_code: task.customer_code,
-                    customer_name: task.customer_name,
-                    delivery_date: task.delivery_date,
-                    shipping_address: task.shipping_address || '',
-                    sales_order_number: task.sales_order_number,
-                    total_items: task.total_items || 0,
-                    picked_items: task.picked_items || 0,
+                    outbound_delivery_number: task.outbound_delivery_number || task.outboundDeliveryNumber,
+                    customer_code: task.customer_code || task.customerCode,
+                    customer_name: task.customer_name || task.customerName,
+                    delivery_date: task.delivery_date || task.deliveryDate,
+                    shipping_address: task.shipping_address || task.shippingAddress || '',
+                    sales_order_number: task.sales_order_number || task.salesOrderNumber,
+                    total_items: task.total_items || task.totalItems || 0,
+                    picked_items: task.picked_items || task.pickedItems || 0,
                     status: task.status,
-                    assigned_to: task.assigned_to,
-                    created_by_name: task.created_by_name,
-                    created_at: task.created_at,
-                    completed_by_name: task.completed_by_name,
-                    completed_at: task.completed_at,
+                    assigned_to: task.assigned_to || task.assignedTo,
+                    created_by_name: task.created_by_name || task.createdBy,
+                    created_at: task.created_at || task.createdDate,
+                    completed_by_name: task.completed_by_name || task.completedBy,
+                    completed_at: task.completed_at || task.completedDate,
                     priority: task.priority || 'Normal'
                 };
             });
@@ -1127,6 +1217,23 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             store.loadData(gridData);
             console.log('✅ SUCCESS: Picking grid updated with', gridData.length, 'tasks');
             console.log('Sample picking data:', gridData.length > 0 ? gridData[0] : 'No tasks');
+            
+            // Show success message to user
+            if (gridData.length > 0) {
+                Ext.Msg.show({
+                    title: 'Data Loaded',
+                    message: 'Successfully loaded ' + gridData.length + ' picking tasks from backend database.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            } else {
+                Ext.Msg.show({
+                    title: 'No Data',
+                    message: 'No picking tasks found in the system. Create a new picking task to get started.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            }
             
             return true;
         } catch (error) {
@@ -1415,75 +1522,12 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
     
     updateItemsGrid: function(items) {
-        var grid = null;
-        
-        // Strategy 1: Find by exact panel class name
-        var masterDataPanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.MasterDataPanel')[0];
-        if (masterDataPanel) {
-            grid = masterDataPanel.down('grid');
-            console.log('✅ Found master data panel with grid via exact class match');
-        }
-        
-        // Strategy 2: Find by panel with "Master Data" in title
-        if (!grid) {
-            var panels = Ext.ComponentQuery.query('panel[title*=Master]');
-            console.log('🔍 Found', panels.length, 'panels with "Master" in title');
-            
-            for (var k = 0; k < panels.length; k++) {
-                var panel = panels[k];
-                var potentialGrid = panel.down('grid');
-                if (potentialGrid && potentialGrid.getStore()) {
-                    grid = potentialGrid;
-                    console.log('✅ Found master data grid via title matching');
-                    break;
-                }
-            }
-        }
-        
-        // Strategy 3: Find grid by field detection
-        if (!grid) {
-            var grids = Ext.ComponentQuery.query('grid');
-            console.log('🔍 Searching through', grids.length, 'grids for master data fields');
-            
-            for (var i = 0; i < grids.length; i++) {
-                var testGrid = grids[i];
-                if (testGrid.getStore) {
-                    var store = testGrid.getStore();
-                    if (store && store.getFields) {
-                        try {
-                            var fields = store.getFields();
-                            var hasItemFields = false;
-                            var fieldNames = [];
-                            
-                            for (var j = 0; j < fields.length; j++) {
-                                var fieldName = fields[j].name;
-                                fieldNames.push(fieldName);
-                                // Check for master data specific fields
-                                if (fieldName === 'item_code' ||
-                                    fieldName === 'item_name' ||
-                                    fieldName === 'category' ||
-                                    fieldName === 'unit_of_measure') {
-                                    hasItemFields = true;
-                                }
-                            }
-                            
-                            if (hasItemFields) {
-                                grid = testGrid;
-                                console.log('✅ Found items grid via field detection, fields:', fieldNames);
-                                break;
-                            }
-                        } catch (e) {
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=itemsGrid]')[0];
         
         if (grid && grid.getStore()) {
             var store = grid.getStore();
             
-            // Convert API response to match MasterDataPanel store fields
+            // CRITICAL FIX: Convert API response to match MasterDataPanel store fields exactly
             var gridData = items.map(function(item) {
                 return {
                     item_id: item.itemId || item.item_id,
@@ -1501,119 +1545,41 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             store.loadData(gridData);
             console.log('✅ Items grid updated with', gridData.length, 'items');
             console.log('Sample mapped data:', gridData[0]);
+            
+            // Show success message to user
+            if (gridData.length > 0) {
+                Ext.Msg.show({
+                    title: 'Data Loaded',
+                    message: 'Successfully loaded ' + gridData.length + ' items from backend database.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            } else {
+                Ext.Msg.show({
+                    title: 'No Data',
+                    message: 'No items found in the system. Create a new item to get started.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            }
         } else {
-            console.error('❌ Items grid not found after all attempts');
+            console.error('❌ Items grid not found - itemId: itemsGrid');
             
-            // Enhanced Debug: List all components with detailed info
-            var panels = Ext.ComponentQuery.query('panel');
-            console.error('🔍 DEBUGGING: Found', panels.length, 'panels total');
+            // Store items data for later retrieval if user refreshes
+            if (window.warehouseController) {
+                window.warehouseController._cachedItemsData = items;
+                console.log('💾 Cached', items.length, 'items for later use');
+            }
             
-            // Log detailed panel information
-            panels.forEach(function(panel, index) {
-                if (index < 10) { // Limit debug output
-                    console.log('Panel', index + ':', {
-                        className: panel.$className || 'Unknown',
-                        title: panel.title || 'No Title',
-                        xtype: panel.xtype || 'No xtype',
-                        hasGrid: !!panel.down('grid'),
-                        id: panel.id || 'No ID',
-                        itemId: panel.itemId || 'No itemId'
-                    });
-                }
+            // Show user-friendly message with actionable steps
+            Ext.Msg.show({
+                title: 'Master Data Display Issue',
+                message: 'Items loaded from backend (' + items.length + ' items) but cannot update display. ' +
+                        'Please navigate to Master Data tab and click Refresh, or contact support if issue persists.',
+                buttons: Ext.Msg.OK,
+                icon: Ext.Msg.WARNING
             });
-            
-            // Strategy 4: Direct grid search regardless of parent
-            console.log('🔍 Strategy 4: Direct grid search with master data store pattern');
-            var allGrids = Ext.ComponentQuery.query('grid');
-            
-            for (var g = 0; g < allGrids.length; g++) {
-                var testGrid = allGrids[g];
-                var store = testGrid.getStore ? testGrid.getStore() : null;
-                
-                if (store) {
-                    try {
-                        // Check if store is empty (typical for master data panel on load)
-                        var storeCount = store.getCount ? store.getCount() : 0;
-                        var storeFields = store.getFields ? store.getFields() : [];
-                        var fieldNames = storeFields.map(function(f) { return f.name; });
-                        
-                        console.log('Grid', g, ':', {
-                            storeCount: storeCount,
-                            fieldCount: fieldNames.length,
-                            fields: fieldNames.slice(0, 5) // First 5 fields
-                        });
-                        
-                        // Look for master data characteristic fields
-                        var hasMasterDataFields = fieldNames.some(function(field) {
-                            return field === 'item_code' || field === 'item_name' || field === 'unit_of_measure';
-                        });
-                        
-                        if (hasMasterDataFields) {
-                            grid = testGrid;
-                            console.log('✅ Found master data grid via direct field matching!');
-                            console.log('Matched fields:', fieldNames);
-                            break;
-                        }
-                    } catch (e) {
-                        console.log('Error checking grid', g, ':', e.message);
-                    }
-                }
-            }
-            
-            // Strategy 5: Force create if still not found - last resort
-            if (!grid) {
-                console.log('🚨 LAST RESORT: No grid found, attempting to find ANY grid in Master Data panel');
-                
-                // Try alternative panel queries
-                var masterPanelAlts = [
-                    'panel[title="Master Data - Items Management"]',
-                    'panel[title*="Master Data"]',
-                    'panel[title*="Items"]',
-                    'Store.warehouse.view.MasterDataPanel'
-                ];
-                
-                for (var alt = 0; alt < masterPanelAlts.length; alt++) {
-                    var altQuery = masterPanelAlts[alt];
-                    try {
-                        var altResult = Ext.ComponentQuery.query(altQuery);
-                        console.log('Alt query "' + altQuery + '" found:', altResult.length);
-                        
-                        if (altResult.length > 0) {
-                            var altPanel = altResult[0];
-                            var altGrid = altPanel.down('grid');
-                            if (altGrid) {
-                                grid = altGrid;
-                                console.log('✅ SUCCESS: Found grid via alternative query:', altQuery);
-                                break;
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Alt query failed:', altQuery, e.message);
-                    }
-                }
-            }
         }
-        
-        // All retries exhausted - comprehensive debugging and graceful failure
-        console.error('❌ All retry attempts failed - comprehensive debugging:');
-        this.debugPanelSearch();
-        
-        // Store items data for later retrieval if user refreshes
-        if (window.warehouseController) {
-            window.warehouseController._cachedItemsData = items;
-            console.log('💾 Cached', items.length, 'items for later use');
-        }
-        
-        // Show user-friendly message with actionable steps
-        Ext.Msg.show({
-            title: 'Master Data Display Issue',
-            message: 'Items loaded from backend (' + items.length + ' items) but cannot update display. ' +
-                    'Please navigate to Master Data tab and click Refresh, or contact support if issue persists.',
-            buttons: Ext.Msg.OK,
-            icon: Ext.Msg.WARNING
-        });
-        
-        return false; // Failed
     },
     
     /**
@@ -2124,72 +2090,9 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     updateStockOpnameGrid: function(sessions, retryCount) {
         var me = this;
         retryCount = retryCount || 0;
-        var grid = null;
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=stockOpnameGrid]')[0];
         
         console.log('🔍 updateStockOpnameGrid attempt', retryCount + 1, 'for', sessions.length, 'sessions');
-        
-        // Strategy 1: Find by exact panel class name
-        var stockOpnamePanel = Ext.ComponentQuery.query('Store\\.warehouse\\.view\\.StockOpnamePanel')[0];
-        if (stockOpnamePanel) {
-            grid = stockOpnamePanel.down('grid');
-            console.log('✅ Found stock opname panel with grid via exact class match');
-        }
-        
-        // Strategy 2: Find by panel with "Stock" in title
-        if (!grid) {
-            var panels = Ext.ComponentQuery.query('panel[title*=Stock]');
-            console.log('🔍 Found', panels.length, 'panels with "Stock" in title');
-            
-            for (var k = 0; k < panels.length; k++) {
-                var panel = panels[k];
-                var potentialGrid = panel.down('grid');
-                if (potentialGrid && potentialGrid.getStore()) {
-                    grid = potentialGrid;
-                    console.log('✅ Found stock opname grid via title matching');
-                    break;
-                }
-            }
-        }
-        
-        // Strategy 3: Find grid by field detection
-        if (!grid) {
-            var grids = Ext.ComponentQuery.query('grid');
-            console.log('🔍 Searching through', grids.length, 'grids for stock opname fields');
-            
-            for (var i = 0; i < grids.length; i++) {
-                var testGrid = grids[i];
-                if (testGrid.getStore) {
-                    var store = testGrid.getStore();
-                    if (store && store.getFields) {
-                        try {
-                            var fields = store.getFields();
-                            var hasStockOpnameFields = false;
-                            var fieldNames = [];
-                            
-                            for (var j = 0; j < fields.length; j++) {
-                                var fieldName = fields[j].name;
-                                fieldNames.push(fieldName);
-                                // Check for stock opname specific fields
-                                if (fieldName === 'session_id' ||
-                                    fieldName === 'session_name' ||
-                                    fieldName === 'counted_items' ||
-                                    fieldName === 'variance_items') {
-                                    hasStockOpnameFields = true;
-                                }
-                            }
-                            
-                            if (hasStockOpnameFields) {
-                                grid = testGrid;
-                                console.log('✅ Found stock opname grid via field detection, fields:', fieldNames);
-                                break;
-                            }
-                        } catch (e) {
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
         
         // If grid found, update it immediately
         if (grid && grid.getStore()) {
@@ -2235,27 +2138,44 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         try {
             var store = grid.getStore();
             
-            // Convert API response to match StockOpnamePanel store fields
+            // CRITICAL FIX: Convert API response to match StockOpnamePanel store fields exactly
             var gridData = sessions.map(function(session) {
                 return {
-                    session_id: session.sessionId,
-                    session_name: session.sessionName,
-                    location: session.locationName,
+                    session_id: session.sessionId || session.session_id,
+                    session_name: session.sessionName || session.session_name,
+                    location: session.locationName || session.location,
                     status: session.status,
-                    scheduled_date: session.plannedDate,
-                    started_date: session.actualStartDate,
-                    completed_date: session.actualEndDate,
-                    total_items: session.totalItems || 0,
-                    counted_items: session.countedItems || 0,
-                    variance_items: session.discrepancies || 0,
-                    created_by_name: session.createdBy,
-                    assigned_to: 'stockkeeper_001' // Default assignment
+                    scheduled_date: session.plannedDate || session.scheduled_date,
+                    started_date: session.actualStartDate || session.started_date,
+                    completed_date: session.actualEndDate || session.completed_date,
+                    total_items: session.totalItems || session.total_items || 0,
+                    counted_items: session.countedItems || session.counted_items || 0,
+                    variance_items: session.discrepancies || session.variance_items || 0,
+                    created_by_name: session.createdBy || session.created_by_name,
+                    assigned_to: session.assignedTo || session.assigned_to || 'stockkeeper_001'
                 };
             });
             
             store.loadData(gridData);
             console.log('✅ SUCCESS: Stock opname grid updated with', gridData.length, 'sessions');
             console.log('Sample stock opname data:', gridData.length > 0 ? gridData[0] : 'No sessions');
+            
+            // Show success message to user
+            if (gridData.length > 0) {
+                Ext.Msg.show({
+                    title: 'Data Loaded',
+                    message: 'Successfully loaded ' + gridData.length + ' stock opname sessions from backend database.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            } else {
+                Ext.Msg.show({
+                    title: 'No Data',
+                    message: 'No stock opname sessions found in the system. Create a new session to get started.',
+                    buttons: Ext.Msg.OK,
+                    icon: Ext.Msg.INFO
+                });
+            }
             
             return true;
         } catch (error) {
