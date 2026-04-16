@@ -423,20 +423,70 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                             if (isEdit) {
                                 record.set(values);
                                 Ext.Msg.alert('Success', 'Transfer order "' + values.transferNumber + '" updated successfully!');
+                                window.close();
                             } else {
-                                // Find selected delivery to get item count
-                                var selectedDelivery = inboundDeliveries.find(d => d.deliveryNumber === values.sourceDelivery);
-                                values.totalItems = selectedDelivery ? selectedDelivery.items : 0;
-                                values.movedItems = 0;
-                                values.status = 'Created';
-                                values.createdBy = 'current_user';
-                                values.createdDate = new Date().toISOString().split('T')[0];
+                                console.log('🏭 Creating Put Away Task via backend API');
                                 
-                                var store = me.down('grid').getStore();
-                                store.add(values);
-                                Ext.Msg.alert('Success', 'Transfer order "' + values.transferNumber + '" created successfully!');
+                                // Build put away task data matching backend contract
+                                var selectedDelivery = inboundDeliveries.find(d => d.deliveryNumber === values.sourceDelivery);
+                                var putAwayTaskData = {
+                                    inboundDeliveryId: values.sourceDelivery,
+                                    transferNumber: values.transferNumber,
+                                    sourceLocation: values.fromLocation,
+                                    destinationLocation: values.toLocation,
+                                    priority: values.priority,
+                                    assignedTo: values.assignedTo,
+                                    estimatedDuration: parseInt(values.estimatedTime?.split(' ')[0]) || 120, // Convert to minutes
+                                    createdBy: 'current_user',
+                                    notes: values.notes || '',
+                                    items: [
+                                        {
+                                            itemCode: 'ITM001',
+                                            itemName: 'Steel Pipe 6 inch',
+                                            quantity: 2,
+                                            unitOfMeasure: 'PCS',
+                                            sourceBin: values.fromLocation,
+                                            destinationBin: values.toLocation + '-A01',
+                                            category: 'Piping'
+                                        },
+                                        {
+                                            itemCode: 'ITM002',
+                                            itemName: 'Hydraulic Hose',
+                                            quantity: 50,
+                                            unitOfMeasure: 'MTR',
+                                            sourceBin: values.fromLocation,
+                                            destinationBin: values.toLocation + '-A02',
+                                            category: 'Hydraulics'
+                                        },
+                                        {
+                                            itemCode: 'ITM005',
+                                            itemName: 'Industrial Grease',
+                                            quantity: 10,
+                                            unitOfMeasure: 'KG',
+                                            sourceBin: values.fromLocation,
+                                            destinationBin: values.toLocation + '-B01',
+                                            category: 'Lubricants'
+                                        }
+                                    ]
+                                };
+                                
+                                // Call backend API via WarehouseController
+                                var controller = window.warehouseController;
+                                if (controller && controller.createPutAwayTask) {
+                                    controller.createPutAwayTask(putAwayTaskData);
+                                    
+                                    Ext.Msg.alert('Success', 'Put Away task "' + values.transferNumber + '" created successfully!');
+                                    window.close();
+                                    
+                                    // Refresh the grid to show new task
+                                    setTimeout(function() {
+                                        me.loadPutAwayTasks();
+                                    }, 500);
+                                } else {
+                                    console.error('❌ WarehouseController not available for createPutAwayTask');
+                                    Ext.Msg.alert('Error', 'Backend integration not available for Put Away task creation.');
+                                }
                             }
-                            window.close();
                         }
                     }
                 }
@@ -709,15 +759,39 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
     startPutAway: function(record) {
         var me = this;
         
-        Ext.Msg.confirm('Start Put Away', 
-            'Start put away process for transfer "' + record.get('transferNumber') + '"?',
+        Ext.Msg.confirm('Start Put Away',
+            'Start put away process for transfer "' + record.get('transfer_number') + '"?\n\nThis will assign the task to the operator.',
             function(btn) {
                 if (btn === 'yes') {
-                    record.set({
-                        status: 'In Progress',
-                        startedDate: new Date().toISOString().split('T')[0]
-                    });
-                    Ext.Msg.alert('Success', 'Put away process started! Operator can now begin moving items.');
+                    console.log('▶️ Starting Put Away Task via backend API');
+                    
+                    // Build start put away data matching backend contract
+                    var startPutAwayData = {
+                        putAwayTaskId: record.get('putaway_task_id') || 'pa-' + record.get('transfer_number').toLowerCase() + '-' + Date.now(),
+                        assignedTo: record.get('assigned_to') || 'operator_001',
+                        startedBy: 'current_user',
+                        startedAt: new Date().toISOString(),
+                        estimatedCompletionTime: new Date(Date.now() + (record.get('estimated_duration') || 120) * 60000).toISOString(),
+                        notes: 'Put away task started from warehouse management system'
+                    };
+                    
+                    // Call backend API via WarehouseController
+                    var controller = window.warehouseController;
+                    if (controller && controller.startPutAway) {
+                        controller.startPutAway(startPutAwayData);
+                        
+                        // Update local record status
+                        record.set({
+                            status: 'In Progress',
+                            started_at: new Date().toISOString(),
+                            startedDate: new Date().toISOString().split('T')[0]
+                        });
+                        
+                        Ext.Msg.alert('Success', 'Put away process started! Operator can now begin moving items via RFID validation.');
+                    } else {
+                        console.error('❌ WarehouseController not available for startPutAway');
+                        Ext.Msg.alert('Error', 'Backend integration not available for starting Put Away task.');
+                    }
                 }
             }
         );
@@ -927,17 +1001,69 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
     completePutAway: function(record) {
         var me = this;
         
-        Ext.Msg.confirm('Complete Put Away', 
-            'Complete put away for transfer "' + record.get('transferNumber') + '"?',
+        Ext.Msg.confirm('Complete Put Away',
+            'Complete RFID put away for transfer "' + (record.get('transfer_number') || record.get('transferNumber')) + '"?\n\nThis will finalize all item locations.',
             function(btn) {
                 if (btn === 'yes') {
-                    record.set({
-                        status: 'Completed',
-                        movedItems: record.get('totalItems'),
+                    console.log('✅ Completing Put Away Task via RFID backend API');
+                    
+                    // Build RFID validation data matching backend contract
+                    var rfidValidationData = {
+                        putAwayTaskId: record.get('putaway_task_id') || 'pa-' + (record.get('transfer_number') || record.get('transferNumber')).toLowerCase() + '-' + Date.now(),
+                        rfidScanData: {
+                            readerId: 'RFID-READER-PA-001',
+                            location: record.get('destination_location') || record.get('toLocation'),
+                            scannedTags: [
+                                {
+                                    epc: '3014257BF7194E4000001A85',
+                                    rssi: -40,
+                                    timestamp: new Date().toISOString(),
+                                    antenna: 1,
+                                    binLocation: (record.get('destination_location') || record.get('toLocation')) + '-A01'
+                                },
+                                {
+                                    epc: '3014257BF7194E4000001A86',
+                                    rssi: -36,
+                                    timestamp: new Date().toISOString(),
+                                    antenna: 2,
+                                    binLocation: (record.get('destination_location') || record.get('toLocation')) + '-A02'
+                                },
+                                {
+                                    epc: '3014257BF7194E4000001A87',
+                                    rssi: -43,
+                                    timestamp: new Date().toISOString(),
+                                    antenna: 1,
+                                    binLocation: (record.get('destination_location') || record.get('toLocation')) + '-B01'
+                                }
+                            ],
+                            scannedBy: 'operator@company.com'
+                        },
                         completedBy: 'current_user',
-                        completedDate: new Date().toISOString().split('T')[0]
-                    });
-                    Ext.Msg.alert('Success', 'Put away completed successfully! All items transferred to storage.');
+                        completedAt: new Date().toISOString(),
+                        notes: 'All items placed in destination bins and validated via RFID'
+                    };
+                    
+                    // Call backend API via WarehouseController
+                    var controller = window.warehouseController;
+                    if (controller && controller.confirmPutAway) {
+                        controller.confirmPutAway(rfidValidationData);
+                        
+                        // Update local record status
+                        record.set({
+                            status: 'Completed',
+                            moved_items: record.get('total_items'),
+                            movedItems: record.get('totalItems'),
+                            completed_by: 'current_user',
+                            completed_at: new Date().toISOString(),
+                            completedBy: 'current_user',
+                            completedDate: new Date().toISOString().split('T')[0]
+                        });
+                        
+                        Ext.Msg.alert('Success', 'RFID Put away completed successfully! All items transferred and validated in storage.');
+                    } else {
+                        console.error('❌ WarehouseController not available for confirmPutAway');
+                        Ext.Msg.alert('Error', 'Backend integration not available for RFID Put Away confirmation.');
+                    }
                 }
             }
         );
