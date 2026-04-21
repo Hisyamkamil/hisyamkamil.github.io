@@ -299,19 +299,47 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         var me = this;
         var isEdit = !!record;
         
-        // Available inbound deliveries (from Good Receive)
-        var inboundDeliveries = [
-            { deliveryNumber: 'GRN-2024-001', supplier: 'Caterpillar Inc.', location: 'INBOUND-A01', items: 5 },
-            { deliveryNumber: 'GRN-2024-002', supplier: 'Caterpillar Parts', location: 'INBOUND-A02', items: 3 },
-            { deliveryNumber: 'GRN-2024-003', supplier: 'Caterpillar Equipment', location: 'INBOUND-A03', items: 8 }
-        ];
-
-        // Available storage locations
-        var storageLocations = [
-            'GOLD-ROOM-A', 'GOLD-ROOM-B', 'GOLD-ROOM-C', 
-            'STORAGE-A1', 'STORAGE-A2', 'STORAGE-B1', 
-            'HIGH-VALUE-01', 'BULK-STORAGE-01'
-        ];
+        // Load real inbound deliveries and storage locations from backend
+        var inboundDeliveries = [];
+        var storageLocations = [];
+        var controller = window.warehouseController;
+        
+        // Load confirmed inbound deliveries that are ready for put away
+        if (controller && controller.lastInboundDeliveriesResponse) {
+            inboundDeliveries = controller.lastInboundDeliveriesResponse.inboundDeliveries
+                .filter(function(delivery) {
+                    return delivery.status === 'Confirmed'; // Only confirmed deliveries can be put away
+                })
+                .map(function(delivery) {
+                    return {
+                        deliveryNumber: delivery.deliveryNumber || delivery.delivery_number,
+                        supplier: delivery.supplierName || delivery.supplier_name,
+                        location: 'INBOUND-STAGING', // Default inbound location
+                        items: delivery.totalItems || delivery.total_items || 0
+                    };
+                });
+            console.log('✅ Using', inboundDeliveries.length, 'confirmed deliveries for put away');
+        }
+        
+        // Load real storage locations from backend
+        if (controller && controller.getCachedLocations) {
+            var allLocations = controller.getCachedLocations();
+            storageLocations = allLocations
+                .filter(function(loc) {
+                    return loc.locationType === 'storage' && loc.isActive;
+                })
+                .map(function(loc) {
+                    return loc.locationCode;
+                });
+            console.log('✅ Using', storageLocations.length, 'real storage locations');
+        }
+        
+        // Load locations if not cached
+        if (storageLocations.length === 0 && controller && controller.loadLocations) {
+            controller.loadLocations();
+            // Fallback locations while API loads
+            storageLocations = ['Loading...'];
+        }
 
         var form = Ext.create('Ext.form.Panel', {
             bodyPadding: 15,
@@ -440,35 +468,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                     estimatedDuration: parseInt(values.estimatedTime?.split(' ')[0]) || 120, // Convert to minutes
                                     createdBy: 'current_user',
                                     notes: values.notes || '',
-                                    items: [
-                                        {
-                                            itemCode: 'ITM001',
-                                            itemName: 'Steel Pipe 6 inch',
-                                            quantity: 2,
-                                            unitOfMeasure: 'PCS',
-                                            sourceBin: values.fromLocation,
-                                            destinationBin: values.toLocation + '-A01',
-                                            category: 'Piping'
-                                        },
-                                        {
-                                            itemCode: 'ITM002',
-                                            itemName: 'Hydraulic Hose',
-                                            quantity: 50,
-                                            unitOfMeasure: 'MTR',
-                                            sourceBin: values.fromLocation,
-                                            destinationBin: values.toLocation + '-A02',
-                                            category: 'Hydraulics'
-                                        },
-                                        {
-                                            itemCode: 'ITM005',
-                                            itemName: 'Industrial Grease',
-                                            quantity: 10,
-                                            unitOfMeasure: 'KG',
-                                            sourceBin: values.fromLocation,
-                                            destinationBin: values.toLocation + '-B01',
-                                            category: 'Lubricants'
-                                        }
-                                    ]
+                                    items: [] // Items will be loaded from selected delivery via backend API
                                 };
                                 
                                 // Call backend API via WarehouseController
@@ -540,50 +540,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                             'sourceScanned',
                             'destinationPlaced'
                         ],
-                        data: [
-                            {
-                                itemCode: 'ITM001',
-                                itemName: 'Steel Pipe 6 inch',
-                                category: 'Piping',
-                                unitOfMeasure: 'PCS',
-                                quantity: 2,
-                                movedQuantity: record.get('status') === 'Completed' ? 2 : (record.get('status') === 'In Progress' ? 1 : 0),
-                                sourceBin: record.get('fromLocation'),
-                                destinationBin: record.get('toLocation') + '-A01',
-                                epcCode: '3014257BF7194E4000001A85',
-                                transferStatus: record.get('status') === 'Completed' ? 'Moved' : (record.get('status') === 'In Progress' ? 'Moving' : 'Pending'),
-                                sourceScanned: record.get('status') !== 'Created' ? 'Yes' : 'No',
-                                destinationPlaced: record.get('status') === 'Completed' ? 'Yes' : 'No'
-                            },
-                            {
-                                itemCode: 'ITM002',
-                                itemName: 'Hydraulic Hose',
-                                category: 'Hydraulics',
-                                unitOfMeasure: 'MTR',
-                                quantity: 50,
-                                movedQuantity: record.get('status') === 'Completed' ? 50 : (record.get('status') === 'In Progress' ? 50 : 0),
-                                sourceBin: record.get('fromLocation'),
-                                destinationBin: record.get('toLocation') + '-A02',
-                                epcCode: '3014257BF7194E4000001A86',
-                                transferStatus: record.get('status') === 'Completed' ? 'Moved' : (record.get('status') === 'In Progress' ? 'Moved' : 'Pending'),
-                                sourceScanned: record.get('status') !== 'Created' ? 'Yes' : 'No',
-                                destinationPlaced: record.get('status') === 'Completed' ? 'Yes' : (record.get('status') === 'In Progress' ? 'Yes' : 'No')
-                            },
-                            {
-                                itemCode: 'ITM005',
-                                itemName: 'Industrial Grease',
-                                category: 'Lubricants',
-                                unitOfMeasure: 'KG',
-                                quantity: 10,
-                                movedQuantity: record.get('status') === 'Completed' ? 10 : 0,
-                                sourceBin: record.get('fromLocation'),
-                                destinationBin: record.get('toLocation') + '-B01',
-                                epcCode: '3014257BF7194E4000001A87',
-                                transferStatus: record.get('status') === 'Completed' ? 'Moved' : 'Pending',
-                                sourceScanned: record.get('status') === 'Completed' ? 'Yes' : 'No',
-                                destinationPlaced: record.get('status') === 'Completed' ? 'Yes' : 'No'
-                            }
-                        ]
+                        data: [] // Items will be loaded from put away task details via backend API
                     }),
                     columns: [
                         {
