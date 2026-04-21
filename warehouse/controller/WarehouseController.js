@@ -2996,6 +2996,74 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
 
     /**
+     * Load complete inbound delivery details from backend API
+     * GET /api/warehouse/inbound/{deliveryId} - FIXED to use correct API endpoint
+     */
+    loadInboundDeliveryDetails: function(deliveryId, callback) {
+        console.log('Loading inbound delivery details for:', deliveryId);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var url = apiConfig.getUrl('inboundDetails', {deliveryId: deliveryId});
+        
+        Ext.Ajax.request({
+            url: url,
+            method: 'GET',
+            headers: apiConfig.getStandardHeaders('GET'),
+            timeout: 15000,
+            success: function(response) {
+                console.log('Inbound delivery details loaded successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    console.log('Raw delivery details API response:', result);
+                    
+                    // Handle direct response format from Postman collection
+                    var deliveryData = null;
+                    if (result.inboundDeliveryId || result.deliveryNumber) {
+                        // Direct format from backend
+                        deliveryData = result;
+                    } else if (result.body && (result.body.inboundDeliveryId || result.body.deliveryNumber)) {
+                        // Wrapped format
+                        deliveryData = result.body;
+                    }
+                    
+                    if (deliveryData) {
+                        // Map backend response to UI format for details display
+                        var mappedDelivery = {
+                            deliveryNumber: deliveryData.deliveryNumber || deliveryData.delivery_number || 'N/A',
+                            supplierName: deliveryData.supplierName || deliveryData.supplier_name || 'N/A',
+                            supplierCode: deliveryData.supplierCode || deliveryData.supplier_code || 'N/A',
+                            purchaseOrder: deliveryData.purchaseOrderNumber || deliveryData.purchase_order || 'N/A',
+                            expectedDate: deliveryData.expectedDeliveryDate || deliveryData.expected_delivery_date || 'N/A',
+                            actualDate: deliveryData.actualDeliveryDate || deliveryData.actual_delivery_date || 'N/A',
+                            status: deliveryData.status || 'Created',
+                            totalItems: deliveryData.totalItems || deliveryData.total_items || 0,
+                            totalQuantity: deliveryData.totalQuantity || deliveryData.total_quantity || 0,
+                            createdBy: deliveryData.createdBy || deliveryData.created_by || 'N/A',
+                            createdDate: deliveryData.createdDate || deliveryData.created_at || 'N/A',
+                            notes: deliveryData.notes || '',
+                            items: deliveryData.items || []
+                        };
+                        
+                        console.log('✅ Mapped delivery details:', mappedDelivery);
+                        if (callback) callback(mappedDelivery);
+                    } else {
+                        console.error('Invalid delivery details response format:', result);
+                        if (callback) callback(null);
+                    }
+                    
+                } catch (e) {
+                    console.error('Error parsing delivery details response:', e);
+                    if (callback) callback(null);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load delivery details:', response);
+                if (callback) callback(null);
+            }
+        });
+    },
+
+    /**
      * Load delivery item details from backend API
      * GET /api/warehouse/inbound/{deliveryId}/items
      */
