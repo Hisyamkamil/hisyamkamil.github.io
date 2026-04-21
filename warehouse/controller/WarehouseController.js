@@ -268,17 +268,50 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         
         var apiConfig = Store.warehouse.config.ApiConfig;
         
-        // Form already sends the correct format for backend API
+        // Clean up items array - remove null/empty optional fields
+        var cleanedItems = [];
+        if (deliveryData.items && deliveryData.items.length > 0) {
+            deliveryData.items.forEach(function(item) {
+                var cleanedItem = {
+                    itemCode: item.itemCode,
+                    itemName: item.itemName,
+                    expectedQuantity: parseInt(item.expectedQuantity) || 1,
+                    unit: item.unit || 'PCS',
+                    unitPrice: parseFloat(item.unitPrice) || 0
+                };
+                
+                // Only include optional fields if they have actual values
+                if (item.lotNumber && item.lotNumber.trim() !== '') {
+                    cleanedItem.lotNumber = item.lotNumber;
+                }
+                
+                if (item.expiryDate && item.expiryDate !== null && item.expiryDate !== '') {
+                    cleanedItem.expiryDate = item.expiryDate;
+                }
+                
+                cleanedItems.push(cleanedItem);
+            });
+        }
+        
+        // Build clean request data with only non-empty values
         var requestData = {
             deliveryNumber: deliveryData.deliveryNumber,
             supplierCode: deliveryData.supplierCode,
             supplierName: deliveryData.supplierName,
-            expectedDeliveryDate: deliveryData.expectedDeliveryDate,
-            purchaseOrderNumber: deliveryData.purchaseOrderNumber,
-            notes: deliveryData.notes || '',
             createdBy: deliveryData.createdBy || 'warehouse_user@company.com',
-            items: deliveryData.items || []
+            items: cleanedItems
         };
+        
+        // Only include optional fields if they have values
+        if (deliveryData.expectedDeliveryDate) {
+            requestData.expectedDeliveryDate = deliveryData.expectedDeliveryDate;
+        }
+        if (deliveryData.purchaseOrderNumber && deliveryData.purchaseOrderNumber.trim() !== '') {
+            requestData.purchaseOrderNumber = deliveryData.purchaseOrderNumber;
+        }
+        if (deliveryData.notes && deliveryData.notes.trim() !== '') {
+            requestData.notes = deliveryData.notes;
+        }
         
         console.log('Sending API request with:', requestData);
         
