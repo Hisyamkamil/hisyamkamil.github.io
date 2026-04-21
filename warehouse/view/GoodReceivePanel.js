@@ -274,14 +274,30 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             data: []
         });
 
-        // Master data items (should be loaded from Master Data module)
-        var masterDataItems = [
-            { itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', category: 'Piping', unitOfMeasure: 'PCS' },
-            { itemCode: 'ITM002', itemName: 'Hydraulic Hose', category: 'Hydraulics', unitOfMeasure: 'MTR' },
-            { itemCode: 'ITM003', itemName: 'Mining Drill Bit', category: 'Tools', unitOfMeasure: 'PCS' },
-            { itemCode: 'ITM004', itemName: 'Safety Helmet', category: 'Safety', unitOfMeasure: 'PCS' },
-            { itemCode: 'ITM005', itemName: 'Industrial Grease', category: 'Lubricants', unitOfMeasure: 'KG' }
-        ];
+        // Load real master data from backend API
+        var masterDataItems = [];
+        var controller = window.warehouseController;
+        
+        if (controller && controller._cachedItemsData) {
+            // Use cached items from Master Data API
+            masterDataItems = controller._cachedItemsData.map(function(item) {
+                return {
+                    itemCode: item.itemCode || item.item_code,
+                    itemName: item.itemName || item.item_name,
+                    category: item.category || 'General',
+                    unitOfMeasure: item.unitOfMeasure || item.unit_of_measure || 'PCS'
+                };
+            });
+            console.log('✅ Using', masterDataItems.length, 'real items from Master Data API');
+        } else {
+            // Load items from backend if not cached
+            if (controller && controller.loadItems) {
+                console.log('📦 Loading items from Master Data API...');
+                controller.loadItems();
+            }
+            // Fallback message for user
+            console.warn('⚠️ Master Data API not loaded - forms will show empty dropdown');
+        }
 
         var formPanel = Ext.create('Ext.form.Panel', {
             region: 'north',
@@ -302,18 +318,46 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     value: isEdit ? record.get('deliveryNumber') : 'GRN-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')
                 },
                 {
-                    xtype: 'textfield',
+                    xtype: 'combobox',
                     name: 'supplierCode',
                     fieldLabel: 'Supplier Code *',
                     allowBlank: false,
-                    value: isEdit ? record.get('supplierCode') : 'CAT001'
+                    displayField: 'code',
+                    valueField: 'code',
+                    queryMode: 'local',
+                    editable: true,
+                    store: Ext.create('Ext.data.Store', {
+                        fields: ['code', 'name'],
+                        data: [] // Will be loaded from backend
+                    }),
+                    value: isEdit ? record.get('supplierCode') : null,
+                    listeners: {
+                        afterrender: function(combo) {
+                            // Load real suppliers from backend
+                            if (controller && controller.loadSuppliers) {
+                                controller.loadSuppliers(function(suppliers) {
+                                    if (suppliers && suppliers.length > 0) {
+                                        combo.getStore().loadData(suppliers);
+                                        console.log('✅ Loaded', suppliers.length, 'suppliers from backend');
+                                    }
+                                });
+                            }
+                        },
+                        select: function(combo, record) {
+                            // Auto-fill supplier name when code is selected
+                            var supplierNameField = combo.up('form').down('[name=supplierName]');
+                            if (supplierNameField && record) {
+                                supplierNameField.setValue(record.get('name'));
+                            }
+                        }
+                    }
                 },
                 {
                     xtype: 'textfield',
                     name: 'supplierName',
                     fieldLabel: 'Supplier Name *',
                     allowBlank: false,
-                    value: isEdit ? record.get('supplierName') : 'Caterpillar Inc.'
+                    value: isEdit ? record.get('supplierName') : null
                 },
                 {
                     xtype: 'textfield',
@@ -598,23 +642,19 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     showDeliveryDetails: function(record) {
         var me = this;
         
+        // Create loading panel first
+        var deliveryInfoPanel = Ext.create('Ext.panel.Panel', {
+            region: 'north',
+            height: 150,
+            title: 'Delivery Information',
+            bodyPadding: 15,
+            html: '<div style="text-align: center; padding: 20px;"><i class="fa fa-spinner fa-spin"></i> Loading delivery details...</div>'
+        });
+        
         var detailsPanel = Ext.create('Ext.panel.Panel', {
             layout: 'border',
             items: [
-                // Delivery Info
-                {
-                    region: 'north',
-                    height: 150,
-                    title: 'Delivery Information',
-                    bodyPadding: 15,
-                    html: '<table style="width: 100%; border-collapse: collapse;">' +
-                          '<tr><td style="font-weight: bold; padding: 5px;">Delivery Number:</td><td style="padding: 5px;">' + record.get('deliveryNumber') + '</td></tr>' +
-                          '<tr><td style="font-weight: bold; padding: 5px;">Supplier:</td><td style="padding: 5px;">' + record.get('supplierName') + ' (' + record.get('supplierCode') + ')</td></tr>' +
-                          '<tr><td style="font-weight: bold; padding: 5px;">Purchase Order:</td><td style="padding: 5px;">' + record.get('purchaseOrder') + '</td></tr>' +
-                          '<tr><td style="font-weight: bold; padding: 5px;">Expected Date:</td><td style="padding: 5px;">' + record.get('expectedDate') + '</td></tr>' +
-                          '<tr><td style="font-weight: bold; padding: 5px;">Status:</td><td style="padding: 5px;"><strong style="color: ' + me.getStatusColor(record.get('status')) + ';">' + record.get('status') + '</strong></td></tr>' +
-                          '</table>'
-                },
+                deliveryInfoPanel,
                 // Items Grid
                 {
                     region: 'center',
@@ -723,7 +763,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         {
                             text: 'Generate EPC Codes',
                             iconCls: 'fa fa-tags',
-                            disabled: record.get('status') !== 'Created',
+                            disabled: true, // Will be enabled based on real status
+                            itemId: 'generateEpcBtn',
                             handler: function() {
                                 Ext.Msg.alert('EPC Generation', 'EPC codes would be generated for all items in this delivery.');
                             }
@@ -732,7 +773,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         {
                             text: 'Start RFID Scanning',
                             iconCls: 'fa fa-wifi',
-                            disabled: record.get('status') === 'Confirmed',
+                            disabled: true, // Will be enabled based on real status
+                            itemId: 'startRfidBtn',
                             handler: function() {
                                 me.showRFIDScanning(record);
                             }
@@ -740,7 +782,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         '->',
                         {
                             xtype: 'displayfield',
-                            value: '<strong>Total Items: ' + record.get('totalItems') + ' | Status: </strong><span style="color: ' + me.getStatusColor(record.get('status')) + '; font-weight: bold;">' + record.get('status') + '</span>'
+                            itemId: 'statusDisplay',
+                            value: '<strong>Loading...</strong>'
                         }
                     ]
                 }
@@ -748,7 +791,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         });
 
         var window = Ext.create('Ext.window.Window', {
-            title: 'Delivery Details - ' + record.get('deliveryNumber'),
+            title: 'Delivery Details - Loading...',
             modal: true,
             width: 800,
             height: 600,
@@ -758,7 +801,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 {
                     text: 'Start RFID Scanning',
                     iconCls: 'fa fa-wifi',
-                    disabled: record.get('status') === 'Confirmed' || record.get('status') === 'Cancelled',
+                    disabled: true, // Will be enabled based on real status
+                    itemId: 'rfidScanningBtn',
                     handler: function() {
                         window.close();
                         me.showRFIDScanning(record);
@@ -775,29 +819,92 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         
         window.show();
         
-        // Load real delivery items from backend API
+        // CRITICAL FIX: Load complete delivery details from backend API
         var deliveryId = record.get('inbound_delivery_id') || record.get('id');
         var controller = window.warehouseController;
         
-        if (controller && controller.loadDeliveryItems && deliveryId) {
-            console.log('📦 Loading real delivery items for delivery:', deliveryId);
+        if (controller && controller.loadInboundDeliveryDetails && deliveryId) {
+            console.log('🔄 Loading complete delivery details via backend API for:', deliveryId);
             
-            controller.loadDeliveryItems(deliveryId, function(items) {
-                var itemsGrid = window.down('#deliveryItemsGrid');
-                if (itemsGrid && itemsGrid.getStore()) {
-                    console.log('✅ Loading', items.length, 'real delivery items');
-                    itemsGrid.getStore().loadData(items);
+            controller.loadInboundDeliveryDetails(deliveryId, function(deliveryData) {
+                if (deliveryData) {
+                    console.log('✅ Loaded delivery details from backend:', deliveryData);
+                    
+                    // Update window title with real delivery number
+                    window.setTitle('Delivery Details - ' + deliveryData.deliveryNumber);
+                    
+                    // Update delivery info panel with real data
+                    var infoPanel = deliveryInfoPanel;
+                    var infoHtml = '<table style="width: 100%; border-collapse: collapse;">' +
+                                  '<tr><td style="font-weight: bold; padding: 5px;">Delivery Number:</td><td style="padding: 5px;">' + deliveryData.deliveryNumber + '</td></tr>' +
+                                  '<tr><td style="font-weight: bold; padding: 5px;">Supplier:</td><td style="padding: 5px;">' + deliveryData.supplierName + ' (' + deliveryData.supplierCode + ')</td></tr>' +
+                                  '<tr><td style="font-weight: bold; padding: 5px;">Purchase Order:</td><td style="padding: 5px;">' + deliveryData.purchaseOrder + '</td></tr>' +
+                                  '<tr><td style="font-weight: bold; padding: 5px;">Expected Date:</td><td style="padding: 5px;">' + deliveryData.expectedDate + '</td></tr>' +
+                                  '<tr><td style="font-weight: bold; padding: 5px;">Status:</td><td style="padding: 5px;"><strong style="color: ' + me.getStatusColor(deliveryData.status) + ';">' + deliveryData.status + '</strong></td></tr>' +
+                                  '</table>';
+                    
+                    infoPanel.update(infoHtml);
+                    
+                    // Update status display in toolbar
+                    var statusDisplay = window.down('#statusDisplay');
+                    if (statusDisplay) {
+                        statusDisplay.setValue('<strong>Total Items: ' + deliveryData.totalItems + ' | Status: </strong><span style="color: ' + me.getStatusColor(deliveryData.status) + '; font-weight: bold;">' + deliveryData.status + '</span>');
+                    }
+                    
+                    // Enable/disable buttons based on real status
+                    var generateEpcBtn = window.down('#generateEpcBtn');
+                    var startRfidBtn = window.down('#startRfidBtn');
+                    var rfidScanningBtn = window.down('#rfidScanningBtn');
+                    
+                    if (generateEpcBtn) generateEpcBtn.setDisabled(deliveryData.status !== 'Created');
+                    if (startRfidBtn) startRfidBtn.setDisabled(deliveryData.status === 'Confirmed');
+                    if (rfidScanningBtn) rfidScanningBtn.setDisabled(deliveryData.status === 'Confirmed' || deliveryData.status === 'Cancelled');
+                    
+                    // Load delivery items if available
+                    if (deliveryData.items && deliveryData.items.length > 0) {
+                        var itemsGrid = window.down('#deliveryItemsGrid');
+                        if (itemsGrid && itemsGrid.getStore()) {
+                            console.log('✅ Loading', deliveryData.items.length, 'delivery items from backend data');
+                            
+                            // Map items to expected format
+                            var mappedItems = deliveryData.items.map(function(item) {
+                                return {
+                                    itemCode: item.itemCode || item.item_code,
+                                    itemName: item.itemName || item.item_name,
+                                    category: item.category || item.item_group || 'General',
+                                    unitOfMeasure: item.unit || item.unitOfMeasure || 'PCS',
+                                    expectedQuantity: item.expectedQuantity || item.expected_quantity || 0,
+                                    receivedQuantity: item.receivedQuantity || item.received_quantity || 0,
+                                    epcCode: item.epcCode || item.epc_code || 'Not Generated',
+                                    scanningStatus: item.scanningStatus || item.scanning_status || 'Pending',
+                                    lotNumber: item.lotNumber || item.lot_number || '',
+                                    expiryDate: item.expiryDate || item.expiry_date || null
+                                };
+                            });
+                            
+                            itemsGrid.getStore().loadData(mappedItems);
+                        }
+                    }
+                    
                 } else {
-                    console.warn('⚠️ Delivery items grid not found');
+                    console.error('❌ Failed to load delivery details from backend');
+                    
+                    // Show error in info panel
+                    deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: red;"><i class="fa fa-exclamation-triangle"></i> Failed to load delivery details from backend API</div>');
+                    
+                    // Set fallback window title
+                    window.setTitle('Delivery Details - Error Loading');
                 }
             });
         } else {
-            console.warn('⚠️ Cannot load delivery items - missing controller or deliveryId');
-            // Fallback: show message that real data requires backend
-            var itemsGrid = window.down('#deliveryItemsGrid');
-            if (itemsGrid) {
-                itemsGrid.setTitle('Delivery Items (Backend Integration Required)');
-            }
+            console.warn('⚠️ Cannot load delivery details - missing controller or deliveryId');
+            console.warn('DeliveryId:', deliveryId, 'Controller available:', !!controller);
+            
+            // Show error message
+            deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: orange;"><i class="fa fa-exclamation-triangle"></i> Backend API integration not available. Please ensure WarehouseController is initialized.</div>');
+            
+            // Fallback: try to use grid record data (will likely show undefined values)
+            window.setTitle('Delivery Details - ' + (record.get('delivery_number') || 'Local Data'));
         }
     },
 
