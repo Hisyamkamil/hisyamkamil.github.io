@@ -268,14 +268,46 @@ Ext.define('Store.warehouse.view.PickingPanel', {
             data: []
         });
 
-        // Master data items with available stock
-        var masterDataItems = [
-            { itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', category: 'Piping', unitOfMeasure: 'PCS', availableStock: 25 },
-            { itemCode: 'ITM002', itemName: 'Hydraulic Hose', category: 'Hydraulics', unitOfMeasure: 'MTR', availableStock: 150 },
-            { itemCode: 'ITM003', itemName: 'Mining Drill Bit', category: 'Tools', unitOfMeasure: 'PCS', availableStock: 48 },
-            { itemCode: 'ITM004', itemName: 'Safety Helmet', category: 'Safety', unitOfMeasure: 'PCS', availableStock: 32 },
-            { itemCode: 'ITM005', itemName: 'Industrial Grease', category: 'Lubricants', unitOfMeasure: 'KG', availableStock: 85 }
-        ];
+        // Load master data items with real inventory from backend API
+        var masterDataItems = [];
+        var controller = window.warehouseController;
+        if (controller && controller.getCachedInventory) {
+            var cachedInventory = controller.getCachedInventory();
+            if (cachedInventory && cachedInventory.length > 0) {
+                masterDataItems = cachedInventory.map(function(item) {
+                    return {
+                        itemCode: item.item_code,
+                        itemName: item.item_name,
+                        category: item.category || 'General',
+                        unitOfMeasure: item.unit_of_measure || 'PCS',
+                        availableStock: item.available_stock || item.current_stock || 0
+                    };
+                });
+            }
+        }
+        
+        // Fallback: Load real inventory if cache is empty
+        if (masterDataItems.length === 0) {
+            console.log('📦 Loading master data items for picking from backend');
+            if (controller && controller.loadInventory) {
+                controller.loadInventory();
+                // Set a timeout to retry after API call completes
+                setTimeout(function() {
+                    var inventory = controller.getCachedInventory();
+                    if (inventory && inventory.length > 0) {
+                        masterDataItems = inventory.map(function(item) {
+                            return {
+                                itemCode: item.item_code,
+                                itemName: item.item_name,
+                                category: item.category || 'General',
+                                unitOfMeasure: item.unit_of_measure || 'PCS',
+                                availableStock: item.available_stock || item.current_stock || 0
+                            };
+                        });
+                    }
+                }, 1000);
+            }
+        }
 
         var formPanel = Ext.create('Ext.form.Panel', {
             region: 'north',
@@ -337,8 +369,8 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                     name: 'assignedTo',
                     fieldLabel: 'Assign To *',
                     allowBlank: false,
-                    store: ['picker_001', 'picker_002', 'picker_003', 'picker_004'],
-                    value: isEdit ? record.get('assignedTo') : 'picker_001'
+                    store: ['picker@company.com', 'warehouse_staff@company.com', 'operator@company.com', 'manager@company.com'],
+                    value: isEdit ? record.get('assignedTo') : 'picker@company.com'
                 },
                 {
                     xtype: 'textfield',
@@ -674,62 +706,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                     region: 'center',
                     title: 'Picking List',
                     xtype: 'grid',
-                    store: Ext.create('Ext.data.Store', {
-                        fields: [
-                            'itemCode',
-                            'itemName',
-                            'category',
-                            'unitOfMeasure',
-                            'requestedQuantity',
-                            'pickedQuantity',
-                            'sourceLocation',
-                            'binLocation',
-                            'epcCode',
-                            'pickingStatus',
-                            'allocatedEPC'
-                        ],
-                        data: [
-                            {
-                                itemCode: 'ITM001',
-                                itemName: 'Steel Pipe 6 inch',
-                                category: 'Piping',
-                                unitOfMeasure: 'PCS',
-                                requestedQuantity: 1,
-                                pickedQuantity: record.get('status') === 'Completed' ? 1 : (record.get('status') === 'Picking' ? 1 : 0),
-                                sourceLocation: 'GOLD-ROOM-A',
-                                binLocation: 'A-01-01',
-                                epcCode: record.get('status') !== 'Created' ? '3014257BF7194E4000001A85' : 'Not Allocated',
-                                pickingStatus: record.get('status') === 'Completed' ? 'Picked' : (record.get('status') === 'Picking' ? 'Picking' : 'Pending'),
-                                allocatedEPC: record.get('status') !== 'Created' ? '3014257BF7194E4000001A85' : null
-                            },
-                            {
-                                itemCode: 'ITM002',
-                                itemName: 'Hydraulic Hose',
-                                category: 'Hydraulics',
-                                unitOfMeasure: 'MTR',
-                                requestedQuantity: 25,
-                                pickedQuantity: record.get('status') === 'Completed' ? 25 : (record.get('status') === 'Picking' ? 15 : 0),
-                                sourceLocation: 'GOLD-ROOM-B',
-                                binLocation: 'B-01-02',
-                                epcCode: record.get('status') !== 'Created' ? '3014257BF7194E4000001A86' : 'Not Allocated',
-                                pickingStatus: record.get('status') === 'Completed' ? 'Picked' : (record.get('status') === 'Picking' ? 'Picking' : 'Pending'),
-                                allocatedEPC: record.get('status') !== 'Created' ? '3014257BF7194E4000001A86' : null
-                            },
-                            {
-                                itemCode: 'ITM003',
-                                itemName: 'Mining Drill Bit',
-                                category: 'Tools',
-                                unitOfMeasure: 'PCS',
-                                requestedQuantity: 3,
-                                pickedQuantity: record.get('status') === 'Completed' ? 3 : (record.get('status') === 'Picking' ? 0 : 0),
-                                sourceLocation: 'STORAGE-A1',
-                                binLocation: 'A1-02-05',
-                                epcCode: record.get('status') === 'Completed' ? '3014257BF7194E4000001A87' : 'Not Allocated',
-                                pickingStatus: record.get('status') === 'Completed' ? 'Picked' : (record.get('status') === 'Picking' ? 'Pending' : 'Pending'),
-                                allocatedEPC: record.get('status') === 'Completed' ? '3014257BF7194E4000001A87' : null
-                            }
-                        ]
-                    }),
+                    store: me.createPickingDetailsStore(record),
                     columns: [
                         {
                             text: 'Item Code',
@@ -1099,29 +1076,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                         rfidScanData: {
                             readerId: 'RFID-GATE-001',
                             location: 'EXIT-GATE',
-                            scannedTags: [
-                                {
-                                    epc: '3014257BF7194E4000001A85',
-                                    rssi: -35,
-                                    timestamp: new Date().toISOString(),
-                                    antenna: 1,
-                                    exitConfirmed: true
-                                },
-                                {
-                                    epc: '3014257BF7194E4000001A86',
-                                    rssi: -32,
-                                    timestamp: new Date().toISOString(),
-                                    antenna: 2,
-                                    exitConfirmed: true
-                                },
-                                {
-                                    epc: '3014257BF7194E4000001A87',
-                                    rssi: -40,
-                                    timestamp: new Date().toISOString(),
-                                    antenna: 1,
-                                    exitConfirmed: true
-                                }
-                            ],
+                            scannedTags: me.generateRealEPCScannedTags(record),
                             scannedBy: 'picker@company.com'
                         },
                         completedBy: 'current_user',
