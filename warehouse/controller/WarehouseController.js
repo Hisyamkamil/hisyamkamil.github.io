@@ -239,32 +239,48 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
     
     /**
-     * Create new inbound delivery - Fixed field mapping for backend
+     * Create new inbound delivery - With validation for required fields
      */
     createInboundDelivery: function(deliveryData) {
-        console.log('Creating inbound delivery:', deliveryData);
+        console.log('Creating inbound delivery with data:', deliveryData);
+        
+        // Validate required fields from UI form (form sends camelCase)
+        var missingFields = [];
+        if (!deliveryData.deliveryNumber) missingFields.push('deliveryNumber');
+        if (!deliveryData.supplierCode) missingFields.push('supplierCode');
+        if (!deliveryData.supplierName) missingFields.push('supplierName');
+        if (!deliveryData.items || deliveryData.items.length === 0) missingFields.push('items');
+        
+        // Validate each item if items exist
+        if (deliveryData.items && deliveryData.items.length > 0) {
+            deliveryData.items.forEach(function(item, index) {
+                if (!item.itemCode) missingFields.push('itemCode for item ' + (index + 1));
+                if (!item.itemName) missingFields.push('itemName for item ' + (index + 1));
+            });
+        }
+        
+        if (missingFields.length > 0) {
+            var errorMsg = 'Missing required form fields: ' + missingFields.join(', ') +
+                         '\n\nPlease fill all required form fields before submitting.';
+            Ext.Msg.alert('Form Validation Error', errorMsg);
+            return;
+        }
         
         var apiConfig = Store.warehouse.config.ApiConfig;
         
-        // Map UI field names to backend expected format (dynamic data from UI)
+        // Form already sends the correct format for backend API
         var requestData = {
-            deliveryNumber: deliveryData.delivery_number,
-            supplierCode: deliveryData.supplier_code,
-            supplierName: deliveryData.supplier_name,
-            expectedDeliveryDate: deliveryData.expected_delivery_date,
-            purchaseOrderNumber: deliveryData.purchase_order_number,
-            notes: deliveryData.notes,
-            createdBy: deliveryData.created_by || 'warehouse_user',
-            items: [{
-                itemCode: deliveryData.item_code,
-                itemName: deliveryData.item_name,
-                expectedQuantity: parseInt(deliveryData.expected_quantity) || 1,
-                unit: deliveryData.unit,
-                unitPrice: parseFloat(deliveryData.unit_price) || 0,
-                lotNumber: deliveryData.lot_number,
-                expiryDate: deliveryData.expiry_date
-            }]
+            deliveryNumber: deliveryData.deliveryNumber,
+            supplierCode: deliveryData.supplierCode,
+            supplierName: deliveryData.supplierName,
+            expectedDeliveryDate: deliveryData.expectedDeliveryDate,
+            purchaseOrderNumber: deliveryData.purchaseOrderNumber,
+            notes: deliveryData.notes || '',
+            createdBy: deliveryData.createdBy || 'warehouse_user@company.com',
+            items: deliveryData.items || []
         };
+        
+        console.log('Sending API request with:', requestData);
         
         Ext.Ajax.request({
             url: apiConfig.getUrl('inboundCreate'),
