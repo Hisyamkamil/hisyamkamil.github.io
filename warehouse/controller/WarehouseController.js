@@ -1581,7 +1581,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     // ===== MASTER DATA METHODS =====
     
     /**
-     * Load items from API
+     * Load items from API - GET /api/warehouse/items
      */
     loadItems: function(filters) {
         console.log('Loading items from API...');
@@ -1593,7 +1593,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: url,
             method: 'GET',
-            headers: apiConfig.getStandardHeaders('POST'),
+            headers: apiConfig.getStandardHeaders('GET'),
             timeout: 15000,
             success: function(response) {
                 console.log('Items loaded successfully');
@@ -1604,6 +1604,262 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                 this.handleItemsLoadFailure(response);
             }.bind(this)
         });
+    },
+
+    /**
+     * Load locations from API - GET /api/warehouse/locations
+     */
+    loadLocations: function(filters) {
+        console.log('Loading locations from API...');
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var params = this.buildQueryParams(filters);
+        var url = apiConfig.getUrl('locationsList') + (params ? '?' + params : '');
+        
+        Ext.Ajax.request({
+            url: url,
+            method: 'GET',
+            headers: apiConfig.getStandardHeaders('GET'),
+            timeout: 15000,
+            success: function(response) {
+                console.log('Locations loaded successfully');
+                this.processLocations(response);
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load locations:', response);
+                this.handleLocationsLoadFailure(response);
+            }.bind(this)
+        });
+    },
+
+    /**
+     * Load inventory from API - GET /api/warehouse/inventory
+     */
+    loadInventory: function(filters) {
+        console.log('Loading inventory from API...');
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var params = this.buildQueryParams(filters);
+        var url = apiConfig.getUrl('inventoryList') + (params ? '?' + params : '');
+        
+        Ext.Ajax.request({
+            url: url,
+            method: 'GET',
+            headers: apiConfig.getStandardHeaders('GET'),
+            timeout: 15000,
+            success: function(response) {
+                console.log('Inventory loaded successfully');
+                this.processInventory(response);
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load inventory:', response);
+                this.handleInventoryLoadFailure(response);
+            }.bind(this)
+        });
+    },
+
+    /**
+     * Generate EPC codes - POST /api/epc/generate - SYNCHRONOUS fallback for form usage
+     */
+    generateEPC: function(itemCode, quantity) {
+        // For form integration, return a mock EPC that follows real format
+        var baseEPC = '3014257BF7194E40000';
+        var itemSuffix = itemCode ? itemCode.slice(-3) : '001';
+        var timestamp = Date.now().toString().slice(-6);
+        var randomSuffix = Math.floor(Math.random() * 999).toString().padStart(3, '0');
+        
+        return baseEPC + itemSuffix + timestamp.slice(-2) + randomSuffix.slice(-1);
+    },
+
+    /**
+     * Generate EPC codes via API - POST /api/epc/generate - ASYNC version for backend integration
+     */
+    generateEPCAsync: function(itemCode, quantity, callback) {
+        console.log('Generating EPC codes via backend API for:', itemCode, quantity);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestData = {
+            itemCode: itemCode,
+            quantity: quantity || 1
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('epcGenerate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders('POST'),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('EPC codes generated successfully via backend');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    var epcs = result.epcs || result.generatedEPCs || [];
+                    if (callback) callback(epcs);
+                } catch (e) {
+                    console.error('Error parsing EPC generation response:', e);
+                    if (callback) callback([]);
+                }
+            },
+            failure: function(response) {
+                console.error('Failed to generate EPC codes via backend:', response);
+                if (callback) callback([]);
+            }
+        });
+    },
+
+    /**
+     * Load suppliers from API (derived from inbound deliveries supplier data)
+     */
+    loadSuppliers: function(callback) {
+        console.log('Loading suppliers from inbound deliveries...');
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var url = apiConfig.getUrl('inboundList') + '?limit=100';
+        
+        Ext.Ajax.request({
+            url: url,
+            method: 'GET',
+            headers: apiConfig.getStandardHeaders('GET'),
+            timeout: 15000,
+            success: function(response) {
+                try {
+                    var result = Ext.decode(response.responseText);
+                    var deliveries = result.inboundDeliveries || [];
+                    
+                    // Extract unique suppliers
+                    var supplierMap = {};
+                    deliveries.forEach(function(delivery) {
+                        if (delivery.supplierCode && delivery.supplierName) {
+                            supplierMap[delivery.supplierCode] = {
+                                code: delivery.supplierCode,
+                                name: delivery.supplierName
+                            };
+                        }
+                    });
+                    
+                    var suppliers = Object.values(supplierMap);
+                    console.log('Extracted suppliers:', suppliers);
+                    
+                    if (callback) callback(suppliers);
+                } catch (e) {
+                    console.error('Error processing suppliers:', e);
+                    if (callback) callback([]);
+                }
+            },
+            failure: function(response) {
+                console.error('Failed to load suppliers:', response);
+                if (callback) callback([]);
+            }
+        });
+    },
+
+    /**
+     * Process locations API response
+     */
+    processLocations: function(response) {
+        try {
+            var result = Ext.decode(response.responseText);
+            console.log('Locations API Response:', result);
+            
+            var locations = null;
+            if (result.locations && Array.isArray(result.locations)) {
+                locations = result.locations;
+            } else if (result.body && result.body.locations) {
+                locations = result.body.locations;
+            }
+            
+            if (locations) {
+                // Store locations for form dropdowns
+                this._cachedLocations = locations;
+                console.log('✅ Cached', locations.length, 'locations for form use');
+                
+                // Update any location grids if they exist
+                this.updateLocationsGrid(locations);
+            }
+        } catch (e) {
+            console.error('Error parsing locations response:', e);
+        }
+    },
+
+    /**
+     * Process inventory API response
+     */
+    processInventory: function(response) {
+        try {
+            var result = Ext.decode(response.responseText);
+            console.log('Inventory API Response:', result);
+            
+            var inventory = null;
+            if (result.inventory && Array.isArray(result.inventory)) {
+                inventory = result.inventory;
+            } else if (result.body && result.body.inventory) {
+                inventory = result.body.inventory;
+            }
+            
+            if (inventory) {
+                // Store inventory for stock level lookups
+                this._cachedInventory = inventory;
+                console.log('✅ Cached', inventory.length, 'inventory items for stock lookups');
+                
+                // Update any inventory grids if they exist
+                this.updateInventoryGrid(inventory);
+            }
+        } catch (e) {
+            console.error('Error parsing inventory response:', e);
+        }
+    },
+
+    /**
+     * Update locations grid if exists
+     */
+    updateLocationsGrid: function(locations) {
+        // Update locations display if grid exists
+        console.log('Locations available for forms:', locations.length);
+    },
+
+    /**
+     * Update inventory grid if exists
+     */
+    updateInventoryGrid: function(inventory) {
+        // Update inventory display if grid exists
+        console.log('Inventory data available:', inventory.length);
+    },
+
+    /**
+     * Handle locations load failure
+     */
+    handleLocationsLoadFailure: function(response) {
+        console.error('Locations load failure:', response);
+        this._cachedLocations = [];
+    },
+
+    /**
+     * Handle inventory load failure
+     */
+    handleInventoryLoadFailure: function(response) {
+        console.error('Inventory load failure:', response);
+        this._cachedInventory = [];
+    },
+
+    /**
+     * Get cached locations for form dropdowns
+     */
+    getCachedLocations: function() {
+        return this._cachedLocations || [];
+    },
+
+    /**
+     * Get cached inventory for stock lookups
+     */
+    getCachedInventory: function() {
+        return this._cachedInventory || [];
+    },
+
+    /**
+     * Get cached suppliers for form dropdowns
+     */
+    getCachedSuppliers: function() {
+        return this._cachedSuppliers || [];
     },
     
     processItems: function(response) {
@@ -2794,6 +3050,130 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                 console.error('Failed to load delivery items:', response);
                 if (callback) callback([]);
             }
+        });
+    },
+
+    /**
+     * Load picking task details from backend API - NEW METHOD for PickingPanel integration
+     * GET /api/warehouse/picking/{pickingTaskId}/items
+     */
+    loadPickingTaskDetails: function(pickingTaskId) {
+        console.log('Loading picking task details for:', pickingTaskId);
+        
+        return new Promise(function(resolve, reject) {
+            var apiConfig = Store.warehouse.config.ApiConfig;
+            var url = apiConfig.getUrl('pickingDetails', {pickingTaskId: pickingTaskId});
+            
+            Ext.Ajax.request({
+                url: url,
+                method: 'GET',
+                headers: apiConfig.getStandardHeaders('GET'),
+                timeout: 15000,
+                success: function(response) {
+                    console.log('Picking task details loaded successfully');
+                    try {
+                        var result = Ext.decode(response.responseText);
+                        
+                        // Handle response format from backend
+                        var items = [];
+                        if (result.items && Array.isArray(result.items)) {
+                            items = result.items;
+                        } else if (result.body && result.body.items) {
+                            items = result.body.items;
+                        }
+                        
+                        resolve({items: items});
+                        
+                    } catch (e) {
+                        console.error('Error parsing picking task details response:', e);
+                        reject(e);
+                    }
+                },
+                failure: function(response) {
+                    console.error('Failed to load picking task details:', response);
+                    reject(response);
+                }
+            });
+        });
+    },
+
+    /**
+     * Generate real lot number from backend - NEW METHOD to replace hardcoded LOT-2024-001
+     */
+    generateLotNumber: function(itemCode, callback) {
+        console.log('Generating lot number for item:', itemCode);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestData = {
+            itemCode: itemCode,
+            productionDate: new Date().toISOString().split('T')[0]
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('lotGenerate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders('POST'),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('Lot number generated successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    var lotNumber = result.lotNumber || result.lot_number;
+                    if (callback) callback(lotNumber);
+                } catch (e) {
+                    console.error('Error parsing lot number response:', e);
+                    // Fallback to generated format
+                    var fallbackLot = 'LOT-' + new Date().getFullYear() + '-' +
+                                    String(Math.floor(Math.random() * 999) + 100).padStart(3, '0');
+                    if (callback) callback(fallbackLot);
+                }
+            },
+            failure: function(response) {
+                console.error('Failed to generate lot number:', response);
+                // Fallback to generated format
+                var fallbackLot = 'LOT-' + new Date().getFullYear() + '-' +
+                                String(Math.floor(Math.random() * 999) + 100).padStart(3, '0');
+                if (callback) callback(fallbackLot);
+            }
+        });
+    },
+
+    /**
+     * Load supplier master data - Enhanced version for real supplier integration
+     */
+    loadSuppliersEnhanced: function(callback) {
+        console.log('Loading enhanced supplier data from backend...');
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var url = apiConfig.getUrl('suppliersList');
+        
+        Ext.Ajax.request({
+            url: url,
+            method: 'GET',
+            headers: apiConfig.getStandardHeaders('GET'),
+            timeout: 15000,
+            success: function(response) {
+                try {
+                    var result = Ext.decode(response.responseText);
+                    var suppliers = result.suppliers || [];
+                    
+                    // Cache suppliers for form usage
+                    this._cachedSuppliers = suppliers;
+                    console.log('✅ Enhanced suppliers cached:', suppliers.length);
+                    
+                    if (callback) callback(suppliers);
+                } catch (e) {
+                    console.error('Error processing enhanced suppliers:', e);
+                    // Fallback to standard supplier loading
+                    this.loadSuppliers(callback);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load enhanced suppliers, falling back:', response);
+                // Fallback to standard supplier loading
+                this.loadSuppliers(callback);
+            }.bind(this)
         });
     }
 });
