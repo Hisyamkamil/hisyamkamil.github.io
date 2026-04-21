@@ -286,7 +286,9 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
                     name: 'location',
                     fieldLabel: 'Location *',
                     allowBlank: false,
-                    store: ['GOLD-ROOM-A', 'GOLD-ROOM-B', 'STORAGE-A1', 'STORAGE-B1', 'HIGH-VALUE-01'],
+                    store: me.createLocationStore(),
+                    displayField: 'location_name',
+                    valueField: 'location_id',
                     value: isEdit ? record.get('location') : ''
                 },
                 {
@@ -302,8 +304,8 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
                     name: 'assigned_to',
                     fieldLabel: 'Assign To *',
                     allowBlank: false,
-                    store: ['stockkeeper_001', 'stockkeeper_002', 'stockkeeper_003'],
-                    value: isEdit ? record.get('assigned_to') : 'stockkeeper_001'
+                    store: ['stockkeeper@company.com', 'inventory_manager@company.com', 'warehouse_supervisor@company.com'],
+                    value: isEdit ? record.get('assigned_to') : 'stockkeeper@company.com'
                 }
             ]
         });
@@ -539,5 +541,38 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
         if (status && status !== 'All') {
             store.filter('status', status);
         }
+    },
+
+    // Create location store with real data from backend
+    createLocationStore: function() {
+        var controller = window.warehouseController;
+        var store = Ext.create('Ext.data.Store', {
+            fields: ['location_id', 'location_name'],
+            data: []
+        });
+
+        if (controller && controller.getCachedLocations) {
+            var cachedLocations = controller.getCachedLocations();
+            if (cachedLocations && cachedLocations.length > 0) {
+                store.loadData(cachedLocations);
+            }
+        }
+        
+        // Fallback: Load locations if cache is empty
+        if (store.getCount() === 0) {
+            console.log('📍 Loading locations for stock opname from backend');
+            if (controller && controller.loadLocations) {
+                controller.loadLocations();
+                // Set timeout to retry after API call
+                setTimeout(function() {
+                    var locations = controller.getCachedLocations();
+                    if (locations && locations.length > 0) {
+                        store.loadData(locations);
+                    }
+                }, 1000);
+            }
+        }
+
+        return store;
     }
 });
