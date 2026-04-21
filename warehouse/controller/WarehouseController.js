@@ -2737,5 +2737,63 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         ].join('\n');
         
         Ext.Msg.alert('📱 Barcode Scan Success', message);
+    },
+
+    /**
+     * Load delivery item details from backend API
+     * GET /api/warehouse/inbound/{deliveryId}/items
+     */
+    loadDeliveryItems: function(deliveryId, callback) {
+        console.log('Loading delivery items for:', deliveryId);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var url = apiConfig.getUrl('inboundDetails', {deliveryId: deliveryId});
+        
+        Ext.Ajax.request({
+            url: url,
+            method: 'GET',
+            headers: apiConfig.getStandardHeaders('GET'),
+            timeout: 15000,
+            success: function(response) {
+                console.log('Delivery items loaded successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    
+                    // Handle response format from backend
+                    var items = [];
+                    if (result.items && Array.isArray(result.items)) {
+                        items = result.items;
+                    } else if (result.body && result.body.items) {
+                        items = result.body.items;
+                    }
+                    
+                    // Map backend response to UI format
+                    var mappedItems = items.map(function(item) {
+                        return {
+                            itemCode: item.itemCode || item.item_code,
+                            itemName: item.itemName || item.item_name,
+                            category: item.category || item.item_group || 'General',
+                            unitOfMeasure: item.unit || item.unitOfMeasure || 'PCS',
+                            expectedQuantity: item.expectedQuantity || item.expected_quantity || 0,
+                            receivedQuantity: item.receivedQuantity || item.received_quantity || 0,
+                            epcCode: item.epcCode || item.epc_code || 'Not Generated',
+                            scanningStatus: item.scanningStatus || item.scanning_status || 'Pending',
+                            lotNumber: item.lotNumber || item.lot_number || '',
+                            expiryDate: item.expiryDate || item.expiry_date || null
+                        };
+                    });
+                    
+                    if (callback) callback(mappedItems);
+                    
+                } catch (e) {
+                    console.error('Error parsing delivery items response:', e);
+                    if (callback) callback([]);
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to load delivery items:', response);
+                if (callback) callback([]);
+            }
+        });
     }
 });
