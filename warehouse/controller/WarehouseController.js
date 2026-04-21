@@ -122,7 +122,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: url,
             method: 'GET',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('GET'),
             timeout: 15000,
             success: function(response) {
                 console.log('Inbound deliveries loaded successfully');
@@ -239,29 +239,48 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
     
     /**
-     * Create new inbound delivery
+     * Create new inbound delivery - Fixed field mapping for backend
      */
     createInboundDelivery: function(deliveryData) {
         console.log('Creating inbound delivery:', deliveryData);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
-        var requestConfig = apiConfig.createRequestConfig('inboundCreate', 'POST', deliveryData);
         
-        Ext.Ajax.request(Ext.apply(requestConfig, {
+        // Map UI field names to backend expected format (dynamic data from UI)
+        var requestData = {
+            deliveryNumber: deliveryData.delivery_number,
+            supplierCode: deliveryData.supplier_code,
+            supplierName: deliveryData.supplier_name,
+            expectedDeliveryDate: deliveryData.expected_delivery_date,
+            purchaseOrderNumber: deliveryData.purchase_order_number,
+            notes: deliveryData.notes,
+            createdBy: deliveryData.created_by || 'warehouse_user',
+            items: [{
+                itemCode: deliveryData.item_code,
+                itemName: deliveryData.item_name,
+                expectedQuantity: parseInt(deliveryData.expected_quantity) || 1,
+                unit: deliveryData.unit,
+                unitPrice: parseFloat(deliveryData.unit_price) || 0,
+                lotNumber: deliveryData.lot_number,
+                expiryDate: deliveryData.expiry_date
+            }]
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('inboundCreate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
             success: function(response) {
                 console.log('Inbound delivery created successfully');
                 try {
                     var result = Ext.decode(response.responseText);
                     
-                    // Handle backend response: HTTP 201 with direct response body
-                    if (result.inboundDeliveryId && result.status === 'created' || response.status === 201) {
-                        var deliveryInfo = result; // Backend returns direct response, no .body wrapper
+                    if (result.deliveryId || response.status === 201) {
                         var message = 'Inbound delivery created successfully!\n\n' +
-                                    'Delivery ID: ' + (deliveryInfo.inboundDeliveryId || 'Generated') + '\n' +
-                                    'Delivery Number: ' + (deliveryInfo.deliveryNumber || 'N/A') + '\n' +
-                                    'Status: ' + (deliveryInfo.status || 'Unknown') + '\n' +
-                                    'Total Items: ' + (deliveryInfo.totalItems || 0) + '\n' +
-                                    'Supplier: ' + (deliveryInfo.supplierName || 'N/A');
+                                    'Delivery Number: ' + (result.deliveryNumber || requestData.deliveryNumber) + '\n' +
+                                    'Supplier: ' + (result.supplierName || requestData.supplierName);
                         
                         Ext.Msg.alert('Success', message);
                         this.loadInboundDeliveries(); // Refresh grid
@@ -276,31 +295,59 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             }.bind(this),
             failure: function(response) {
                 console.error('Failed to create inbound delivery:', response);
-                Ext.Msg.alert('Error', 'Failed to create inbound delivery. Network error occurred.');
-            }
-        }));
+                var errorMsg = 'Failed to create inbound delivery. ';
+                try {
+                    var errorResult = Ext.decode(response.responseText);
+                    errorMsg += errorResult.error || errorResult.message || 'Network error occurred.';
+                } catch (e) {
+                    errorMsg += 'Network error occurred.';
+                }
+                Ext.Msg.alert('Error', errorMsg);
+            }.bind(this)
+        });
     },
 
     /**
-     * Create Good Receive record - aligns with GOOD RECEIVE SEQUENCE DIAGRAM
+     * Create Good Receive record - Fixed field mapping for backend
      * POST /api/warehouse/goodreceive
      */
     createGoodReceive: function(goodReceiveData) {
         console.log('Creating good receive record:', goodReceiveData);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
-        var requestConfig = apiConfig.createRequestConfig('goodReceiveCreate', 'POST', goodReceiveData);
         
-        Ext.Ajax.request(Ext.apply(requestConfig, {
+        // Map UI field names to backend expected format
+        var requestData = {
+            deliveryNumber: goodReceiveData.delivery_number,
+            supplierCode: goodReceiveData.supplier_code,
+            supplierName: goodReceiveData.supplier_name,
+            deliveryDate: goodReceiveData.delivery_date,
+            expectedDate: goodReceiveData.expected_date,
+            createdBy: goodReceiveData.created_by || 'warehouse_user@company.com',
+            notes: goodReceiveData.notes,
+            items: [{
+                itemCode: goodReceiveData.item_code,
+                itemName: goodReceiveData.item_name,
+                quantity: parseInt(goodReceiveData.quantity) || 1,
+                unit: goodReceiveData.unit,
+                lotNumber: goodReceiveData.lot_number,
+                expiryDate: goodReceiveData.expiry_date
+            }]
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('goodReceiveCreate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
             success: function(response) {
                 console.log('Good receive record created successfully');
                 try {
                     var result = Ext.decode(response.responseText);
                     
-                    // Handle response format from Postman collection
-                    if (result.goodReceiveId || (result.status === 200 || response.status === 201)) {
-                        var goodReceiveInfo = result.goodReceiveId ? result : result.body;
-                        this.handleGoodReceiveCreated(goodReceiveInfo);
+                    if (result.goodReceiveId || response.status === 201) {
+                        this.handleGoodReceiveCreated(result);
                     } else {
                         Ext.Msg.alert('Error', result.message || 'Failed to create good receive');
                     }
@@ -312,8 +359,8 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             failure: function(response) {
                 console.error('Failed to create good receive:', response);
                 Ext.Msg.alert('Error', 'Failed to create good receive. Network error occurred.');
-            }
-        }));
+            }.bind(this)
+        });
     },
 
     /**
@@ -337,7 +384,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('goodReceiveConfirm'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -384,7 +431,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('goodReceiveReverse'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -431,7 +478,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('rfidGenerateTags'), // Use correct endpoint from Postman collection
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -472,7 +519,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('rfidScan'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -562,24 +609,39 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     // ===== PUT AWAY METHODS =====
     
     /**
-     * Create put away task - aligns with POST /api/warehouse/putaway
+     * Create put away task - Fixed field mapping for backend
      */
     createPutAwayTask: function(putAwayTaskData) {
         console.log('Creating put away task:', putAwayTaskData);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
-        var requestConfig = apiConfig.createRequestConfig('putAwayCreate', 'POST', putAwayTaskData);
         
-        Ext.Ajax.request(Ext.apply(requestConfig, {
+        // Map UI field names to backend expected format
+        var requestData = {
+            items: [{
+                itemId: putAwayTaskData.item_id,
+                quantity: parseInt(putAwayTaskData.quantity) || 1,
+                fromLocationId: putAwayTaskData.from_location_id,
+                toLocationId: putAwayTaskData.to_location_id,
+                binLocation: putAwayTaskData.bin_location,
+                epcCodes: putAwayTaskData.epc_codes || []
+            }],
+            priority: putAwayTaskData.priority || 'medium',
+            notes: putAwayTaskData.notes
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('putAwayCreate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
             success: function(response) {
                 console.log('Put away task created successfully');
                 try {
                     var result = Ext.decode(response.responseText);
                     if (result.putAwayId || response.status === 201) {
-                        var taskInfo = result.putAwayId ? result : result;
-                        Ext.Msg.alert('Success',
-                            'Put away task "' + (taskInfo.transferOrderNumber || putAwayTaskData.transferNumber) + '" created successfully!'
-                        );
+                        Ext.Msg.alert('Success', 'Put away task created successfully!');
                         this.loadPutAwayTasks(); // Refresh grid
                     } else {
                         Ext.Msg.alert('Error', result.message || 'Failed to create put away task');
@@ -592,8 +654,8 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             failure: function(response) {
                 console.error('Failed to create put away task:', response);
                 Ext.Msg.alert('Error', 'Failed to create put away task. Network error occurred.');
-            }
-        }));
+            }.bind(this)
+        });
     },
 
     /**
@@ -618,7 +680,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: url,
             method: 'GET',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             timeout: 15000,
             success: function(response) {
                 console.log('Put away tasks loaded successfully');
@@ -648,7 +710,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('putAwayList') + '/start', // Extends putaway endpoint
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -688,7 +750,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('putAwayList') + '/confirm', // Extends putaway endpoint
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -848,24 +910,41 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     // ===== PICKING METHODS =====
     
     /**
-     * Create picking task - aligns with POST /api/warehouse/picking
+     * Create picking task - Fixed field mapping for backend
      */
     createPickingTask: function(pickingTaskData) {
         console.log('Creating picking task:', pickingTaskData);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
-        var requestConfig = apiConfig.createRequestConfig('pickingCreate', 'POST', pickingTaskData);
         
-        Ext.Ajax.request(Ext.apply(requestConfig, {
+        // Map UI field names to backend expected format
+        var requestData = {
+            items: [{
+                itemId: pickingTaskData.item_id,
+                quantity: parseInt(pickingTaskData.quantity) || 1,
+                locationId: pickingTaskData.location_id,
+                binLocation: pickingTaskData.bin_location,
+                specificEpcCodes: pickingTaskData.specific_epc_codes || []
+            }],
+            customerId: pickingTaskData.customer_id,
+            customerName: pickingTaskData.customer_name,
+            orderReference: pickingTaskData.order_reference,
+            priority: pickingTaskData.priority || 'medium',
+            notes: pickingTaskData.notes
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('pickingCreate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
             success: function(response) {
                 console.log('Picking task created successfully');
                 try {
                     var result = Ext.decode(response.responseText);
                     if (result.pickingTaskId || response.status === 201) {
-                        var taskInfo = result.pickingTaskId ? result : result;
-                        Ext.Msg.alert('Success',
-                            'Picking task "' + (taskInfo.outboundDeliveryNumber || pickingTaskData.outboundDeliveryNumber) + '" created successfully!'
-                        );
+                        Ext.Msg.alert('Success', 'Picking task created successfully!');
                         this.loadPickingTasks(); // Refresh grid
                     } else {
                         Ext.Msg.alert('Error', result.message || 'Failed to create picking task');
@@ -878,8 +957,8 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             failure: function(response) {
                 console.error('Failed to create picking task:', response);
                 Ext.Msg.alert('Error', 'Failed to create picking task. Network error occurred.');
-            }
-        }));
+            }.bind(this)
+        });
     },
 
     /**
@@ -950,7 +1029,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: url,
             method: 'GET',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             timeout: 15000,
             success: function(response) {
                 console.log('Picking tasks loaded successfully');
@@ -980,7 +1059,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('pickingStart'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -1020,7 +1099,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('pickingValidate'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -1059,7 +1138,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('pickingConfirm'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -1401,7 +1480,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('rfidScan'), // Uses same endpoint with different operation type
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -1465,7 +1544,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: url,
             method: 'GET',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             timeout: 15000,
             success: function(response) {
                 console.log('Items loaded successfully');
@@ -1706,21 +1785,30 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
     
     /**
-     * Create new item via backend API
+     * Create new item via backend API - Fixed field mapping for backend
      * POST /api/warehouse/items
      */
     createItem: function(itemData) {
         console.log('Creating item via backend API:', itemData);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
+        
+        // Map UI field names to backend expected format
         var requestData = {
             itemCode: itemData.item_code,
             itemName: itemData.item_name,
-            description: itemData.description || '',
             unitOfMeasure: itemData.unit_of_measure,
+            description: itemData.description,
             category: itemData.category,
             weight: parseFloat(itemData.weight) || 0,
-            dimensions: itemData.dimensions || '',
+            dimensions: itemData.dimensions ? {
+                length: parseFloat(itemData.length) || 0,
+                width: parseFloat(itemData.width) || 0,
+                height: parseFloat(itemData.height) || 0,
+                unit: itemData.dimension_unit || 'cm'
+            } : null,
+            minStockLevel: parseInt(itemData.min_stock_level) || 0,
+            maxStockLevel: parseInt(itemData.max_stock_level) || 0,
             isActive: itemData.status === 'Active'
         };
         
@@ -1735,10 +1823,9 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                 try {
                     var result = Ext.decode(response.responseText);
                     if (result.itemId || response.status === 201) {
-                        var itemInfo = result.itemId ? result : result;
                         Ext.Msg.alert('Success',
-                            'Item "' + (itemInfo.itemName || itemData.item_name) + '" created successfully!\n\n' +
-                            'Item Code: ' + (itemInfo.itemCode || itemData.item_code)
+                            'Item "' + (result.itemName || requestData.itemName) + '" created successfully!\n\n' +
+                            'Item Code: ' + (result.itemCode || requestData.itemCode)
                         );
                         this.loadItems(); // Refresh grid
                     } else {
@@ -1783,8 +1870,8 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         
         Ext.Ajax.request({
             url: apiConfig.getUrl('itemsUpdate', {itemId: itemId}),
-            method: 'PUT',
-            headers: apiConfig.getStandardHeaders(),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -1829,8 +1916,8 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         
         Ext.Ajax.request({
             url: apiConfig.getUrl('itemsDelete', {itemId: itemId}),
-            method: 'DELETE',
-            headers: apiConfig.getStandardHeaders(),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders('POST'),
             timeout: 15000,
             success: function(response) {
                 console.log('Item deleted successfully');
@@ -1884,7 +1971,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: url,
             method: 'GET',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             timeout: 15000,
             success: function(response) {
                 console.log('Stock opname sessions loaded successfully');
@@ -1898,18 +1985,20 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
 
     /**
-     * Create stock opname session - aligns with POST /api/warehouse/stockopname
+     * Create stock opname session - Fixed field mapping for backend
      */
     createStockOpnameSession: function(sessionData) {
         console.log('Creating stock opname session:', sessionData);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
+        
+        // Map UI field names to backend expected format
         var requestData = {
-            sessionName: sessionData.sessionName,
-            locationId: sessionData.locationId || 'loc-default-001', // Default location ID
-            plannedDate: sessionData.scheduledDate || new Date().toISOString(),
-            description: sessionData.description || '',
-            itemFilter: sessionData.itemFilter || {}
+            sessionName: sessionData.session_name,
+            locationId: sessionData.location_id,
+            plannedDate: sessionData.planned_date || new Date().toISOString(),
+            description: sessionData.description,
+            itemFilter: sessionData.item_filter || {}
         };
         
         Ext.Ajax.request({
@@ -1924,12 +2013,9 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                     var result = Ext.decode(response.responseText);
                     
                     if (result.sessionId || response.status === 201) {
-                        var sessionInfo = result.sessionId ? result : result;
                         var message = 'Stock opname session created successfully!\n\n' +
-                                    'Session ID: ' + (sessionInfo.sessionId || 'Generated') + '\n' +
-                                    'Session Name: ' + (sessionInfo.sessionName || sessionData.sessionName) + '\n' +
-                                    'Total Items: ' + (sessionInfo.totalItems || 0) + '\n' +
-                                    'Location: ' + (sessionInfo.locationName || 'N/A');
+                                    'Session Name: ' + (result.sessionName || requestData.sessionName) + '\n' +
+                                    'Location: ' + (result.locationName || 'Selected Location');
                         
                         Ext.Msg.alert('Success', message);
                         this.loadStockOpnameSessions(); // Refresh grid
@@ -1944,7 +2030,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             failure: function(response) {
                 console.error('Failed to create stock opname session:', response);
                 Ext.Msg.alert('Error', 'Failed to create stock opname session. Network error occurred.');
-            }
+            }.bind(this)
         });
     },
 
@@ -1963,7 +2049,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('stockOpnameStart', {sessionId: sessionId}),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -2010,7 +2096,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('stockOpnameComplete', {sessionId: sessionId}),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -2441,7 +2527,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('barcodeScan'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -2480,7 +2566,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('rfidScan'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
@@ -2522,7 +2608,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Ajax.request({
             url: apiConfig.getUrl('rfidScan'),
             method: 'POST',
-            headers: apiConfig.getStandardHeaders(),
+            headers: apiConfig.getStandardHeaders('POST'),
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
