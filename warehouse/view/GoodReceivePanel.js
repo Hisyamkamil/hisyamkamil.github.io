@@ -819,92 +819,17 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         
         window.show();
         
-        // CRITICAL FIX: Load complete delivery details from backend API
+        // CRITICAL FIX: Load complete delivery details from backend API with comprehensive controller access
         var deliveryId = record.get('inbound_delivery_id') || record.get('id');
-        var controller = window.warehouseController;
+        console.log('🔄 Attempting to load delivery details for:', deliveryId);
         
-        if (controller && controller.loadInboundDeliveryDetails && deliveryId) {
-            console.log('🔄 Loading complete delivery details via backend API for:', deliveryId);
-            
-            controller.loadInboundDeliveryDetails(deliveryId, function(deliveryData) {
-                if (deliveryData) {
-                    console.log('✅ Loaded delivery details from backend:', deliveryData);
-                    
-                    // Update window title with real delivery number
-                    window.setTitle('Delivery Details - ' + deliveryData.deliveryNumber);
-                    
-                    // Update delivery info panel with real data
-                    var infoPanel = deliveryInfoPanel;
-                    var infoHtml = '<table style="width: 100%; border-collapse: collapse;">' +
-                                  '<tr><td style="font-weight: bold; padding: 5px;">Delivery Number:</td><td style="padding: 5px;">' + deliveryData.deliveryNumber + '</td></tr>' +
-                                  '<tr><td style="font-weight: bold; padding: 5px;">Supplier:</td><td style="padding: 5px;">' + deliveryData.supplierName + ' (' + deliveryData.supplierCode + ')</td></tr>' +
-                                  '<tr><td style="font-weight: bold; padding: 5px;">Purchase Order:</td><td style="padding: 5px;">' + deliveryData.purchaseOrder + '</td></tr>' +
-                                  '<tr><td style="font-weight: bold; padding: 5px;">Expected Date:</td><td style="padding: 5px;">' + deliveryData.expectedDate + '</td></tr>' +
-                                  '<tr><td style="font-weight: bold; padding: 5px;">Status:</td><td style="padding: 5px;"><strong style="color: ' + me.getStatusColor(deliveryData.status) + ';">' + deliveryData.status + '</strong></td></tr>' +
-                                  '</table>';
-                    
-                    infoPanel.update(infoHtml);
-                    
-                    // Update status display in toolbar
-                    var statusDisplay = window.down('#statusDisplay');
-                    if (statusDisplay) {
-                        statusDisplay.setValue('<strong>Total Items: ' + deliveryData.totalItems + ' | Status: </strong><span style="color: ' + me.getStatusColor(deliveryData.status) + '; font-weight: bold;">' + deliveryData.status + '</span>');
-                    }
-                    
-                    // Enable/disable buttons based on real status
-                    var generateEpcBtn = window.down('#generateEpcBtn');
-                    var startRfidBtn = window.down('#startRfidBtn');
-                    var rfidScanningBtn = window.down('#rfidScanningBtn');
-                    
-                    if (generateEpcBtn) generateEpcBtn.setDisabled(deliveryData.status !== 'Created');
-                    if (startRfidBtn) startRfidBtn.setDisabled(deliveryData.status === 'Confirmed');
-                    if (rfidScanningBtn) rfidScanningBtn.setDisabled(deliveryData.status === 'Confirmed' || deliveryData.status === 'Cancelled');
-                    
-                    // Load delivery items if available
-                    if (deliveryData.items && deliveryData.items.length > 0) {
-                        var itemsGrid = window.down('#deliveryItemsGrid');
-                        if (itemsGrid && itemsGrid.getStore()) {
-                            console.log('✅ Loading', deliveryData.items.length, 'delivery items from backend data');
-                            
-                            // Map items to expected format
-                            var mappedItems = deliveryData.items.map(function(item) {
-                                return {
-                                    itemCode: item.itemCode || item.item_code,
-                                    itemName: item.itemName || item.item_name,
-                                    category: item.category || item.item_group || 'General',
-                                    unitOfMeasure: item.unit || item.unitOfMeasure || 'PCS',
-                                    expectedQuantity: item.expectedQuantity || item.expected_quantity || 0,
-                                    receivedQuantity: item.receivedQuantity || item.received_quantity || 0,
-                                    epcCode: item.epcCode || item.epc_code || 'Not Generated',
-                                    scanningStatus: item.scanningStatus || item.scanning_status || 'Pending',
-                                    lotNumber: item.lotNumber || item.lot_number || '',
-                                    expiryDate: item.expiryDate || item.expiry_date || null
-                                };
-                            });
-                            
-                            itemsGrid.getStore().loadData(mappedItems);
-                        }
-                    }
-                    
-                } else {
-                    console.error('❌ Failed to load delivery details from backend');
-                    
-                    // Show error in info panel
-                    deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: red;"><i class="fa fa-exclamation-triangle"></i> Failed to load delivery details from backend API</div>');
-                    
-                    // Set fallback window title
-                    window.setTitle('Delivery Details - Error Loading');
-                }
-            });
+        if (deliveryId) {
+            // Use the same comprehensive controller access pattern as other methods
+            me.loadDeliveryDetailsWithFallback(deliveryId, window, deliveryInfoPanel);
         } else {
-            console.warn('⚠️ Cannot load delivery details - missing controller or deliveryId');
-            console.warn('DeliveryId:', deliveryId, 'Controller available:', !!controller);
-            
-            // Show error message
-            deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: orange;"><i class="fa fa-exclamation-triangle"></i> Backend API integration not available. Please ensure WarehouseController is initialized.</div>');
-            
-            // Fallback: try to use grid record data (will likely show undefined values)
-            window.setTitle('Delivery Details - ' + (record.get('delivery_number') || 'Local Data'));
+            console.error('❌ No deliveryId available');
+            deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: red;"><i class="fa fa-exclamation-triangle"></i> Cannot load delivery details - no delivery ID available</div>');
+            window.setTitle('Delivery Details - Error: No ID');
         }
     },
 
@@ -1189,6 +1114,158 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             'Cancelled': '#dc3545'
         };
         return colorMap[status] || '#6c757d';
+    },
+
+    /**
+     * Load delivery details with comprehensive fallback controller access
+     */
+    loadDeliveryDetailsWithFallback: function(deliveryId, window, deliveryInfoPanel) {
+        var me = this;
+        console.log('🔄 Loading delivery details with fallback for:', deliveryId);
+        
+        // Strategy 1: Direct global access
+        var controller = window.warehouseController;
+        if (controller && controller.loadInboundDeliveryDetails) {
+            console.log('✅ Using direct global controller for loadInboundDeliveryDetails');
+            me.executeDeliveryDetailsLoad(controller, deliveryId, window, deliveryInfoPanel);
+            return true;
+        }
+        
+        // Strategy 2: Wait for controller initialization with retries
+        console.log('🔧 Controller not available, attempting fallback strategies...');
+        var retryCount = 0;
+        var maxRetries = 3;
+        
+        var retryFunction = function() {
+            retryCount++;
+            console.log('🔍 Retry attempt', retryCount, 'for delivery details loading');
+            
+            controller = window.warehouseController;
+            if (controller && controller.loadInboundDeliveryDetails) {
+                console.log('✅ Controller became available on retry', retryCount);
+                me.executeDeliveryDetailsLoad(controller, deliveryId, window, deliveryInfoPanel);
+                return true;
+            }
+            
+            if (retryCount < maxRetries) {
+                setTimeout(retryFunction, 300);
+            } else {
+                // Strategy 3: Create fallback controller
+                me.createFallbackControllerForDeliveryDetails(deliveryId, window, deliveryInfoPanel);
+            }
+        };
+        
+        setTimeout(retryFunction, 100);
+        return false;
+    },
+
+    /**
+     * Execute the actual delivery details loading with error handling
+     */
+    executeDeliveryDetailsLoad: function(controller, deliveryId, window, deliveryInfoPanel) {
+        var me = this;
+        
+        controller.loadInboundDeliveryDetails(deliveryId, function(deliveryData) {
+            if (deliveryData) {
+                console.log('✅ Loaded delivery details from backend:', deliveryData);
+                
+                // Update window title with real delivery number
+                window.setTitle('Delivery Details - ' + deliveryData.deliveryNumber);
+                
+                // Update delivery info panel with real data
+                var infoHtml = '<table style="width: 100%; border-collapse: collapse;">' +
+                              '<tr><td style="font-weight: bold; padding: 5px;">Delivery Number:</td><td style="padding: 5px;">' + deliveryData.deliveryNumber + '</td></tr>' +
+                              '<tr><td style="font-weight: bold; padding: 5px;">Supplier:</td><td style="padding: 5px;">' + deliveryData.supplierName + ' (' + deliveryData.supplierCode + ')</td></tr>' +
+                              '<tr><td style="font-weight: bold; padding: 5px;">Purchase Order:</td><td style="padding: 5px;">' + deliveryData.purchaseOrder + '</td></tr>' +
+                              '<tr><td style="font-weight: bold; padding: 5px;">Expected Date:</td><td style="padding: 5px;">' + deliveryData.expectedDate + '</td></tr>' +
+                              '<tr><td style="font-weight: bold; padding: 5px;">Status:</td><td style="padding: 5px;"><strong style="color: ' + me.getStatusColor(deliveryData.status) + ';">' + deliveryData.status + '</strong></td></tr>' +
+                              '</table>';
+                
+                deliveryInfoPanel.update(infoHtml);
+                
+                // Update status display in toolbar
+                var statusDisplay = window.down('#statusDisplay');
+                if (statusDisplay) {
+                    statusDisplay.setValue('<strong>Total Items: ' + deliveryData.totalItems + ' | Status: </strong><span style="color: ' + me.getStatusColor(deliveryData.status) + '; font-weight: bold;">' + deliveryData.status + '</span>');
+                }
+                
+                // Enable/disable buttons based on real status
+                var generateEpcBtn = window.down('#generateEpcBtn');
+                var startRfidBtn = window.down('#startRfidBtn');
+                var rfidScanningBtn = window.down('#rfidScanningBtn');
+                
+                if (generateEpcBtn) generateEpcBtn.setDisabled(deliveryData.status !== 'Created');
+                if (startRfidBtn) startRfidBtn.setDisabled(deliveryData.status === 'Confirmed');
+                if (rfidScanningBtn) rfidScanningBtn.setDisabled(deliveryData.status === 'Confirmed' || deliveryData.status === 'Cancelled');
+                
+                // Load delivery items if available
+                if (deliveryData.items && deliveryData.items.length > 0) {
+                    var itemsGrid = window.down('#deliveryItemsGrid');
+                    if (itemsGrid && itemsGrid.getStore()) {
+                        console.log('✅ Loading', deliveryData.items.length, 'delivery items from backend data');
+                        
+                        // Map items to expected format
+                        var mappedItems = deliveryData.items.map(function(item) {
+                            return {
+                                itemCode: item.itemCode || item.item_code,
+                                itemName: item.itemName || item.item_name,
+                                category: item.category || item.item_group || 'General',
+                                unitOfMeasure: item.unit || item.unitOfMeasure || 'PCS',
+                                expectedQuantity: item.expectedQuantity || item.expected_quantity || 0,
+                                receivedQuantity: item.receivedQuantity || item.received_quantity || 0,
+                                epcCode: item.epcCode || item.epc_code || 'Not Generated',
+                                scanningStatus: item.scanningStatus || item.scanning_status || 'Pending',
+                                lotNumber: item.lotNumber || item.lot_number || '',
+                                expiryDate: item.expiryDate || item.expiry_date || null
+                            };
+                        });
+                        
+                        itemsGrid.getStore().loadData(mappedItems);
+                    }
+                }
+                
+            } else {
+                console.error('❌ Failed to load delivery details from backend');
+                
+                // Show error in info panel
+                deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: red;"><i class="fa fa-exclamation-triangle"></i> Failed to load delivery details from backend API</div>');
+                
+                // Set fallback window title
+                window.setTitle('Delivery Details - Error Loading');
+            }
+        });
+    },
+
+    /**
+     * Create fallback controller specifically for delivery details loading
+     */
+    createFallbackControllerForDeliveryDetails: function(deliveryId, window, deliveryInfoPanel) {
+        var me = this;
+        console.log('🔧 Creating fallback controller for delivery details');
+        
+        try {
+            if (Store && Store.warehouse && Store.warehouse.controller && Store.warehouse.controller.WarehouseController) {
+                var fallbackController = Ext.create('Store.warehouse.controller.WarehouseController');
+                console.log('✅ Fallback controller created successfully for delivery details');
+                
+                // Set it globally for future use
+                window.warehouseController = fallbackController;
+                
+                if (fallbackController.loadInboundDeliveryDetails) {
+                    console.log('✅ Using fallback controller for delivery details');
+                    me.executeDeliveryDetailsLoad(fallbackController, deliveryId, window, deliveryInfoPanel);
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.error('❌ Failed to create fallback controller for delivery details:', e);
+        }
+        
+        // All strategies failed
+        console.error('❌ All controller access strategies failed for delivery details loading');
+        deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: red;"><i class="fa fa-exclamation-triangle"></i> Backend controller initialization failed. Please refresh the page and try again.</div>');
+        window.setTitle('Delivery Details - Controller Error');
+        return false;
     },
     
     /**
