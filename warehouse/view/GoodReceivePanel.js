@@ -620,6 +620,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     region: 'center',
                     title: 'Delivery Items',
                     xtype: 'grid',
+                    itemId: 'deliveryItemsGrid',
                     store: Ext.create('Ext.data.Store', {
                         fields: [
                             'itemCode',
@@ -633,44 +634,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                             'lotNumber',
                             'expiryDate'
                         ],
-                        data: [
-                            {
-                                itemCode: 'ITM001',
-                                itemName: 'Steel Pipe 6 inch',
-                                category: 'Piping',
-                                unitOfMeasure: 'PCS',
-                                expectedQuantity: 2,
-                                receivedQuantity: record.get('status') === 'Confirmed' ? 2 : 0,
-                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A85' : 'Not Generated',
-                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
-                                lotNumber: 'LOT-2024-001',
-                                expiryDate: null
-                            },
-                            {
-                                itemCode: 'ITM002',
-                                itemName: 'Hydraulic Hose',
-                                category: 'Hydraulics',
-                                unitOfMeasure: 'MTR',
-                                expectedQuantity: 50,
-                                receivedQuantity: record.get('status') === 'Confirmed' ? 50 : 0,
-                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A86' : 'Not Generated',
-                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
-                                lotNumber: 'LOT-2024-002',
-                                expiryDate: null
-                            },
-                            {
-                                itemCode: 'ITM005',
-                                itemName: 'Industrial Grease',
-                                category: 'Lubricants',
-                                unitOfMeasure: 'KG',
-                                expectedQuantity: 10,
-                                receivedQuantity: record.get('status') === 'Confirmed' ? 10 : 0,
-                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A87' : 'Not Generated',
-                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
-                                lotNumber: 'LOT-2024-003',
-                                expiryDate: '2025-12-31'
-                            }
-                        ]
+                        data: [] // Will be loaded from backend API
                     }),
                     columns: [
                         {
@@ -810,6 +774,31 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         });
         
         window.show();
+        
+        // Load real delivery items from backend API
+        var deliveryId = record.get('inbound_delivery_id') || record.get('id');
+        var controller = window.warehouseController;
+        
+        if (controller && controller.loadDeliveryItems && deliveryId) {
+            console.log('📦 Loading real delivery items for delivery:', deliveryId);
+            
+            controller.loadDeliveryItems(deliveryId, function(items) {
+                var itemsGrid = window.down('#deliveryItemsGrid');
+                if (itemsGrid && itemsGrid.getStore()) {
+                    console.log('✅ Loading', items.length, 'real delivery items');
+                    itemsGrid.getStore().loadData(items);
+                } else {
+                    console.warn('⚠️ Delivery items grid not found');
+                }
+            });
+        } else {
+            console.warn('⚠️ Cannot load delivery items - missing controller or deliveryId');
+            // Fallback: show message that real data requires backend
+            var itemsGrid = window.down('#deliveryItemsGrid');
+            if (itemsGrid) {
+                itemsGrid.setTitle('Delivery Items (Backend Integration Required)');
+            }
+        }
     },
 
     showRFIDScanning: function(record) {
