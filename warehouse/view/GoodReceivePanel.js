@@ -290,13 +290,15 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             });
             console.log('✅ Using', masterDataItems.length, 'real items from Master Data API');
         } else {
-            // Load items from backend if not cached
+            // Handle controller not available case
             if (controller && controller.loadItems) {
                 console.log('📦 Loading items from Master Data API...');
                 controller.loadItems();
+            } else if (!controller) {
+                console.warn('⚠️ WarehouseController not available - form will work with manual input');
             }
-            // Fallback message for user
-            console.warn('⚠️ Master Data API not loaded - forms will show empty dropdown');
+            // Empty array - user can still create forms manually
+            masterDataItems = [];
         }
 
         var formPanel = Ext.create('Ext.form.Panel', {
@@ -334,6 +336,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     listeners: {
                         afterrender: function(combo) {
                             // Load real suppliers from backend
+                            var controller = window.warehouseController;
                             if (controller && controller.loadSuppliers) {
                                 controller.loadSuppliers(function(suppliers) {
                                     if (suppliers && suppliers.length > 0) {
@@ -341,6 +344,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                         console.log('✅ Loaded', suppliers.length, 'suppliers from backend');
                                     }
                                 });
+                            } else {
+                                console.warn('⚠️ WarehouseController not available - suppliers dropdown will be empty');
                             }
                         },
                         select: function(combo, record) {
@@ -502,9 +507,16 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                 console.log('🔄 Creating inbound delivery via backend API:', deliveryData);
                                 
                                 // Call backend API via WarehouseController with multiple fallback attempts
-                                me.callWarehouseController('createInboundDelivery', deliveryData, function() {
+                                var controller = window.warehouseController;
+                                if (controller && controller.createInboundDelivery) {
+                                    controller.createInboundDelivery(deliveryData);
                                     window.close();
-                                });
+                                } else {
+                                    // Fallback: Use the comprehensive fallback method
+                                    me.callWarehouseController('createInboundDelivery', deliveryData, function() {
+                                        window.close();
+                                    });
+                                }
                             }
                         } else {
                             Ext.Msg.alert('Validation Error', 'Please fill all required fields and add at least one item.');
