@@ -278,11 +278,34 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             data: []
         });
 
-        // Load real master data from backend API
-        var masterDataItems = [];
+        // Show loading mask while preparing data
+        var loadingMask = new Ext.LoadMask({
+            msg: 'Loading master data...',
+            target: Ext.getBody()
+        });
+        loadingMask.show();
+
+        // Load real master data from backend API with proper callback handling
+        me.loadMasterDataForForm(function(masterDataItems, supplierData) {
+            loadingMask.hide();
+            me.createDeliveryFormWindow(record, isEdit, itemsStore, masterDataItems, supplierData);
+        });
+    },
+
+    loadMasterDataForForm: function(callback) {
+        var me = this;
         var controller = me.getWarehouseController();
+        var masterDataItems = [];
+        var supplierData = [];
         
-        if (controller && controller._cachedItemsData) {
+        if (!controller) {
+            console.warn('⚠️ WarehouseController not available - using empty data');
+            callback(masterDataItems, supplierData);
+            return;
+        }
+        
+        // Check if items are already cached
+        if (controller._cachedItemsData && controller._cachedItemsData.length > 0) {
             // Use cached items from Master Data API
             masterDataItems = controller._cachedItemsData.map(function(item) {
                 return {
@@ -292,18 +315,56 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     unitOfMeasure: item.unitOfMeasure || item.unit_of_measure || 'PCS'
                 };
             });
-            console.log('✅ Using', masterDataItems.length, 'real items from Master Data API');
-        } else {
-            // Handle controller not available case
-            if (controller && controller.loadItems) {
-                console.log('📦 Loading items from Master Data API...');
-                controller.loadItems();
-            } else if (!controller) {
-                console.warn('⚠️ WarehouseController not available - form will work with manual input');
+            console.log('✅ Using', masterDataItems.length, 'cached items from Master Data API');
+            
+            // Also get suppliers if available
+            if (controller._cachedSuppliers && controller._cachedSuppliers.length > 0) {
+                supplierData = controller._cachedSuppliers;
+                console.log('✅ Using', supplierData.length, 'cached suppliers');
             }
-            // Empty array - user can still create forms manually
-            masterDataItems = [];
+            
+            callback(masterDataItems, supplierData);
+        } else {
+            // Need to load items first
+            console.log('📦 Loading items from Master Data API...');
+            
+            if (controller.loadItems) {
+                // Load items with callback
+                controller.loadItems(function(loadedItems) {
+                    if (loadedItems && loadedItems.length > 0) {
+                        masterDataItems = loadedItems.map(function(item) {
+                            return {
+                                itemCode: item.itemCode || item.item_code,
+                                itemName: item.itemName || item.item_name,
+                                category: item.category || 'General',
+                                unitOfMeasure: item.unitOfMeasure || item.unit_of_measure || 'PCS'
+                            };
+                        });
+                        console.log('✅ Loaded', masterDataItems.length, 'items from Master Data API');
+                    }
+                    
+                    // Also load suppliers
+                    if (controller.loadSuppliers) {
+                        controller.loadSuppliers(function(suppliers) {
+                            if (suppliers && suppliers.length > 0) {
+                                supplierData = suppliers;
+                                console.log('✅ Loaded', supplierData.length, 'suppliers from backend');
+                            }
+                            callback(masterDataItems, supplierData);
+                        });
+                    } else {
+                        callback(masterDataItems, supplierData);
+                    }
+                });
+            } else {
+                console.warn('⚠️ loadItems method not available on controller');
+                callback(masterDataItems, supplierData);
+            }
         }
+    },
+
+    createDeliveryFormWindow: function(record, isEdit, itemsStore, masterDataItems, supplierData) {
+        var me = this;
 
         var formPanel = Ext.create('Ext.form.Panel', {
             region: 'north',
