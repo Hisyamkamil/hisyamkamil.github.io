@@ -5,6 +5,10 @@
 Ext.define('Store.warehouse.view.PickingPanel', {
     extend: 'Ext.panel.Panel',
     
+    config: {
+        warehouseController: null
+    },
+    
     title: 'Picking - Outbound Delivery Management',
     layout: 'border',
     border: false,
@@ -270,7 +274,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
 
         // Load master data items with real inventory from backend API
         var masterDataItems = [];
-        var controller = window.warehouseController;
+        var controller = me.getWarehouseController();
         if (controller && controller.getCachedInventory) {
             var cachedInventory = controller.getCachedInventory();
             if (cachedInventory && cachedInventory.length > 0) {
@@ -284,12 +288,14 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                     };
                 });
             }
+        } else if (!controller) {
+            console.warn('⚠️ WarehouseController not available - Picking form will work with manual input');
         }
         
         // Fallback: Load real inventory if cache is empty
-        if (masterDataItems.length === 0) {
+        if (masterDataItems.length === 0 && controller) {
             console.log('📦 Loading master data items for picking from backend');
-            if (controller && controller.loadInventory) {
+            if (controller.loadInventory) {
                 controller.loadInventory();
                 // Set a timeout to retry after API call completes
                 setTimeout(function() {
@@ -518,7 +524,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                                 });
                                 
                                 // Call backend API via WarehouseController
-                                var controller = window.warehouseController;
+                                var controller = me.getWarehouseController();
                                 if (controller && controller.createPickingTask) {
                                     controller.createPickingTask(pickingTaskData);
                                     
@@ -531,7 +537,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                                     }, 500);
                                 } else {
                                     console.error('❌ WarehouseController not available for createPickingTask');
-                                    Ext.Msg.alert('Error', 'Backend integration not available for Picking task creation.');
+                                    Ext.Msg.alert('Error', 'Backend controller not available. Please refresh the page and try again.');
                                 }
                             }
                         } else {
@@ -882,7 +888,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                     };
                     
                     // Call backend API via WarehouseController
-                    var controller = window.warehouseController;
+                    var controller = me.getWarehouseController();
                     if (controller && controller.startPicking) {
                         controller.startPicking(startPickingData);
                         
@@ -1021,7 +1027,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
         };
         
         // Call backend API via WarehouseController
-        var controller = window.warehouseController;
+        var controller = me.getWarehouseController();
         if (controller && controller.performRFIDGateScan) {
             controller.performRFIDGateScan(rfidGateScanData)
                 .then(function(response) {
@@ -1085,7 +1091,7 @@ Ext.define('Store.warehouse.view.PickingPanel', {
                     };
                     
                     // Call backend API via WarehouseController
-                    var controller = window.warehouseController;
+                    var controller = me.getWarehouseController();
                     if (controller && controller.confirmPicking) {
                         controller.confirmPicking(rfidConfirmationData);
                         
