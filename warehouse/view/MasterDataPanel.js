@@ -5,6 +5,10 @@
 Ext.define('Store.warehouse.view.MasterDataPanel', {
     extend: 'Ext.panel.Panel',
     
+    config: {
+        warehouseController: null
+    },
+    
     title: 'Master Data - Items Management',
     layout: 'border',
     border: false,
@@ -264,8 +268,8 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                         if (form.isValid()) {
                             var values = form.getValues();
                             
-                            // Access the global warehouse controller for backend integration
-                            var controller = window.warehouseController;
+                            // Access the warehouse controller via proper ExtJS config
+                            var controller = me.getWarehouseController();
                             
                             if (controller) {
                                 if (isEdit) {
@@ -306,8 +310,8 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
                 'Note: This will deactivate the item (soft delete) but preserve data for historical records.',
                 function(btn) {
                     if (btn === 'yes') {
-                        // Access the global warehouse controller for backend integration
-                        var controller = window.warehouseController;
+                        // Access the warehouse controller via proper ExtJS config
+                        var controller = me.getWarehouseController();
                         
                         if (controller && controller.deleteItem) {
                             // Delete item via backend API
@@ -346,16 +350,16 @@ Ext.define('Store.warehouse.view.MasterDataPanel', {
     loadItems: function() {
         var me = this;
         
-        // Access the global warehouse controller
-        var controller = window.warehouseController;
+        // Access the warehouse controller via proper ExtJS config
+        var controller = me.getWarehouseController();
         
         if (controller && controller.loadItems) {
             console.log('✅ Loading items via global warehouse controller');
             controller.loadItems();
         } else {
-            console.error('❌ WarehouseController not available globally for Master Data');
-            console.error('Debug info - window.warehouseController:', !!window.warehouseController);
-            console.error('Debug info - loadItems method:', !!(window.warehouseController && window.warehouseController.loadItems));
+            console.error('❌ WarehouseController not available via config for Master Data');
+            console.error('Debug info - controller from config:', !!controller);
+            console.error('Debug info - loadItems method:', !!(controller && controller.loadItems));
             
             // Clear grid and show error message
             var grid = me.down('grid');
