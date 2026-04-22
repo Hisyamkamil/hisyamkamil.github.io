@@ -55,7 +55,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         iconCls: 'fa fa-plus',
                         scale: 'medium',
                         handler: function() {
-                            me.testSimpleModal();
+                            me.showDeliveryForm();
                         }
                     },
                     '-',
@@ -317,25 +317,137 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         var me = this;
         var isEdit = !!record;
         
-        // Create items store from master data
-        var itemsStore = Ext.create('Ext.data.Store', {
-            fields: ['itemCode', 'itemName', 'category', 'unitOfMeasure', 'expectedQuantity'],
-            data: []
+        // Create form with supplier data
+        var form = Ext.create('Ext.form.Panel', {
+            bodyPadding: 15,
+            defaults: {
+                anchor: '100%',
+                labelWidth: 120
+            },
+            items: [
+                {
+                    xtype: 'textfield',
+                    name: 'deliveryNumber',
+                    fieldLabel: 'Delivery Number *',
+                    allowBlank: false,
+                    value: isEdit ? record.get('delivery_number') : 'DEL-' + new Date().getTime()
+                },
+                {
+                    xtype: 'combobox',
+                    name: 'supplierCode',
+                    fieldLabel: 'Supplier *',
+                    allowBlank: false,
+                    displayField: 'name',
+                    valueField: 'code',
+                    queryMode: 'local',
+                    editable: false,
+                    store: Ext.create('Ext.data.Store', {
+                        fields: ['code', 'name'],
+                        data: [
+                            { code: 'CAT001', name: 'Caterpillar Inc.' },
+                            { code: 'KOM001', name: 'Komatsu Ltd.' },
+                            { code: 'HIT001', name: 'Hitachi Construction' },
+                            { code: 'VOL001', name: 'Volvo Construction' },
+                            { code: 'LIE001', name: 'Liebherr Group' }
+                        ]
+                    }),
+                    value: isEdit ? record.get('supplier_code') : 'CAT001',
+                    listeners: {
+                        select: function(combo, record) {
+                            form.down('[name=supplierName]').setValue(record.get('name'));
+                        }
+                    }
+                },
+                {
+                    xtype: 'textfield',
+                    name: 'supplierName',
+                    fieldLabel: 'Supplier Name',
+                    readOnly: true,
+                    value: isEdit ? record.get('supplier_name') : 'Caterpillar Inc.'
+                },
+                {
+                    xtype: 'textfield',
+                    name: 'purchaseOrder',
+                    fieldLabel: 'Purchase Order *',
+                    allowBlank: false,
+                    value: isEdit ? record.get('purchase_order') : 'PO-' + new Date().getTime()
+                },
+                {
+                    xtype: 'datefield',
+                    name: 'expectedDeliveryDate',
+                    fieldLabel: 'Expected Date *',
+                    allowBlank: false,
+                    format: 'Y-m-d',
+                    value: isEdit ? record.get('expected_delivery_date') : new Date()
+                },
+                {
+                    xtype: 'numberfield',
+                    name: 'totalItems',
+                    fieldLabel: 'Total Items *',
+                    allowBlank: false,
+                    minValue: 1,
+                    value: isEdit ? record.get('total_items') : 5
+                },
+                {
+                    xtype: 'numberfield',
+                    name: 'totalQuantity',
+                    fieldLabel: 'Total Quantity *',
+                    allowBlank: false,
+                    minValue: 1,
+                    value: isEdit ? record.get('total_quantity') : 100
+                },
+                {
+                    xtype: 'textareafield',
+                    name: 'notes',
+                    fieldLabel: 'Notes',
+                    rows: 3,
+                    value: isEdit ? record.get('notes') : ''
+                }
+            ]
         });
 
-        // Load real master data from backend API with proper callback handling
-        // Show simple wait message during loading
-        Ext.Msg.wait('Loading master data...', 'Please Wait');
-        
-        me.loadMasterDataForForm(function(masterDataItems, supplierData) {
-            // Hide wait message and show form
-            Ext.Msg.hide();
-            console.log('✅ Master data loaded successfully:', {
-                items: masterDataItems ? masterDataItems.length : 0,
-                suppliers: supplierData ? supplierData.length : 0
-            });
-            me.createDeliveryFormWindow(record, isEdit, itemsStore, masterDataItems, supplierData);
+        var window = Ext.create('Ext.window.Window', {
+            title: isEdit ? 'Edit Inbound Delivery' : 'Create Inbound Delivery',
+            modal: true,
+            width: 500,
+            height: 400,
+            layout: 'fit',
+            items: [form],
+            buttons: [
+                {
+                    text: 'Cancel',
+                    handler: function() {
+                        window.close();
+                    }
+                },
+                {
+                    text: isEdit ? 'Update' : 'Create',
+                    formBind: true,
+                    handler: function() {
+                        if (form.isValid()) {
+                            var formValues = form.getValues();
+                            
+                            // Call controller method
+                            var controller = me.getWarehouseController();
+                            if (controller && controller.createInboundDelivery) {
+                                console.log('📦 Creating inbound delivery via backend API');
+                                controller.createInboundDelivery(formValues);
+                                window.close();
+                                
+                                // Refresh grid after 1 second
+                                setTimeout(function() {
+                                    me.loadInboundDeliveries();
+                                }, 1000);
+                            } else {
+                                Ext.Msg.alert('Error', 'Backend controller not available');
+                            }
+                        }
+                    }
+                }
+            ]
         });
+        
+        window.show();
     },
 
 
