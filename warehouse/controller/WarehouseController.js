@@ -1709,6 +1709,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
 
     /**
      * Load suppliers from API (derived from inbound deliveries supplier data)
+     * Enhanced to provide real supplier data for forms
      */
     loadSuppliers: function(callback) {
         console.log('Loading suppliers from inbound deliveries...');
@@ -1738,14 +1739,20 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                     });
                     
                     var suppliers = Object.values(supplierMap);
-                    console.log('Extracted suppliers:', suppliers);
                     
-                    if (callback) callback(suppliers);
+                    // Cache suppliers for form usage
+                    this._cachedSuppliers = suppliers;
+                    console.log('✅ Cached', suppliers.length, 'suppliers for form integration');
+                    
+                    if (callback) {
+                        console.log('✅ Calling loadSuppliers callback with', suppliers.length, 'real suppliers');
+                        callback(suppliers);
+                    }
                 } catch (e) {
                     console.error('Error processing suppliers:', e);
                     if (callback) callback([]);
                 }
-            },
+            }.bind(this),
             failure: function(response) {
                 console.error('Failed to load suppliers:', response);
                 if (callback) callback([]);
