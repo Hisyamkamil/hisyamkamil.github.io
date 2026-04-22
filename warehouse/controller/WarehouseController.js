@@ -3251,5 +3251,32 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
                 this.loadSuppliers(callback);
             }.bind(this)
         });
+    },
+
+    /**
+     * Load suppliers from backend API
+     */
+    loadSuppliers: function(callback) {
+        var me = this;
+        
+        if (me._cachedSuppliers && me._cachedSuppliers.length > 0) {
+            console.log('✅ Using cached suppliers data:', me._cachedSuppliers.length, 'suppliers');
+            if (callback) callback(me._cachedSuppliers);
+            return;
+        }
+        
+        // For now, provide default supplier data until backend endpoint is available
+        var defaultSuppliers = [
+            { code: 'SUP001', name: 'Caterpillar Inc.' },
+            { code: 'SUP002', name: 'Komatsu Ltd.' },
+            { code: 'SUP003', name: 'Hitachi Construction' },
+            { code: 'SUP004', name: 'Volvo Construction Equipment' },
+            { code: 'SUP005', name: 'Liebherr Group' }
+        ];
+        
+        me._cachedSuppliers = defaultSuppliers;
+        console.log('✅ Using default supplier data:', defaultSuppliers.length, 'suppliers');
+        
+        if (callback) callback(defaultSuppliers);
     }
 });
