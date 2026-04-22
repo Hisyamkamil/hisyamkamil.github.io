@@ -5,6 +5,10 @@
 Ext.define('Store.warehouse.view.StockOpnamePanel', {
     extend: 'Ext.panel.Panel',
     
+    config: {
+        warehouseController: null
+    },
+    
     title: 'Stock Opname - Physical Inventory Counting',
     layout: 'border',
     border: false,
@@ -239,16 +243,16 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
     loadStockOpnameSessions: function() {
         var me = this;
         
-        // Access the global warehouse controller
-        var controller = window.warehouseController;
+        // Access the warehouse controller via proper ExtJS config
+        var controller = me.getWarehouseController();
         
         if (controller && controller.loadStockOpnameSessions) {
             console.log('✅ Loading stock opname sessions via global warehouse controller');
             controller.loadStockOpnameSessions();
         } else {
-            console.error('❌ WarehouseController not available globally for Stock Opname');
-            console.error('Debug info - window.warehouseController:', !!window.warehouseController);
-            console.error('Debug info - loadStockOpnameSessions method:', !!(window.warehouseController && window.warehouseController.loadStockOpnameSessions));
+            console.error('❌ WarehouseController not available via config for Stock Opname');
+            console.error('Debug info - controller from config:', !!controller);
+            console.error('Debug info - loadStockOpnameSessions method:', !!(controller && controller.loadStockOpnameSessions));
             
             // Clear grid and show error message
             var grid = me.down('grid');
@@ -337,7 +341,7 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
                                 window.close();
                             } else {
                                 // Integration with backend API - Task 19
-                                var controller = window.warehouseController;
+                                var controller = me.getWarehouseController();
                                 
                                 if (controller && controller.createStockOpnameSession) {
                                     console.log('✅ Creating stock opname session via backend API');
@@ -376,7 +380,7 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
             function(btn) {
                 if (btn === 'yes') {
                     // Integration with backend API - Task 20
-                    var controller = window.warehouseController;
+                    var controller = me.getWarehouseController();
                     
                     if (controller && controller.startStockOpnameSession) {
                         console.log('✅ Starting stock opname session via backend API');
@@ -492,7 +496,7 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
             function(btn) {
                 if (btn === 'yes') {
                     // Integration with backend API - Task 21
-                    var controller = window.warehouseController;
+                    var controller = me.getWarehouseController();
                     
                     if (controller && controller.completeStockOpnameSession) {
                         console.log('✅ Completing stock opname session via backend API');
@@ -545,7 +549,7 @@ Ext.define('Store.warehouse.view.StockOpnamePanel', {
 
     // Create location store with real data from backend
     createLocationStore: function() {
-        var controller = window.warehouseController;
+        var controller = this.getWarehouseController();
         var store = Ext.create('Ext.data.Store', {
             fields: ['location_id', 'location_name'],
             data: []
