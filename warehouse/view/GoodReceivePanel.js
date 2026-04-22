@@ -263,9 +263,10 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 buttons: [{
                     text: 'Test Real Form',
                     handler: function() {
+                        var panel = me; // Capture scope reference properly
                         testWindow.close();
-                        // Call the original method to test with real form - now me is properly scoped
-                        me.showDeliveryForm();
+                        // Call the original method to test with real form - now scope is properly maintained
+                        panel.showDeliveryForm();
                     }
                 }, {
                     text: 'Close',
