@@ -278,10 +278,9 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             data: []
         });
 
-        // Show loading mask while preparing data
-        var loadingMask = new Ext.LoadMask({
-            msg: 'Loading master data...',
-            target: Ext.getBody()
+        // Show loading mask while preparing data using correct ExtJS syntax
+        var loadingMask = new Ext.LoadMask(Ext.getBody(), {
+            msg: 'Loading master data...'
         });
         loadingMask.show();
 
