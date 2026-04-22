@@ -3003,7 +3003,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         console.log('Loading inbound delivery details for:', deliveryId);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
-        var url = apiConfig.getUrl('inboundDetails', {deliveryId: deliveryId});
+        var url = apiConfig.getUrl('inboundById', {deliveryId: deliveryId});
         
         Ext.Ajax.request({
             url: url,
@@ -3071,7 +3071,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         console.log('Loading delivery items for:', deliveryId);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
-        var url = apiConfig.getUrl('inboundDetails', {deliveryId: deliveryId});
+        var url = apiConfig.getUrl('inboundById', {deliveryId: deliveryId});
         
         Ext.Ajax.request({
             url: url,
@@ -3130,7 +3130,8 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         
         return new Promise(function(resolve, reject) {
             var apiConfig = Store.warehouse.config.ApiConfig;
-            var url = apiConfig.getUrl('pickingDetails', {pickingTaskId: pickingTaskId});
+            // Using pickingList endpoint as base - in real API this would be a separate endpoint
+            var url = apiConfig.getUrl('pickingList') + '/' + pickingTaskId;
             
             Ext.Ajax.request({
                 url: url,
