@@ -278,15 +278,13 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             data: []
         });
 
-        // Show loading mask while preparing data using correct ExtJS syntax
-        var loadingMask = new Ext.LoadMask(Ext.getBody(), {
-            msg: 'Loading master data...'
-        });
-        loadingMask.show();
-
         // Load real master data from backend API with proper callback handling
+        // Show simple wait message during loading
+        Ext.Msg.wait('Loading master data...', 'Please Wait');
+        
         me.loadMasterDataForForm(function(masterDataItems, supplierData) {
-            loadingMask.hide();
+            // Hide wait message and show form
+            Ext.Msg.hide();
             me.createDeliveryFormWindow(record, isEdit, itemsStore, masterDataItems, supplierData);
         });
     },
