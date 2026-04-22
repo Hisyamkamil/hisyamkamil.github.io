@@ -285,6 +285,10 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         me.loadMasterDataForForm(function(masterDataItems, supplierData) {
             // Hide wait message and show form
             Ext.Msg.hide();
+            console.log('✅ Master data loaded successfully:', {
+                items: masterDataItems ? masterDataItems.length : 0,
+                suppliers: supplierData ? supplierData.length : 0
+            });
             me.createDeliveryFormWindow(record, isEdit, itemsStore, masterDataItems, supplierData);
         });
     },
@@ -392,24 +396,10 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     editable: true,
                     store: Ext.create('Ext.data.Store', {
                         fields: ['code', 'name'],
-                        data: [] // Will be loaded from backend
+                        data: supplierData // Use pre-loaded supplier data
                     }),
                     value: isEdit ? record.get('supplierCode') : null,
                     listeners: {
-                        afterrender: function(combo) {
-                            // Load real suppliers from backend
-                            var controller = me.getWarehouseController();
-                            if (controller && controller.loadSuppliers) {
-                                controller.loadSuppliers(function(suppliers) {
-                                    if (suppliers && suppliers.length > 0) {
-                                        combo.getStore().loadData(suppliers);
-                                        console.log('✅ Loaded', suppliers.length, 'suppliers from backend');
-                                    }
-                                });
-                            } else {
-                                console.warn('⚠️ WarehouseController not available - suppliers dropdown will be empty');
-                            }
-                        },
                         select: function(combo, record) {
                             // Auto-fill supplier name when code is selected
                             var supplierNameField = combo.up('form').down('[name=supplierName]');
@@ -588,7 +578,16 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             ]
         });
         
+        console.log('✅ Creating delivery form window with:', {
+            title: window.title,
+            width: window.width,
+            height: window.height,
+            itemCount: masterDataItems ? masterDataItems.length : 0,
+            supplierCount: supplierData ? supplierData.length : 0
+        });
+        
         window.show();
+        console.log('✅ Delivery form window should now be visible');
     },
 
     showItemSelectionWindow: function(itemsStore, masterDataItems) {
