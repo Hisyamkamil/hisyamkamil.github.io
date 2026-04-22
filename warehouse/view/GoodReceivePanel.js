@@ -5,6 +5,10 @@
 Ext.define('Store.warehouse.view.GoodReceivePanel', {
     extend: 'Ext.panel.Panel',
     
+    config: {
+        warehouseController: null
+    },
+    
     title: 'Good Receive - Inbound Delivery Management',
     layout: 'border',
     border: false,
@@ -240,11 +244,11 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     loadInboundDeliveries: function() {
         var me = this;
         
-        // Access the global warehouse controller
-        var controller = window.warehouseController;
+        // Access the controller through proper ExtJS config
+        var controller = me.getWarehouseController();
         
         if (controller && controller.loadInboundDeliveries) {
-            console.log('✅ Loading inbound deliveries via global warehouse controller');
+            console.log('✅ Loading inbound deliveries via controller config');
             
             // Call the controller method - it will update the grid directly with user feedback
             controller.loadInboundDeliveries();
@@ -252,7 +256,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             console.log('💡 WarehouseController handles grid updates and user feedback');
             
         } else {
-            console.error('❌ WarehouseController not available globally');
+            console.error('❌ WarehouseController not available via config');
             // Show user-friendly error
             Ext.Msg.alert('Connection Error', 'Warehouse controller not initialized. Please refresh the page.');
         }
@@ -276,7 +280,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
 
         // Load real master data from backend API
         var masterDataItems = [];
-        var controller = window.warehouseController;
+        var controller = me.getWarehouseController();
         
         if (controller && controller._cachedItemsData) {
             // Use cached items from Master Data API
@@ -336,7 +340,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     listeners: {
                         afterrender: function(combo) {
                             // Load real suppliers from backend
-                            var controller = window.warehouseController;
+                            var controller = me.getWarehouseController();
                             if (controller && controller.loadSuppliers) {
                                 controller.loadSuppliers(function(suppliers) {
                                     if (suppliers && suppliers.length > 0) {
@@ -506,8 +510,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                 
                                 console.log('🔄 Creating inbound delivery via backend API:', deliveryData);
                                 
-                                // Call backend API via WarehouseController with multiple fallback attempts
-                                var controller = window.warehouseController;
+                                // Call backend API via WarehouseController
+                                var controller = me.getWarehouseController();
                                 if (controller && controller.createInboundDelivery) {
                                     controller.createInboundDelivery(deliveryData);
                                     window.close();
@@ -988,7 +992,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         };
         
         // Call backend API via WarehouseController
-        var controller = window.warehouseController;
+        var controller = me.getWarehouseController();
         if (controller && controller.createGoodReceive) {
             console.log('📦 Creating Good Receive record via backend API');
             controller.createGoodReceive(goodReceiveData);
@@ -1063,7 +1067,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     };
                     
                     // Call backend API via WarehouseController
-                    var controller = window.warehouseController;
+                    var controller = me.getWarehouseController();
                     if (controller && controller.confirmGoodReceive) {
                         // Use a generated goodReceiveId - in real scenario this would come from createGoodReceive response
                         var goodReceiveId = 'gr-' + record.get('deliveryNumber').toLowerCase() + '-' + Date.now();
@@ -1135,8 +1139,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         var me = this;
         console.log('🔄 Loading delivery details with fallback for:', deliveryId);
         
-        // Strategy 1: Direct global access
-        var controller = window.warehouseController;
+        // Strategy 1: Direct controller config access
+        var controller = me.getWarehouseController();
         if (controller && controller.loadInboundDeliveryDetails) {
             console.log('✅ Using direct global controller for loadInboundDeliveryDetails');
             me.executeDeliveryDetailsLoad(controller, deliveryId, window, deliveryInfoPanel);
@@ -1152,7 +1156,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             retryCount++;
             console.log('🔍 Retry attempt', retryCount, 'for delivery details loading');
             
-            controller = window.warehouseController;
+            controller = me.getWarehouseController();
             if (controller && controller.loadInboundDeliveryDetails) {
                 console.log('✅ Controller became available on retry', retryCount);
                 me.executeDeliveryDetailsLoad(controller, deliveryId, window, deliveryInfoPanel);
@@ -1288,8 +1292,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         console.log('🔍 DEBUG: Attempting to access WarehouseController for method:', methodName);
         console.log('🔍 DEBUG: window.warehouseController exists:', !!window.warehouseController);
         
-        // Strategy 1: Direct global access
-        var controller = window.warehouseController;
+        // Strategy 1: Direct controller config access
+        var controller = me.getWarehouseController();
         if (controller && controller[methodName]) {
             console.log('✅ DEBUG: Using global controller for', methodName);
             controller[methodName](data);
@@ -1306,7 +1310,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             retryCount++;
             console.log('🔍 DEBUG: Retry attempt', retryCount, 'for', methodName);
             
-            controller = window.warehouseController;
+            controller = me.getWarehouseController();
             if (controller && controller[methodName]) {
                 console.log('✅ DEBUG: Controller became available on retry', retryCount);
                 controller[methodName](data);
