@@ -271,8 +271,8 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
     loadPutAwayTasks: function() {
         var me = this;
         
-        // Access the global warehouse controller
-        var controller = window.warehouseController;
+        // Access the controller through proper ExtJS config
+        var controller = me.getWarehouseController();
         
         if (controller && controller.loadPutAwayTasks) {
             console.log('✅ Loading put away tasks via global warehouse controller');
@@ -302,7 +302,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         // Load real inbound deliveries and storage locations from backend
         var inboundDeliveries = [];
         var storageLocations = [];
-        var controller = window.warehouseController;
+        var controller = me.getWarehouseController();
         
         // Load confirmed inbound deliveries that are ready for put away
         if (controller && controller.lastInboundDeliveriesResponse) {
@@ -319,6 +319,8 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     };
                 });
             console.log('✅ Using', inboundDeliveries.length, 'confirmed deliveries for put away');
+        } else if (!controller) {
+            console.warn('⚠️ WarehouseController not available - Put Away form will work with manual input');
         }
         
         // Load real storage locations from backend
@@ -332,6 +334,9 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     return loc.locationCode;
                 });
             console.log('✅ Using', storageLocations.length, 'real storage locations');
+        } else if (!controller) {
+            console.warn('⚠️ WarehouseController not available - using manual location input');
+            storageLocations = [];
         }
         
         // Load locations if not cached
@@ -472,7 +477,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                 };
                                 
                                 // Call backend API via WarehouseController
-                                var controller = window.warehouseController;
+                                var controller = me.getWarehouseController();
                                 if (controller && controller.createPutAwayTask) {
                                     controller.createPutAwayTask(putAwayTaskData);
                                     
@@ -485,7 +490,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                     }, 500);
                                 } else {
                                     console.error('❌ WarehouseController not available for createPutAwayTask');
-                                    Ext.Msg.alert('Error', 'Backend integration not available for Put Away task creation.');
+                                    Ext.Msg.alert('Error', 'Backend controller not available. Please refresh the page and try again.');
                                 }
                             }
                         }
@@ -734,7 +739,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     };
                     
                     // Call backend API via WarehouseController
-                    var controller = window.warehouseController;
+                    var controller = me.getWarehouseController();
                     if (controller && controller.startPutAway) {
                         controller.startPutAway(startPutAwayData);
                         
@@ -912,7 +917,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         };
         
         // Call backend API via WarehouseController
-        var controller = window.warehouseController;
+        var controller = me.getWarehouseController();
         if (controller && controller.performRFIDScan) {
             controller.performRFIDScan(rfidScanData)
                 .then(function(response) {
@@ -966,7 +971,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         };
         
         // Call backend API via WarehouseController
-        var controller = window.warehouseController;
+        var controller = me.getWarehouseController();
         if (controller && controller.performRFIDPlacement) {
             controller.performRFIDPlacement(rfidPlacementData)
                 .then(function(response) {
@@ -1050,7 +1055,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     };
                     
                     // Call backend API via WarehouseController
-                    var controller = window.warehouseController;
+                    var controller = me.getWarehouseController();
                     if (controller && controller.confirmPutAway) {
                         controller.confirmPutAway(rfidValidationData);
                         
