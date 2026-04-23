@@ -3319,11 +3319,11 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
 
     /**
-     * Assign EPC codes to items via backend API - Manual assignment
-     * POST /api/epc/assign - CORS-SAFE VERSION USING APICONFIG PATTERN
+     * Assign EPC codes to items via backend API - Manual assignment with full traceability
+     * POST /api/epc/assign - Updated to match Postman collection specification
      */
     assignEPC: function(assignment) {
-        console.log('🔄 Calling Assign EPC API (manual assignment):', assignment);
+        console.log('🔄 Calling Assign EPC API (manual assignment with traceability):', assignment);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
         var requestData = {
@@ -3331,6 +3331,23 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             itemId: assignment.itemId,
             quantity: assignment.quantity || 1
         };
+        
+        // NEW: Add optional fields for complete traceability as per Postman collection
+        if (assignment.inboundItemId) {
+            requestData.inboundItemId = assignment.inboundItemId;
+        }
+        if (assignment.assignedBy) {
+            requestData.assignedBy = assignment.assignedBy;
+        } else {
+            requestData.assignedBy = 'warehouse_user@company.com'; // Default user
+        }
+        if (assignment.notes) {
+            requestData.notes = assignment.notes;
+        } else {
+            requestData.notes = 'Manual EPC assignment via warehouse management system';
+        }
+        
+        console.log('📤 EPC Assignment request data:', requestData);
         
         // CORS FIX: Use ApiConfig pattern like createInboundDelivery
         Ext.Ajax.request({
