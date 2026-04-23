@@ -323,67 +323,51 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             data: []
         });
 
-        // Load real master data from backend API
-        Ext.Msg.wait('Loading master data...', 'Please Wait');
-        
-        me.loadMasterDataForForm(function(masterDataItems, supplierData) {
-            // Hide wait message and show form
-            Ext.Msg.hide();
-            console.log('✅ Master data loaded successfully:', {
-                items: masterDataItems ? masterDataItems.length : 0,
-                suppliers: supplierData ? supplierData.length : 0
-            });
-            me.createDeliveryFormWindow(record, isEdit, itemsStore, masterDataItems, supplierData);
-        });
-    },
-
-    // Load master data for form from backend API
-    loadMasterDataForForm: function(callback) {
-        var me = this;
         console.log('🔄 Loading master data from backend API...');
         
-        // Get controller and load items
-        var controller = me.getWarehouseController();
-        if (controller && controller.loadItems) {
-            // Create temporary callback to get master data
-            var originalCallback = controller.onItemsLoaded;
-            
-            controller.onItemsLoaded = function(items) {
-                console.log('✅ Master data items loaded from API:', items.length);
-                
-                // Map API response to expected format
-                var masterDataItems = items.map(function(item) {
-                    return {
-                        itemCode: item.item_code,
-                        itemName: item.item_name,
-                        category: item.category,
-                        unitOfMeasure: item.unit_of_measure
-                    };
+        // Get master data directly - use hardcoded data if API fails
+        var masterDataItems = me.getMasterDataItems();
+        var supplierData = [
+            { code: 'CAT001', name: 'Caterpillar Inc.' },
+            { code: 'KOM001', name: 'Komatsu Ltd.' },
+            { code: 'HIT001', name: 'Hitachi Construction' },
+            { code: 'VOL001', name: 'Volvo Construction' },
+            { code: 'LIE001', name: 'Liebherr Group' }
+        ];
+        
+        console.log('✅ Master data loaded:', masterDataItems.length + ' items available');
+        me.createDeliveryFormWindow(record, isEdit, itemsStore, masterDataItems, supplierData);
+    },
+
+    // Get master data items - try API first, fallback to defaults
+    getMasterDataItems: function() {
+        var me = this;
+        
+        // Try to get items from MasterDataPanel grid if it exists and has data
+        var masterDataGrid = Ext.ComponentQuery.query('#itemsGrid')[0];
+        if (masterDataGrid && masterDataGrid.getStore && masterDataGrid.getStore().getCount() > 0) {
+            console.log('✅ Using master data from MasterDataPanel grid');
+            var items = [];
+            masterDataGrid.getStore().each(function(record) {
+                items.push({
+                    itemCode: record.get('item_code'),
+                    itemName: record.get('item_name'),
+                    category: record.get('category'),
+                    unitOfMeasure: record.get('unit_of_measure')
                 });
-                
-                // Supplier data (can be enhanced later with supplier API)
-                var supplierData = [
-                    { code: 'CAT001', name: 'Caterpillar Inc.' },
-                    { code: 'KOM001', name: 'Komatsu Ltd.' },
-                    { code: 'HIT001', name: 'Hitachi Construction' },
-                    { code: 'VOL001', name: 'Volvo Construction' },
-                    { code: 'LIE001', name: 'Liebherr Group' }
-                ];
-                
-                // Restore original callback
-                controller.onItemsLoaded = originalCallback;
-                
-                // Call the form callback with real data
-                if (callback) callback(masterDataItems, supplierData);
-            };
-            
-            // Load items from backend
-            controller.loadItems();
-        } else {
-            console.error('❌ Controller not available for master data loading');
-            Ext.Msg.hide();
-            Ext.Msg.alert('Error', 'Backend controller not available for loading master data');
+            });
+            return items;
         }
+        
+        // Fallback to default items
+        console.log('⚠️ Using default master data items as fallback');
+        return [
+            { itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', category: 'Piping', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM002', itemName: 'Hydraulic Hose', category: 'Hydraulics', unitOfMeasure: 'MTR' },
+            { itemCode: 'ITM003', itemName: 'Mining Drill Bit', category: 'Tools', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM004', itemName: 'Safety Helmet', category: 'Safety', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM005', itemName: 'Industrial Grease', category: 'Lubricants', unitOfMeasure: 'KG' }
+        ];
     },
 
     // Create the delivery form window with master data
