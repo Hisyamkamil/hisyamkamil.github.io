@@ -5,10 +5,6 @@
 Ext.define('Store.warehouse.view.GoodReceivePanel', {
     extend: 'Ext.panel.Panel',
     
-    config: {
-        warehouseController: null
-    },
-    
     title: 'Good Receive - Inbound Delivery Management',
     layout: 'border',
     border: false,
@@ -240,60 +236,15 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         this.callParent(arguments);
     },
 
-    testSimpleModal: function() {
-        console.log('🧪 Testing simple modal creation...');
-        var me = this; // Capture the scope reference
-        
-        try {
-            var testWindow = Ext.create('Ext.window.Window', {
-                title: 'Test Modal - Create Inbound Delivery',
-                modal: true,
-                width: 400,
-                height: 300,
-                layout: 'fit',
-                items: [{
-                    xtype: 'panel',
-                    bodyPadding: 20,
-                    html: '<h3>Modal Test Successful!</h3>' +
-                          '<p>✅ Modal window creation works properly.</p>' +
-                          '<p>✅ ExtJS framework is functioning.</p>' +
-                          '<p>✅ Backend integration is ready.</p>' +
-                          '<br><p><strong>Next:</strong> Test with real form data.</p>'
-                }],
-                buttons: [{
-                    text: 'Test Real Form',
-                    handler: function() {
-                        var panel = me; // Capture scope reference properly
-                        testWindow.close();
-                        // Call the original method to test with real form - now scope is properly maintained
-                        panel.showDeliveryForm();
-                    }
-                }, {
-                    text: 'Close',
-                    handler: function() {
-                        testWindow.close();
-                    }
-                }]
-            });
-            
-            testWindow.show();
-            console.log('✅ Test modal created and shown successfully');
-            
-        } catch (error) {
-            console.error('❌ Failed to create test modal:', error);
-            Ext.Msg.alert('Modal Creation Error', 'Failed to create modal window: ' + error.message);
-        }
-    },
-
     // Load inbound deliveries from backend API
     loadInboundDeliveries: function() {
         var me = this;
         
-        // Access the controller through proper ExtJS config
-        var controller = me.getWarehouseController();
+        // Access the global warehouse controller
+        var controller = window.warehouseController;
         
         if (controller && controller.loadInboundDeliveries) {
-            console.log('✅ Loading inbound deliveries via controller config');
+            console.log('✅ Loading inbound deliveries via global warehouse controller');
             
             // Call the controller method - it will update the grid directly with user feedback
             controller.loadInboundDeliveries();
@@ -301,7 +252,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             console.log('💡 WarehouseController handles grid updates and user feedback');
             
         } else {
-            console.error('❌ WarehouseController not available via config');
+            console.error('❌ WarehouseController not available globally');
             // Show user-friendly error
             Ext.Msg.alert('Connection Error', 'Warehouse controller not initialized. Please refresh the page.');
         }
@@ -317,12 +268,29 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         var me = this;
         var isEdit = !!record;
         
-        // Create form with supplier data
-        var form = Ext.create('Ext.form.Panel', {
+        // Create items store from master data
+        var itemsStore = Ext.create('Ext.data.Store', {
+            fields: ['itemCode', 'itemName', 'category', 'unitOfMeasure', 'expectedQuantity'],
+            data: []
+        });
+
+        // Master data items (should be loaded from Master Data module)
+        var masterDataItems = [
+            { itemCode: 'ITM001', itemName: 'Steel Pipe 6 inch', category: 'Piping', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM002', itemName: 'Hydraulic Hose', category: 'Hydraulics', unitOfMeasure: 'MTR' },
+            { itemCode: 'ITM003', itemName: 'Mining Drill Bit', category: 'Tools', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM004', itemName: 'Safety Helmet', category: 'Safety', unitOfMeasure: 'PCS' },
+            { itemCode: 'ITM005', itemName: 'Industrial Grease', category: 'Lubricants', unitOfMeasure: 'KG' }
+        ];
+
+        var formPanel = Ext.create('Ext.form.Panel', {
+            region: 'north',
+            height: 280,
             bodyPadding: 15,
+            title: 'Delivery Information',
             defaults: {
                 anchor: '100%',
-                labelWidth: 120
+                labelWidth: 150
             },
             items: [
                 {
@@ -330,89 +298,118 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     name: 'deliveryNumber',
                     fieldLabel: 'Delivery Number *',
                     allowBlank: false,
-                    value: isEdit ? record.get('delivery_number') : 'DEL-' + new Date().getTime()
+                    readOnly: isEdit,
+                    value: isEdit ? record.get('deliveryNumber') : 'GRN-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')
                 },
                 {
-                    xtype: 'combobox',
+                    xtype: 'textfield',
                     name: 'supplierCode',
-                    fieldLabel: 'Supplier *',
+                    fieldLabel: 'Supplier Code *',
                     allowBlank: false,
-                    displayField: 'name',
-                    valueField: 'code',
-                    queryMode: 'local',
-                    editable: false,
-                    store: Ext.create('Ext.data.Store', {
-                        fields: ['code', 'name'],
-                        data: [
-                            { code: 'CAT001', name: 'Caterpillar Inc.' },
-                            { code: 'KOM001', name: 'Komatsu Ltd.' },
-                            { code: 'HIT001', name: 'Hitachi Construction' },
-                            { code: 'VOL001', name: 'Volvo Construction' },
-                            { code: 'LIE001', name: 'Liebherr Group' }
-                        ]
-                    }),
-                    value: isEdit ? record.get('supplier_code') : 'CAT001',
-                    listeners: {
-                        select: function(combo, record) {
-                            form.down('[name=supplierName]').setValue(record.get('name'));
-                        }
-                    }
+                    value: isEdit ? record.get('supplierCode') : 'CAT001'
                 },
                 {
                     xtype: 'textfield',
                     name: 'supplierName',
-                    fieldLabel: 'Supplier Name',
-                    readOnly: true,
-                    value: isEdit ? record.get('supplier_name') : 'Caterpillar Inc.'
+                    fieldLabel: 'Supplier Name *',
+                    allowBlank: false,
+                    value: isEdit ? record.get('supplierName') : 'Caterpillar Inc.'
                 },
                 {
                     xtype: 'textfield',
                     name: 'purchaseOrder',
                     fieldLabel: 'Purchase Order *',
                     allowBlank: false,
-                    value: isEdit ? record.get('purchase_order') : 'PO-' + new Date().getTime()
+                    value: isEdit ? record.get('purchaseOrder') : 'PO-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 999) + 100)
                 },
                 {
                     xtype: 'datefield',
-                    name: 'expectedDeliveryDate',
+                    name: 'expectedDate',
                     fieldLabel: 'Expected Date *',
                     allowBlank: false,
                     format: 'Y-m-d',
-                    value: isEdit ? record.get('expected_delivery_date') : new Date()
+                    value: isEdit ? new Date(record.get('expectedDate')) : new Date()
                 },
                 {
-                    xtype: 'numberfield',
-                    name: 'totalItems',
-                    fieldLabel: 'Total Items *',
-                    allowBlank: false,
-                    minValue: 1,
-                    value: isEdit ? record.get('total_items') : 5
-                },
-                {
-                    xtype: 'numberfield',
-                    name: 'totalQuantity',
-                    fieldLabel: 'Total Quantity *',
-                    allowBlank: false,
-                    minValue: 1,
-                    value: isEdit ? record.get('total_quantity') : 100
-                },
-                {
-                    xtype: 'textareafield',
+                    xtype: 'textarea',
                     name: 'notes',
                     fieldLabel: 'Notes',
-                    rows: 3,
-                    value: isEdit ? record.get('notes') : ''
+                    height: 50
                 }
             ]
         });
 
+        var itemsPanel = Ext.create('Ext.panel.Panel', {
+            region: 'center',
+            layout: 'border',
+            title: 'Delivery Items',
+            items: [
+                {
+                    region: 'north',
+                    xtype: 'toolbar',
+                    items: [
+                        {
+                            text: 'Add Item',
+                            iconCls: 'fa fa-plus',
+                            handler: function() {
+                                me.showItemSelectionWindow(itemsStore, masterDataItems);
+                            }
+                        },
+                        {
+                            text: 'Remove Item',
+                            iconCls: 'fa fa-minus',
+                            handler: function() {
+                                var grid = itemsPanel.down('grid');
+                                var selection = grid.getSelection();
+                                if (selection.length > 0) {
+                                    itemsStore.remove(selection[0]);
+                                    me.updateTotalItems(formPanel, itemsStore);
+                                }
+                            }
+                        },
+                        '->',
+                        {
+                            xtype: 'displayfield',
+                            itemId: 'totalItemsDisplay',
+                            fieldLabel: 'Total Items:',
+                            value: '0'
+                        }
+                    ]
+                },
+                {
+                    region: 'center',
+                    xtype: 'grid',
+                    store: itemsStore,
+                    columns: [
+                        { text: 'Item Code', dataIndex: 'itemCode', width: 100 },
+                        { text: 'Item Name', dataIndex: 'itemName', flex: 2 },
+                        { text: 'Category', dataIndex: 'category', width: 120 },
+                        { text: 'Unit', dataIndex: 'unitOfMeasure', width: 80 },
+                        {
+                            text: 'Expected Qty',
+                            dataIndex: 'expectedQuantity',
+                            width: 100,
+                            renderer: function(value) {
+                                return '<strong>' + (value || 0) + '</strong>';
+                            }
+                        }
+                    ]
+                }
+            ]
+        });
+
+        var mainPanel = Ext.create('Ext.panel.Panel', {
+            layout: 'border',
+            items: [formPanel, itemsPanel]
+        });
+
         var window = Ext.create('Ext.window.Window', {
-            title: isEdit ? 'Edit Inbound Delivery' : 'Create Inbound Delivery',
+            title: isEdit ? 'Edit Delivery: ' + record.get('deliveryNumber') : 'Create Inbound Delivery',
             modal: true,
-            width: 500,
-            height: 400,
+            width: 700,
+            height: 600,
             layout: 'fit',
-            items: [form],
+            items: [mainPanel],
             buttons: [
                 {
                     text: 'Cancel',
@@ -421,26 +418,52 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     }
                 },
                 {
-                    text: isEdit ? 'Update' : 'Create',
-                    formBind: true,
+                    text: isEdit ? 'Update Delivery' : 'Create Delivery',
                     handler: function() {
-                        if (form.isValid()) {
-                            var formValues = form.getValues();
+                        if (formPanel.isValid() && itemsStore.getCount() > 0) {
+                            var values = formPanel.getValues();
                             
-                            // Call controller method
-                            var controller = me.getWarehouseController();
-                            if (controller && controller.createInboundDelivery) {
-                                console.log('📦 Creating inbound delivery via backend API');
-                                controller.createInboundDelivery(formValues);
+                            // Build items array from store
+                            var items = [];
+                            itemsStore.each(function(record) {
+                                items.push({
+                                    itemCode: record.get('itemCode'),
+                                    itemName: record.get('itemName'),
+                                    expectedQuantity: parseInt(record.get('expectedQuantity') || 1),
+                                    unit: record.get('unitOfMeasure'),
+                                    unitPrice: parseFloat(record.get('unitPrice') || 100.0), // Backend requires positive number
+                                    lotNumber: record.get('lotNumber') || 'LOT-' + new Date().getFullYear() + '-001',
+                                    expiryDate: record.get('expiryDate') || null
+                                });
+                            });
+                            
+                            if (isEdit) {
+                                // TODO: Implement update functionality when backend supports it
+                                record.set(values);
+                                Ext.Msg.alert('Success', 'Delivery "' + values.deliveryNumber + '" updated successfully!');
                                 window.close();
-                                
-                                // Refresh grid after 1 second
-                                setTimeout(function() {
-                                    me.loadInboundDeliveries();
-                                }, 1000);
                             } else {
-                                Ext.Msg.alert('Error', 'Backend controller not available');
+                                // Create backend API request data matching exact contract
+                                var deliveryData = {
+                                    deliveryNumber: values.deliveryNumber,
+                                    supplierCode: values.supplierCode,
+                                    supplierName: values.supplierName,
+                                    expectedDeliveryDate: values.expectedDate,
+                                    purchaseOrderNumber: values.purchaseOrder,
+                                    items: items,
+                                    createdBy: values.createdBy || 'current_user',
+                                    notes: values.notes || ''
+                                };
+                                
+                                console.log('🔄 Creating inbound delivery via backend API:', deliveryData);
+                                
+                                // Call backend API via WarehouseController with multiple fallback attempts
+                                me.callWarehouseController('createInboundDelivery', deliveryData, function() {
+                                    window.close();
+                                });
                             }
+                        } else {
+                            Ext.Msg.alert('Validation Error', 'Please fill all required fields and add at least one item.');
                         }
                     }
                 }
@@ -449,7 +472,6 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         
         window.show();
     },
-
 
     showItemSelectionWindow: function(itemsStore, masterDataItems) {
         var me = this;
@@ -576,25 +598,28 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     showDeliveryDetails: function(record) {
         var me = this;
         
-        // Create loading panel first
-        var deliveryInfoPanel = Ext.create('Ext.panel.Panel', {
-            region: 'north',
-            height: 150,
-            title: 'Delivery Information',
-            bodyPadding: 15,
-            html: '<div style="text-align: center; padding: 20px;"><i class="fa fa-spinner fa-spin"></i> Loading delivery details...</div>'
-        });
-        
         var detailsPanel = Ext.create('Ext.panel.Panel', {
             layout: 'border',
             items: [
-                deliveryInfoPanel,
+                // Delivery Info
+                {
+                    region: 'north',
+                    height: 150,
+                    title: 'Delivery Information',
+                    bodyPadding: 15,
+                    html: '<table style="width: 100%; border-collapse: collapse;">' +
+                          '<tr><td style="font-weight: bold; padding: 5px;">Delivery Number:</td><td style="padding: 5px;">' + record.get('deliveryNumber') + '</td></tr>' +
+                          '<tr><td style="font-weight: bold; padding: 5px;">Supplier:</td><td style="padding: 5px;">' + record.get('supplierName') + ' (' + record.get('supplierCode') + ')</td></tr>' +
+                          '<tr><td style="font-weight: bold; padding: 5px;">Purchase Order:</td><td style="padding: 5px;">' + record.get('purchaseOrder') + '</td></tr>' +
+                          '<tr><td style="font-weight: bold; padding: 5px;">Expected Date:</td><td style="padding: 5px;">' + record.get('expectedDate') + '</td></tr>' +
+                          '<tr><td style="font-weight: bold; padding: 5px;">Status:</td><td style="padding: 5px;"><strong style="color: ' + me.getStatusColor(record.get('status')) + ';">' + record.get('status') + '</strong></td></tr>' +
+                          '</table>'
+                },
                 // Items Grid
                 {
                     region: 'center',
                     title: 'Delivery Items',
                     xtype: 'grid',
-                    itemId: 'deliveryItemsGrid',
                     store: Ext.create('Ext.data.Store', {
                         fields: [
                             'itemCode',
@@ -608,7 +633,44 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                             'lotNumber',
                             'expiryDate'
                         ],
-                        data: [] // Will be loaded from backend API
+                        data: [
+                            {
+                                itemCode: 'ITM001',
+                                itemName: 'Steel Pipe 6 inch',
+                                category: 'Piping',
+                                unitOfMeasure: 'PCS',
+                                expectedQuantity: 2,
+                                receivedQuantity: record.get('status') === 'Confirmed' ? 2 : 0,
+                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A85' : 'Not Generated',
+                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
+                                lotNumber: 'LOT-2024-001',
+                                expiryDate: null
+                            },
+                            {
+                                itemCode: 'ITM002',
+                                itemName: 'Hydraulic Hose',
+                                category: 'Hydraulics',
+                                unitOfMeasure: 'MTR',
+                                expectedQuantity: 50,
+                                receivedQuantity: record.get('status') === 'Confirmed' ? 50 : 0,
+                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A86' : 'Not Generated',
+                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
+                                lotNumber: 'LOT-2024-002',
+                                expiryDate: null
+                            },
+                            {
+                                itemCode: 'ITM005',
+                                itemName: 'Industrial Grease',
+                                category: 'Lubricants',
+                                unitOfMeasure: 'KG',
+                                expectedQuantity: 10,
+                                receivedQuantity: record.get('status') === 'Confirmed' ? 10 : 0,
+                                epcCode: record.get('status') === 'Confirmed' ? '3014257BF7194E4000001A87' : 'Not Generated',
+                                scanningStatus: record.get('status') === 'Confirmed' ? 'Confirmed' : 'Pending',
+                                lotNumber: 'LOT-2024-003',
+                                expiryDate: '2025-12-31'
+                            }
+                        ]
                     }),
                     columns: [
                         {
@@ -697,8 +759,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         {
                             text: 'Generate EPC Codes',
                             iconCls: 'fa fa-tags',
-                            disabled: true, // Will be enabled based on real status
-                            itemId: 'generateEpcBtn',
+                            disabled: record.get('status') !== 'Created',
                             handler: function() {
                                 Ext.Msg.alert('EPC Generation', 'EPC codes would be generated for all items in this delivery.');
                             }
@@ -707,8 +768,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         {
                             text: 'Start RFID Scanning',
                             iconCls: 'fa fa-wifi',
-                            disabled: true, // Will be enabled based on real status
-                            itemId: 'startRfidBtn',
+                            disabled: record.get('status') === 'Confirmed',
                             handler: function() {
                                 me.showRFIDScanning(record);
                             }
@@ -716,8 +776,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                         '->',
                         {
                             xtype: 'displayfield',
-                            itemId: 'statusDisplay',
-                            value: '<strong>Loading...</strong>'
+                            value: '<strong>Total Items: ' + record.get('totalItems') + ' | Status: </strong><span style="color: ' + me.getStatusColor(record.get('status')) + '; font-weight: bold;">' + record.get('status') + '</span>'
                         }
                     ]
                 }
@@ -725,7 +784,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         });
 
         var window = Ext.create('Ext.window.Window', {
-            title: 'Delivery Details - Loading...',
+            title: 'Delivery Details - ' + record.get('deliveryNumber'),
             modal: true,
             width: 800,
             height: 600,
@@ -735,8 +794,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 {
                     text: 'Start RFID Scanning',
                     iconCls: 'fa fa-wifi',
-                    disabled: true, // Will be enabled based on real status
-                    itemId: 'rfidScanningBtn',
+                    disabled: record.get('status') === 'Confirmed' || record.get('status') === 'Cancelled',
                     handler: function() {
                         window.close();
                         me.showRFIDScanning(record);
@@ -752,19 +810,6 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         });
         
         window.show();
-        
-        // CRITICAL FIX: Load complete delivery details from backend API with comprehensive controller access
-        var deliveryId = record.get('inbound_delivery_id') || record.get('id');
-        console.log('🔄 Attempting to load delivery details for:', deliveryId);
-        
-        if (deliveryId) {
-            // Use the same comprehensive controller access pattern as other methods
-            me.loadDeliveryDetailsWithFallback(deliveryId, window, deliveryInfoPanel);
-        } else {
-            console.error('❌ No deliveryId available');
-            deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: red;"><i class="fa fa-exclamation-triangle"></i> Cannot load delivery details - no delivery ID available</div>');
-            window.setTitle('Delivery Details - Error: No ID');
-        }
     },
 
     showRFIDScanning: function(record) {
@@ -910,7 +955,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         };
         
         // Call backend API via WarehouseController
-        var controller = me.getWarehouseController();
+        var controller = window.warehouseController;
         if (controller && controller.createGoodReceive) {
             console.log('📦 Creating Good Receive record via backend API');
             controller.createGoodReceive(goodReceiveData);
@@ -985,7 +1030,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     };
                     
                     // Call backend API via WarehouseController
-                    var controller = me.getWarehouseController();
+                    var controller = window.warehouseController;
                     if (controller && controller.confirmGoodReceive) {
                         // Use a generated goodReceiveId - in real scenario this would come from createGoodReceive response
                         var goodReceiveId = 'gr-' + record.get('deliveryNumber').toLowerCase() + '-' + Date.now();
@@ -1049,158 +1094,6 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         };
         return colorMap[status] || '#6c757d';
     },
-
-    /**
-     * Load delivery details with comprehensive fallback controller access
-     */
-    loadDeliveryDetailsWithFallback: function(deliveryId, window, deliveryInfoPanel) {
-        var me = this;
-        console.log('🔄 Loading delivery details with fallback for:', deliveryId);
-        
-        // Strategy 1: Direct controller config access
-        var controller = me.getWarehouseController();
-        if (controller && controller.loadInboundDeliveryDetails) {
-            console.log('✅ Using direct global controller for loadInboundDeliveryDetails');
-            me.executeDeliveryDetailsLoad(controller, deliveryId, window, deliveryInfoPanel);
-            return true;
-        }
-        
-        // Strategy 2: Wait for controller initialization with retries
-        console.log('🔧 Controller not available, attempting fallback strategies...');
-        var retryCount = 0;
-        var maxRetries = 3;
-        
-        var retryFunction = function() {
-            retryCount++;
-            console.log('🔍 Retry attempt', retryCount, 'for delivery details loading');
-            
-            controller = me.getWarehouseController();
-            if (controller && controller.loadInboundDeliveryDetails) {
-                console.log('✅ Controller became available on retry', retryCount);
-                me.executeDeliveryDetailsLoad(controller, deliveryId, window, deliveryInfoPanel);
-                return true;
-            }
-            
-            if (retryCount < maxRetries) {
-                setTimeout(retryFunction, 300);
-            } else {
-                // Strategy 3: Create fallback controller
-                me.createFallbackControllerForDeliveryDetails(deliveryId, window, deliveryInfoPanel);
-            }
-        };
-        
-        setTimeout(retryFunction, 100);
-        return false;
-    },
-
-    /**
-     * Execute the actual delivery details loading with error handling
-     */
-    executeDeliveryDetailsLoad: function(controller, deliveryId, window, deliveryInfoPanel) {
-        var me = this;
-        
-        controller.loadInboundDeliveryDetails(deliveryId, function(deliveryData) {
-            if (deliveryData) {
-                console.log('✅ Loaded delivery details from backend:', deliveryData);
-                
-                // Update window title with real delivery number
-                window.setTitle('Delivery Details - ' + deliveryData.deliveryNumber);
-                
-                // Update delivery info panel with real data
-                var infoHtml = '<table style="width: 100%; border-collapse: collapse;">' +
-                              '<tr><td style="font-weight: bold; padding: 5px;">Delivery Number:</td><td style="padding: 5px;">' + deliveryData.deliveryNumber + '</td></tr>' +
-                              '<tr><td style="font-weight: bold; padding: 5px;">Supplier:</td><td style="padding: 5px;">' + deliveryData.supplierName + ' (' + deliveryData.supplierCode + ')</td></tr>' +
-                              '<tr><td style="font-weight: bold; padding: 5px;">Purchase Order:</td><td style="padding: 5px;">' + deliveryData.purchaseOrder + '</td></tr>' +
-                              '<tr><td style="font-weight: bold; padding: 5px;">Expected Date:</td><td style="padding: 5px;">' + deliveryData.expectedDate + '</td></tr>' +
-                              '<tr><td style="font-weight: bold; padding: 5px;">Status:</td><td style="padding: 5px;"><strong style="color: ' + me.getStatusColor(deliveryData.status) + ';">' + deliveryData.status + '</strong></td></tr>' +
-                              '</table>';
-                
-                deliveryInfoPanel.update(infoHtml);
-                
-                // Update status display in toolbar
-                var statusDisplay = window.down('#statusDisplay');
-                if (statusDisplay) {
-                    statusDisplay.setValue('<strong>Total Items: ' + deliveryData.totalItems + ' | Status: </strong><span style="color: ' + me.getStatusColor(deliveryData.status) + '; font-weight: bold;">' + deliveryData.status + '</span>');
-                }
-                
-                // Enable/disable buttons based on real status
-                var generateEpcBtn = window.down('#generateEpcBtn');
-                var startRfidBtn = window.down('#startRfidBtn');
-                var rfidScanningBtn = window.down('#rfidScanningBtn');
-                
-                if (generateEpcBtn) generateEpcBtn.setDisabled(deliveryData.status !== 'Created');
-                if (startRfidBtn) startRfidBtn.setDisabled(deliveryData.status === 'Confirmed');
-                if (rfidScanningBtn) rfidScanningBtn.setDisabled(deliveryData.status === 'Confirmed' || deliveryData.status === 'Cancelled');
-                
-                // Load delivery items if available
-                if (deliveryData.items && deliveryData.items.length > 0) {
-                    var itemsGrid = window.down('#deliveryItemsGrid');
-                    if (itemsGrid && itemsGrid.getStore()) {
-                        console.log('✅ Loading', deliveryData.items.length, 'delivery items from backend data');
-                        
-                        // Map items to expected format
-                        var mappedItems = deliveryData.items.map(function(item) {
-                            return {
-                                itemCode: item.itemCode || item.item_code,
-                                itemName: item.itemName || item.item_name,
-                                category: item.category || item.item_group || 'General',
-                                unitOfMeasure: item.unit || item.unitOfMeasure || 'PCS',
-                                expectedQuantity: item.expectedQuantity || item.expected_quantity || 0,
-                                receivedQuantity: item.receivedQuantity || item.received_quantity || 0,
-                                epcCode: item.epcCode || item.epc_code || 'Not Generated',
-                                scanningStatus: item.scanningStatus || item.scanning_status || 'Pending',
-                                lotNumber: item.lotNumber || item.lot_number || '',
-                                expiryDate: item.expiryDate || item.expiry_date || null
-                            };
-                        });
-                        
-                        itemsGrid.getStore().loadData(mappedItems);
-                    }
-                }
-                
-            } else {
-                console.error('❌ Failed to load delivery details from backend');
-                
-                // Show error in info panel
-                deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: red;"><i class="fa fa-exclamation-triangle"></i> Failed to load delivery details from backend API</div>');
-                
-                // Set fallback window title
-                window.setTitle('Delivery Details - Error Loading');
-            }
-        });
-    },
-
-    /**
-     * Create fallback controller specifically for delivery details loading
-     */
-    createFallbackControllerForDeliveryDetails: function(deliveryId, window, deliveryInfoPanel) {
-        var me = this;
-        console.log('🔧 Creating fallback controller for delivery details');
-        
-        try {
-            if (Store && Store.warehouse && Store.warehouse.controller && Store.warehouse.controller.WarehouseController) {
-                var fallbackController = Ext.create('Store.warehouse.controller.WarehouseController');
-                console.log('✅ Fallback controller created successfully for delivery details');
-                
-                // Set it globally for future use
-                window.warehouseController = fallbackController;
-                
-                if (fallbackController.loadInboundDeliveryDetails) {
-                    console.log('✅ Using fallback controller for delivery details');
-                    me.executeDeliveryDetailsLoad(fallbackController, deliveryId, window, deliveryInfoPanel);
-                    return true;
-                }
-            }
-        } catch (e) {
-            console.error('❌ Failed to create fallback controller for delivery details:', e);
-        }
-        
-        // All strategies failed
-        console.error('❌ All controller access strategies failed for delivery details loading');
-        deliveryInfoPanel.update('<div style="text-align: center; padding: 20px; color: red;"><i class="fa fa-exclamation-triangle"></i> Backend controller initialization failed. Please refresh the page and try again.</div>');
-        window.setTitle('Delivery Details - Controller Error');
-        return false;
-    },
     
     /**
      * Enhanced controller access with comprehensive fallback strategies
@@ -1210,8 +1103,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         console.log('🔍 DEBUG: Attempting to access WarehouseController for method:', methodName);
         console.log('🔍 DEBUG: window.warehouseController exists:', !!window.warehouseController);
         
-        // Strategy 1: Direct controller config access
-        var controller = me.getWarehouseController();
+        // Strategy 1: Direct global access
+        var controller = window.warehouseController;
         if (controller && controller[methodName]) {
             console.log('✅ DEBUG: Using global controller for', methodName);
             controller[methodName](data);
@@ -1228,7 +1121,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             retryCount++;
             console.log('🔍 DEBUG: Retry attempt', retryCount, 'for', methodName);
             
-            controller = me.getWarehouseController();
+            controller = window.warehouseController;
             if (controller && controller[methodName]) {
                 console.log('✅ DEBUG: Controller became available on retry', retryCount);
                 controller[methodName](data);
