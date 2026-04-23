@@ -3320,7 +3320,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
 
     /**
      * Assign EPC codes to items via backend API - Manual assignment
-     * POST /api/epc/assign - CORS-SAFE VERSION
+     * POST /api/epc/assign - CORS-SAFE VERSION USING APICONFIG PATTERN
      */
     assignEPC: function(assignment) {
         console.log('🔄 Calling Assign EPC API (manual assignment):', assignment);
@@ -3332,13 +3332,11 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
             quantity: assignment.quantity || 1
         };
         
-        // CORS FIX: Use simple request to avoid preflight
+        // CORS FIX: Use ApiConfig pattern like createInboundDelivery
         Ext.Ajax.request({
             url: apiConfig.getUrl('epcAssign'),
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'  // Simple header to avoid preflight
-            },
+            headers: apiConfig.getStandardHeaders(),  // Use ApiConfig headers like other working APIs
             jsonData: requestData,
             timeout: 15000,
             success: function(response) {
