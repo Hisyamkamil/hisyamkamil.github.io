@@ -721,6 +721,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     store: Ext.create('Ext.data.Store', {
                         fields: [
                             'itemId', // CRITICAL: Real UUID from backend for EPC assignment
+                            'inboundItemId', // NEW: For complete traceability per updated Postman spec
                             'itemCode',
                             'itemName',
                             'category',
@@ -1296,10 +1297,11 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     if (itemsGrid && itemsGrid.getStore()) {
                         console.log('✅ Loading', deliveryData.items.length, 'delivery items from backend data');
                         
-                        // Map items to expected format - CRITICAL: Include real item IDs from backend
+                        // Map items to expected format - CRITICAL: Include real item IDs and inboundItemId for traceability
                         var mappedItems = deliveryData.items.map(function(item) {
                             return {
                                 itemId: item.itemId || item.item_id, // CRITICAL: Real UUID from backend for EPC assignment
+                                inboundItemId: item.inboundItemId || item.inbound_item_id, // NEW: For complete traceability per Postman spec
                                 itemCode: item.itemCode || item.item_code,
                                 itemName: item.itemName || item.item_name,
                                 category: item.category || item.item_group || 'General',
@@ -1951,16 +1953,51 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     },
 
     /**
-     * Call Assign EPC API for selected item
+     * Call Assign EPC API for selected item with complete traceability
      */
     callAssignEPCForSelectedItem: function(assignmentData) {
         var me = this;
-        console.log('🔄 Assigning EPC for selected item:', assignmentData);
+        console.log('🔄 Assigning EPC for selected item with traceability:', assignmentData);
+        
+        // Get current delivery context for inboundItemId traceability
+        var parentWindow = me.up('window');
+        var deliveryItemsGrid = parentWindow ? parentWindow.down('#deliveryItemsGrid') : null;
+        var selectedItem = null;
+        
+        if (deliveryItemsGrid) {
+            var selection = deliveryItemsGrid.getSelection();
+            if (selection.length > 0) {
+                selectedItem = selection[0];
+            }
+        }
+        
+        // Enhanced assignment data with traceability fields per Postman collection spec
+        var enhancedAssignmentData = {
+            epcCode: assignmentData.epcCode,
+            itemId: assignmentData.itemId,
+            quantity: assignmentData.quantity || 1,
+            assignedBy: 'warehouse_user@company.com',
+            notes: 'Manual EPC assignment via warehouse management system'
+        };
+        
+        // CRITICAL: Add inboundItemId for complete traceability if available
+        if (selectedItem) {
+            var inboundItemId = selectedItem.get('inboundItemId') || selectedItem.get('inbound_item_id');
+            if (inboundItemId && inboundItemId.indexOf('temp-') !== 0) {
+                enhancedAssignmentData.inboundItemId = inboundItemId;
+                enhancedAssignmentData.notes += ' - Linked to inbound delivery item for complete traceability';
+                console.log('✅ Including inboundItemId for traceability:', inboundItemId);
+            } else {
+                console.log('⚠️ No valid inboundItemId available for traceability');
+            }
+        }
+        
+        console.log('📤 Enhanced EPC assignment data:', enhancedAssignmentData);
         
         // Call backend API via WarehouseController
         var controller = me.getWarehouseController();
         if (controller && controller.assignEPC) {
-            controller.assignEPC(assignmentData);
+            controller.assignEPC(enhancedAssignmentData);
         } else {
             console.error('❌ WarehouseController.assignEPC not available');
             Ext.Msg.alert('API Error', 'Assign EPC API not available. Please check backend integration.');
