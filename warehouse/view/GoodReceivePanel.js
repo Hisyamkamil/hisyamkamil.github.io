@@ -1823,10 +1823,11 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         var deliveryRecord = mainSelection[0];
         var deliveryStatus = deliveryRecord.get('status');
         
-        // Condition 1: Delivery Status Check
-        var validDeliveryStatus = (deliveryStatus === 'Created' || deliveryStatus === 'Pending');
+        // Condition 1: Delivery Status Check - Case insensitive comparison
+        var normalizedStatus = deliveryStatus ? deliveryStatus.toLowerCase() : '';
+        var validDeliveryStatus = (normalizedStatus === 'created' || normalizedStatus === 'pending');
         if (!validDeliveryStatus) {
-            console.log('❌ Confirm Good Receive: Invalid delivery status:', deliveryStatus, '(expected Created or Pending)');
+            console.log('❌ Confirm Good Receive: Invalid delivery status:', deliveryStatus, '(expected Created/created or Pending/pending)');
             return false;
         }
         
