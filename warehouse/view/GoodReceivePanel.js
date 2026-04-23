@@ -529,10 +529,34 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                             });
                             
                             if (isEdit) {
-                                // TODO: Implement update functionality when backend supports it
-                                record.set(values);
-                                Ext.Msg.alert('Success', 'Delivery "' + values.deliveryNumber + '" updated successfully!');
-                                window.close();
+                                // IMPLEMENTED: Update functionality using WarehouseController.updateInboundDelivery
+                                var deliveryId = record.get('inbound_delivery_id') || record.get('id');
+                                var deliveryData = {
+                                    deliveryNumber: values.deliveryNumber,
+                                    supplierCode: values.supplierCode,
+                                    supplierName: values.supplierName,
+                                    expectedDeliveryDate: values.expectedDate,
+                                    purchaseOrderNumber: values.purchaseOrder,
+                                    items: items,
+                                    updatedBy: 'current_user',
+                                    notes: values.notes || ''
+                                };
+                                
+                                console.log('🔄 Updating inbound delivery via backend API:', deliveryId, deliveryData);
+                                
+                                // Call backend API via WarehouseController
+                                var controller = me.getWarehouseController();
+                                if (controller && controller.updateInboundDelivery) {
+                                    controller.updateInboundDelivery(deliveryId, deliveryData);
+                                    window.close();
+                                    
+                                    // Refresh grid after successful update
+                                    setTimeout(function() {
+                                        me.loadInboundDeliveries();
+                                    }, 1000);
+                                } else {
+                                    Ext.Msg.alert('Error', 'Backend controller not available for update operation');
+                                }
                             } else {
                                 // Create backend API request data
                                 var deliveryData = {
@@ -841,6 +865,15 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                             itemId: 'assignEpcBtn',
                             handler: function() {
                                 me.showAssignEPCDialogForSelected(window);
+                            }
+                        },
+                        {
+                            text: 'Confirm Good Receive',
+                            iconCls: 'fa fa-check-circle',
+                            disabled: true, // Will be enabled based on delivery status
+                            itemId: 'confirmGoodReceiveBtn',
+                            handler: function() {
+                                me.showConfirmGoodReceiveDialog(record, window);
                             }
                         },
                         '-',
@@ -1267,6 +1300,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 var generateEpcBtn = window.down('#generateEpcBtn');
                 var startRfidBtn = window.down('#startRfidBtn');
                 var rfidScanningBtn = window.down('#rfidScanningBtn');
+                var confirmGoodReceiveBtn = window.down('#confirmGoodReceiveBtn'); // NEW button
                 
                 // Check if any items have 'Pending' status (need EPC generation)
                 var hasPendingItems = false;
@@ -1287,6 +1321,10 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 // Enable Assign EPC button for items that need manual EPC assignment (alternative to auto-generate)
                 var assignEpcBtn = window.down('#assignEpcBtn');
                 if (assignEpcBtn) assignEpcBtn.setDisabled(!hasPendingItems); // Same logic as Generate - both are alternatives for items needing EPC
+                
+                // Enable Confirm Good Receive button only if delivery is pending and has EPCs generated
+                var canConfirmGoodReceive = (deliveryData.status === 'Created' || deliveryData.status === 'Pending') && !hasPendingItems;
+                if (confirmGoodReceiveBtn) confirmGoodReceiveBtn.setDisabled(!canConfirmGoodReceive);
                 
                 if (startRfidBtn) startRfidBtn.setDisabled(deliveryData.status === 'Confirmed');
                 if (rfidScanningBtn) rfidScanningBtn.setDisabled(deliveryData.status === 'Confirmed' || deliveryData.status === 'Cancelled');
@@ -2002,5 +2040,170 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             console.error('❌ WarehouseController.assignEPC not available');
             Ext.Msg.alert('API Error', 'Assign EPC API not available. Please check backend integration.');
         }
+    },
+
+    /**
+     * Show Confirm Good Receive dialog - NEW method for handheld RFID scanner
+     */
+    showConfirmGoodReceiveDialog: function(record, parentWindow) {
+        var me = this;
+        
+        if (!record) {
+            Ext.Msg.alert('Selection Required', 'Please select a delivery to confirm good receive.');
+            return;
+        }
+        
+        var deliveryId = record.get('inbound_delivery_id') || record.get('id');
+        var deliveryNumber = record.get('delivery_number') || 'Unknown';
+        
+        // Create form for RFID scan configuration
+        var form = Ext.create('Ext.form.Panel', {
+            bodyPadding: 15,
+            defaults: {
+                anchor: '100%',
+                labelWidth: 120
+            },
+            items: [
+                {
+                    xtype: 'displayfield',
+                    fieldLabel: 'Delivery',
+                    value: '<strong>' + deliveryNumber + '</strong>'
+                },
+                {
+                    xtype: 'displayfield',
+                    fieldLabel: 'Supplier',
+                    value: record.get('supplier_name') || 'N/A'
+                },
+                {
+                    xtype: 'displayfield',
+                    fieldLabel: 'Total Items',
+                    value: record.get('total_items') || 0
+                },
+                {
+                    xtype: 'fieldset',
+                    title: '📱 Handheld RFID Scanner Configuration',
+                    defaults: {
+                        anchor: '100%',
+                        labelWidth: 100
+                    },
+                    items: [
+                        {
+                            xtype: 'textfield',
+                            name: 'readerId',
+                            fieldLabel: 'Reader ID',
+                            value: 'RFID-READER-001',
+                            allowBlank: false
+                        },
+                        {
+                            xtype: 'textfield',
+                            name: 'location',
+                            fieldLabel: 'Location',
+                            value: 'INBOUND-STAGING',
+                            allowBlank: false
+                        },
+                        {
+                            xtype: 'textfield',
+                            name: 'scannedBy',
+                            fieldLabel: 'Operator',
+                            value: 'operator@company.com',
+                            allowBlank: false
+                        },
+                        {
+                            xtype: 'numberfield',
+                            name: 'totalScanned',
+                            fieldLabel: 'Total Scanned',
+                            value: record.get('total_items') || 2,
+                            minValue: 0,
+                            allowBlank: false
+                        }
+                    ]
+                },
+                {
+                    xtype: 'fieldset',
+                    title: '📡 Sample Scanned Tags (for demo)',
+                    html: '<div style="padding: 10px; background: #f8f9fa; border-radius: 4px;">' +
+                          '<p><strong>Note:</strong> In production, this would be automatically populated by the handheld RFID reader.</p>' +
+                          '<p>Sample EPC Tags:</p>' +
+                          '<ul>' +
+                          '<li>3034257BF7194E4000001A85 (RSSI: -45)</li>' +
+                          '<li>3034257BF7194E4000001A86 (RSSI: -52)</li>' +
+                          '</ul>' +
+                          '</div>'
+                }
+            ]
+        });
+
+        var window = Ext.create('Ext.window.Window', {
+            title: '📱 Confirm Good Receive - Handheld RFID Scanner',
+            modal: true,
+            width: 500,
+            height: 450,
+            layout: 'fit',
+            items: [form],
+            buttons: [
+                {
+                    text: 'Cancel',
+                    handler: function() {
+                        window.close();
+                    }
+                },
+                {
+                    text: 'Confirm with RFID Scan',
+                    iconCls: 'fa fa-check-circle',
+                    handler: function() {
+                        if (form.isValid()) {
+                            var values = form.getValues();
+                            
+                            // Build RFID scan data according to Postman collection spec
+                            var rfidScanData = {
+                                readerId: values.readerId,
+                                location: values.location,
+                                scannedBy: values.scannedBy,
+                                scanTimestamp: new Date().toISOString(),
+                                totalScanned: parseInt(values.totalScanned),
+                                scannedTags: [
+                                    {
+                                        epc: '3034257BF7194E4000001A85',
+                                        rssi: -45,
+                                        timestamp: new Date().toISOString(),
+                                        antenna: 1
+                                    },
+                                    {
+                                        epc: '3034257BF7194E4000001A86',
+                                        rssi: -52,
+                                        timestamp: new Date(Date.now() + 5000).toISOString(),
+                                        antenna: 2
+                                    }
+                                ]
+                            };
+                            
+                            console.log('🔄 Initiating RFID good receive confirmation for:', deliveryId);
+                            
+                            // Call the new controller method
+                            var controller = me.getWarehouseController();
+                            if (controller && controller.confirmGoodReceiveRFID) {
+                                controller.confirmGoodReceiveRFID(deliveryId, rfidScanData);
+                                window.close();
+                                
+                                // Close parent window if it exists
+                                if (parentWindow) {
+                                    parentWindow.close();
+                                }
+                                
+                                // Refresh the main delivery grid
+                                setTimeout(function() {
+                                    me.loadInboundDeliveries();
+                                }, 1000);
+                            } else {
+                                console.error('❌ WarehouseController.confirmGoodReceiveRFID not available');
+                                Ext.Msg.alert('API Error', 'Confirm Good Receive RFID API not available. Please check backend integration.');
+                            }
+                        }
+                    }
+                }
+            ]
+        });
+        
+        window.show();
     }
 });
