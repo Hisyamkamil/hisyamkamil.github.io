@@ -1761,11 +1761,12 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     },
 
     /**
-     * Update EPC buttons based on selected item in delivery details
+     * Update EPC buttons and Confirm Good Receive button based on selected item in delivery details
      */
     updateEPCButtonsForSelectedItem: function(selected, window) {
         var generateEpcBtn = window.down('#generateEpcBtn');
         var assignEpcBtn = window.down('#assignEpcBtn');
+        var confirmGoodReceiveBtn = window.down('#confirmGoodReceiveBtn');
         
         if (selected.length === 1) {
             var selectedItem = selected[0];
@@ -1781,18 +1782,91 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             if (generateEpcBtn) generateEpcBtn.setDisabled(!canGenerateEPC);
             if (assignEpcBtn) assignEpcBtn.setDisabled(!canAssignEPC);
             
+            // CRITICAL FIX: Enable Confirm Good Receive button based on item selection + delivery status + EPC status
+            var canConfirmGoodReceive = this.checkConfirmGoodReceiveConditions(window, selectedItem);
+            if (confirmGoodReceiveBtn) confirmGoodReceiveBtn.setDisabled(!canConfirmGoodReceive);
+            
             console.log('EPC buttons updated for selected item:', {
                 itemCode: selectedItem.get('itemCode'),
                 itemStatus: itemStatus,
                 epcCode: epcCode,
                 canGenerateEPC: canGenerateEPC,
-                canAssignEPC: canAssignEPC
+                canAssignEPC: canAssignEPC,
+                canConfirmGoodReceive: canConfirmGoodReceive
             });
         } else {
-            // No item selected, disable both buttons
+            // No item selected, disable all buttons
             if (generateEpcBtn) generateEpcBtn.setDisabled(true);
             if (assignEpcBtn) assignEpcBtn.setDisabled(true);
+            if (confirmGoodReceiveBtn) confirmGoodReceiveBtn.setDisabled(true);
+            
+            console.log('No item selected - all buttons disabled');
         }
+    },
+
+    /**
+     * Check all conditions for enabling Confirm Good Receive button
+     * Conditions: Delivery Status = 'Created' OR 'Pending' + All items have EPCs generated + Item selected
+     */
+    checkConfirmGoodReceiveConditions: function(window, selectedItem) {
+        var me = this;
+        
+        // Get delivery status from the main grid selection
+        var mainGrid = me.down('#goodReceiveGrid');
+        var mainSelection = mainGrid ? mainGrid.getSelection() : [];
+        
+        if (mainSelection.length === 0) {
+            console.log('❌ Confirm Good Receive: No delivery selected in main grid');
+            return false;
+        }
+        
+        var deliveryRecord = mainSelection[0];
+        var deliveryStatus = deliveryRecord.get('status');
+        
+        // Condition 1: Delivery Status Check
+        var validDeliveryStatus = (deliveryStatus === 'Created' || deliveryStatus === 'Pending');
+        if (!validDeliveryStatus) {
+            console.log('❌ Confirm Good Receive: Invalid delivery status:', deliveryStatus, '(expected Created or Pending)');
+            return false;
+        }
+        
+        // Condition 2: EPC Generation Check - All items must have EPCs generated
+        var itemsGrid = window.down('#deliveryItemsGrid');
+        if (!itemsGrid || !itemsGrid.getStore()) {
+            console.log('❌ Confirm Good Receive: Items grid not available');
+            return false;
+        }
+        
+        var hasPendingItems = false;
+        itemsGrid.getStore().each(function(record) {
+            var itemStatus = record.get('scanningStatus') || 'Pending';
+            var epcCode = record.get('epcCode') || 'Not Generated';
+            
+            if (itemStatus === 'Pending' || epcCode === 'Not Generated') {
+                hasPendingItems = true;
+                return false; // Break the loop
+            }
+        });
+        
+        if (hasPendingItems) {
+            console.log('❌ Confirm Good Receive: Items still have pending EPC generation');
+            return false;
+        }
+        
+        // Condition 3: Item Selection Check (already handled by calling function)
+        if (!selectedItem) {
+            console.log('❌ Confirm Good Receive: No item selected');
+            return false;
+        }
+        
+        // All conditions met
+        console.log('✅ Confirm Good Receive: All conditions met', {
+            deliveryStatus: deliveryStatus,
+            hasPendingItems: hasPendingItems,
+            selectedItemCode: selectedItem.get('itemCode')
+        });
+        
+        return true;
     },
 
     /**
