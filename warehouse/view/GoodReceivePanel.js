@@ -823,7 +823,16 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                             disabled: true, // Will be enabled based on real status
                             itemId: 'generateEpcBtn',
                             handler: function() {
-                                Ext.Msg.alert('EPC Generation', 'EPC codes would be generated for all items in this delivery.');
+                                me.showGenerateEPCDialog(record);
+                            }
+                        },
+                        {
+                            text: 'Assign EPC',
+                            iconCls: 'fa fa-link',
+                            disabled: true, // Will be enabled based on real status
+                            itemId: 'assignEpcBtn',
+                            handler: function() {
+                                me.showAssignEPCDialog(record);
                             }
                         },
                         '-',
@@ -1251,7 +1260,26 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 var startRfidBtn = window.down('#startRfidBtn');
                 var rfidScanningBtn = window.down('#rfidScanningBtn');
                 
-                if (generateEpcBtn) generateEpcBtn.setDisabled(deliveryData.status !== 'Created');
+                // Check if any items have 'Pending' status (need EPC generation)
+                var hasPendingItems = false;
+                if (deliveryData.items && deliveryData.items.length > 0) {
+                    hasPendingItems = deliveryData.items.some(function(item) {
+                        var itemStatus = item.scanningStatus || item.scanning_status || 'Pending';
+                        return itemStatus === 'Pending';
+                    });
+                }
+                console.log('📋 Items analysis for EPC generation:', {
+                    totalItems: deliveryData.items ? deliveryData.items.length : 0,
+                    hasPendingItems: hasPendingItems
+                });
+                
+                // Enable Generate EPC button only if there are pending items (auto-generate)
+                if (generateEpcBtn) generateEpcBtn.setDisabled(!hasPendingItems);
+                
+                // Enable Assign EPC button for items that need manual EPC assignment (alternative to auto-generate)
+                var assignEpcBtn = window.down('#assignEpcBtn');
+                if (assignEpcBtn) assignEpcBtn.setDisabled(!hasPendingItems); // Same logic as Generate - both are alternatives for items needing EPC
+                
                 if (startRfidBtn) startRfidBtn.setDisabled(deliveryData.status === 'Confirmed');
                 if (rfidScanningBtn) rfidScanningBtn.setDisabled(deliveryData.status === 'Confirmed' || deliveryData.status === 'Cancelled');
                 
@@ -1403,5 +1431,284 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             'Please refresh the page to reinitialize the warehouse system.'
         );
         return false;
+    },
+
+    /**
+     * Show Generate EPC Dialog - Auto-generated EPC codes
+     */
+    showGenerateEPCDialog: function(record) {
+        var me = this;
+        
+        // Get delivery items that need EPC generation
+        var itemsNeedingEpc = [];
+        if (record && record.items) {
+            record.items.forEach(function(item) {
+                var itemStatus = item.scanningStatus || item.scanning_status || 'Pending';
+                if (itemStatus === 'Pending') {
+                    itemsNeedingEpc.push({
+                        itemCode: item.itemCode || item.item_code,
+                        itemName: item.itemName || item.item_name,
+                        expectedQuantity: item.expectedQuantity || item.expected_quantity || 1
+                    });
+                }
+            });
+        }
+        
+        if (itemsNeedingEpc.length === 0) {
+            Ext.Msg.alert('No Items', 'No items found that need EPC generation.');
+            return;
+        }
+
+        var html = '<div style="padding: 15px;">' +
+                   '<h3>Generate EPC Codes (Auto)</h3>' +
+                   '<p>The system will auto-generate EPC codes for the following items:</p>' +
+                   '<ul>';
+        
+        itemsNeedingEpc.forEach(function(item) {
+            html += '<li><strong>' + item.itemCode + '</strong> - ' + item.itemName + ' (Qty: ' + item.expectedQuantity + ')</li>';
+        });
+        
+        html += '</ul>' +
+                '<p><strong>Note:</strong> EPC codes will be automatically generated using the backend algorithm.</p>' +
+                '</div>';
+
+        var window = Ext.create('Ext.window.Window', {
+            title: 'Generate EPC Codes - ' + record.get('delivery_number'),
+            modal: true,
+            width: 500,
+            height: 350,
+            layout: 'fit',
+            items: [{
+                xtype: 'panel',
+                html: html,
+                autoScroll: true
+            }],
+            buttons: [
+                {
+                    text: 'Cancel',
+                    handler: function() {
+                        window.close();
+                    }
+                },
+                {
+                    text: 'Generate EPC Codes',
+                    iconCls: 'fa fa-tags',
+                    handler: function() {
+                        me.callGenerateEPCAPI(itemsNeedingEpc);
+                        window.close();
+                    }
+                }
+            ]
+        });
+        
+        window.show();
+    },
+
+    /**
+     * Show Assign EPC Dialog - User-defined EPC codes
+     */
+    showAssignEPCDialog: function(record) {
+        var me = this;
+        
+        // Get delivery items that need EPC assignment
+        var itemsNeedingEpc = [];
+        if (record && record.items) {
+            record.items.forEach(function(item) {
+                var itemStatus = item.scanningStatus || item.scanning_status || 'Pending';
+                if (itemStatus === 'Pending') {
+                    itemsNeedingEpc.push({
+                        itemId: item.itemId || item.item_id,
+                        itemCode: item.itemCode || item.item_code,
+                        itemName: item.itemName || item.item_name,
+                        expectedQuantity: item.expectedQuantity || item.expected_quantity || 1
+                    });
+                }
+            });
+        }
+        
+        if (itemsNeedingEpc.length === 0) {
+            Ext.Msg.alert('No Items', 'No items found that need EPC assignment.');
+            return;
+        }
+
+        var store = Ext.create('Ext.data.Store', {
+            fields: ['itemId', 'itemCode', 'itemName', 'quantity', 'epcCode'],
+            data: itemsNeedingEpc.map(function(item) {
+                return {
+                    itemId: item.itemId,
+                    itemCode: item.itemCode,
+                    itemName: item.itemName,
+                    quantity: item.expectedQuantity,
+                    epcCode: '' // User will input this
+                };
+            })
+        });
+
+        var grid = Ext.create('Ext.grid.Panel', {
+            store: store,
+            columns: [
+                { text: 'Item Code', dataIndex: 'itemCode', width: 100 },
+                { text: 'Item Name', dataIndex: 'itemName', flex: 1 },
+                { text: 'Qty', dataIndex: 'quantity', width: 60, align: 'center' },
+                {
+                    text: 'EPC Code *',
+                    dataIndex: 'epcCode',
+                    width: 200,
+                    editor: {
+                        xtype: 'textfield',
+                        allowBlank: false,
+                        maxLength: 24,
+                        minLength: 24,
+                        maskRe: /[0-9A-Fa-f]/,
+                        emptyText: 'Enter 24-char hex EPC...'
+                    }
+                }
+            ],
+            plugins: [{
+                ptype: 'cellediting',
+                clicksToEdit: 1
+            }],
+            tbar: [
+                {
+                    text: 'Validate All EPCs',
+                    iconCls: 'fa fa-check',
+                    handler: function() {
+                        me.validateAllEPCCodes(store);
+                    }
+                }
+            ]
+        });
+
+        var window = Ext.create('Ext.window.Window', {
+            title: 'Assign EPC Codes - ' + record.get('delivery_number'),
+            modal: true,
+            width: 600,
+            height: 400,
+            layout: 'fit',
+            items: [grid],
+            buttons: [
+                {
+                    text: 'Cancel',
+                    handler: function() {
+                        window.close();
+                    }
+                },
+                {
+                    text: 'Assign EPC Codes',
+                    iconCls: 'fa fa-link',
+                    handler: function() {
+                        me.callAssignEPCAPI(store);
+                        window.close();
+                    }
+                }
+            ]
+        });
+        
+        window.show();
+    },
+
+    /**
+     * Call Generate EPC API (auto-generation)
+     */
+    callGenerateEPCAPI: function(items) {
+        var me = this;
+        console.log('🔄 Calling Generate EPC API for auto-generation:', items);
+        
+        items.forEach(function(item) {
+            var generateData = {
+                itemCode: item.itemCode,
+                quantity: item.expectedQuantity
+            };
+            
+            console.log('📤 Generate EPC request:', generateData);
+            
+            // Call backend API via WarehouseController
+            var controller = me.getWarehouseController();
+            if (controller && controller.generateEPC) {
+                controller.generateEPC(generateData);
+            } else {
+                console.error('❌ WarehouseController.generateEPC not available');
+                Ext.Msg.alert('API Error', 'Generate EPC API not available. Please check backend integration.');
+            }
+        });
+        
+        Ext.Msg.alert('EPC Generation Started', 'Auto-generating EPC codes for ' + items.length + ' items.');
+    },
+
+    /**
+     * Call Assign EPC API (manual assignment)
+     */
+    callAssignEPCAPI: function(store) {
+        var me = this;
+        console.log('🔄 Calling Assign EPC API for manual assignment');
+        
+        var hasErrors = false;
+        var assignments = [];
+        
+        store.each(function(record) {
+            var epcCode = record.get('epcCode');
+            var itemId = record.get('itemId');
+            var quantity = record.get('quantity');
+            
+            if (!epcCode || epcCode.length !== 24) {
+                hasErrors = true;
+                return;
+            }
+            
+            assignments.push({
+                epcCode: epcCode,
+                itemId: itemId,
+                quantity: quantity
+            });
+        });
+        
+        if (hasErrors) {
+            Ext.Msg.alert('Validation Error', 'Please enter valid 24-character hexadecimal EPC codes for all items.');
+            return;
+        }
+        
+        // Process each assignment
+        assignments.forEach(function(assignment) {
+            console.log('📤 Assign EPC request:', assignment);
+            
+            // Call backend API via WarehouseController
+            var controller = me.getWarehouseController();
+            if (controller && controller.assignEPC) {
+                controller.assignEPC(assignment);
+            } else {
+                console.error('❌ WarehouseController.assignEPC not available');
+                Ext.Msg.alert('API Error', 'Assign EPC API not available. Please check backend integration.');
+                return;
+            }
+        });
+        
+        Ext.Msg.alert('EPC Assignment Started', 'Assigning ' + assignments.length + ' custom EPC codes.');
+    },
+
+    /**
+     * Validate EPC codes format
+     */
+    validateAllEPCCodes: function(store) {
+        var validCount = 0;
+        var totalCount = 0;
+        
+        store.each(function(record) {
+            totalCount++;
+            var epcCode = record.get('epcCode');
+            if (epcCode && epcCode.length === 24 && /^[0-9A-Fa-f]{24}$/.test(epcCode)) {
+                validCount++;
+            }
+        });
+        
+        var message = 'EPC Validation Results:\n\n' +
+                     'Valid EPCs: ' + validCount + '/' + totalCount + '\n';
+        
+        if (validCount === totalCount) {
+            message += '\n✅ All EPC codes are valid!';
+            Ext.Msg.alert('Validation Success', message);
+        } else {
+            message += '\n⚠️ Some EPC codes need correction.\n\nRequirement: 24-character hexadecimal codes (0-9, A-F)';
+            Ext.Msg.alert('Validation Issues', message);
+        }
     }
 });
