@@ -70,6 +70,11 @@ Ext.define('Store.warehouse.config.ApiConfig', {
             itemsDelete: '/api/warehouse/items/{itemId}',
             locationsList: '/api/warehouse/locations',
             inventoryList: '/api/warehouse/inventory',
+            suppliersList: '/api/warehouse/suppliers',
+            
+            // Additional utility endpoints
+            lotGenerate: '/api/warehouse/lot/generate',
+            inboundConfirmItem: '/api/warehouse/inbound/confirm-item',
             
             // Reports endpoints - ALIGNED WITH POSTMAN COLLECTION
             reports: '/api/warehouse/reports',
