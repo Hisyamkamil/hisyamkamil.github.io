@@ -720,6 +720,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     itemId: 'deliveryItemsGrid',
                     store: Ext.create('Ext.data.Store', {
                         fields: [
+                            'itemId', // CRITICAL: Real UUID from backend for EPC assignment
                             'itemCode',
                             'itemName',
                             'category',
@@ -1295,9 +1296,10 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     if (itemsGrid && itemsGrid.getStore()) {
                         console.log('✅ Loading', deliveryData.items.length, 'delivery items from backend data');
                         
-                        // Map items to expected format
+                        // Map items to expected format - CRITICAL: Include real item IDs from backend
                         var mappedItems = deliveryData.items.map(function(item) {
                             return {
+                                itemId: item.itemId || item.item_id, // CRITICAL: Real UUID from backend for EPC assignment
                                 itemCode: item.itemCode || item.item_code,
                                 itemName: item.itemName || item.item_name,
                                 category: item.category || item.item_group || 'General',
@@ -1829,8 +1831,19 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         }
         
         var selectedItem = selected[0];
+        var itemId = selectedItem.get('itemId');
+        
+        // CRITICAL: Ensure we have a real UUID itemId from backend
+        if (!itemId || itemId.indexOf('temp-') === 0) {
+            Ext.Msg.alert('Item ID Missing',
+                'Item ID not available from backend. Please refresh the delivery details and try again.\n\n' +
+                'Note: EPC assignment requires valid item IDs from the database.'
+            );
+            return;
+        }
+        
         var itemData = {
-            itemId: selectedItem.get('itemId') || 'temp-' + selectedItem.get('itemCode'),
+            itemId: itemId, // Real UUID from backend
             itemCode: selectedItem.get('itemCode'),
             itemName: selectedItem.get('itemName'),
             quantity: selectedItem.get('expectedQuantity') || 1
