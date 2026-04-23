@@ -463,6 +463,75 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     },
 
     /**
+     * NEW: Confirm Inbound Item - Frontend-focused confirmation API
+     * POST /api/warehouse/inbound/confirm-item
+     * Simple user-friendly confirmation workflow for frontend applications
+     */
+    confirmGoodReceiveRFID: function(inboundItemId, confirmationData) {
+        console.log('🔄 Confirming inbound item via frontend API:', inboundItemId);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        
+        // Build request data according to Postman collection specification (lines 296-325)
+        var requestData = {
+            inboundItemId: inboundItemId,
+            confirmedQuantity: confirmationData.confirmedQuantity || confirmationData.quantity || 1,
+            condition: confirmationData.condition || 'good',
+            actualLocation: confirmationData.actualLocation || confirmationData.location || 'INBOUND-STAGING-A1',
+            confirmedBy: confirmationData.confirmedBy || confirmationData.scannedBy || 'warehouse-staff@company.com',
+            notes: confirmationData.notes || 'Items confirmed via warehouse management system'
+        };
+        
+        // Include quality check if provided
+        if (confirmationData.qualityCheck) {
+            requestData.qualityCheck = {
+                passed: confirmationData.qualityCheck.passed !== false,
+                inspector: confirmationData.qualityCheck.inspector || 'qc-inspector@company.com',
+                checkedAt: confirmationData.qualityCheck.checkedAt || new Date().toISOString()
+            };
+        }
+        
+        console.log('📤 Frontend confirmation request:', requestData);
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('inboundConfirmItem'),  // Updated to use correct endpoint
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders('POST'),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('✅ Inbound item confirmation completed successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    
+                    // Handle response format from Postman collection
+                    if (result.success || result.inboundItemId || response.status === 200 || response.status === 201) {
+                        this.handleInboundItemConfirmed(result);
+                        this.loadInboundDeliveries(); // Refresh grid
+                        this.loadDashboardMetrics(); // Update dashboard
+                    } else {
+                        Ext.Msg.alert('Confirmation Error', result.message || 'Failed to confirm inbound item');
+                    }
+                } catch (e) {
+                    console.error('❌ Error parsing confirmation response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from confirmation server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('❌ Failed to confirm inbound item:', response);
+                var errorMsg = 'Failed to confirm inbound item. ';
+                try {
+                    var errorResult = Ext.decode(response.responseText);
+                    errorMsg += errorResult.error || errorResult.message || 'Please try again.';
+                } catch (e) {
+                    errorMsg += 'Network error - please try again.';
+                }
+                Ext.Msg.alert('Confirmation Error', errorMsg);
+            }.bind(this)
+        });
+    },
+
+    /**
      * Reverse Good Receive - aligns with API CONTRACTS SPECIFICATION
      * POST /api/warehouse/goodreceive/reverse
      */
@@ -632,6 +701,48 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         Ext.Msg.alert('✅ Inventory Updated', message);
     },
 
+    /**
+     * Handle successful handheld RFID confirmation - NEW method for updated API
+     */
+    handleNewGoodReceiveRFIDConfirmed: function(confirmationData) {
+        console.log('🎉 NEW RFID CONFIRMATION: Good receive confirmed via handheld reader:', confirmationData);
+        
+        // Handle response format from new Postman collection specification
+        var scanResults = confirmationData.scanResults || {};
+        var confirmationStatus = confirmationData.confirmationStatus || 'completed';
+        
+        var foundTags = scanResults.foundTags || [];
+        var missingTags = scanResults.missingTags || [];
+        var unexpectedTags = scanResults.unexpectedTags || [];
+        
+        var message = [
+            '✅ Handheld RFID Confirmation Completed!',
+            '',
+            'Delivery: ' + (confirmationData.deliveryId || 'N/A'),
+            'Status: ' + confirmationStatus.toUpperCase(),
+            '',
+            '📱 Scan Results:',
+            '• Total Scanned: ' + (scanResults.totalScanned || 0),
+            '• Found Tags: ' + foundTags.length,
+            '• Missing Tags: ' + missingTags.length,
+            '• Unexpected Tags: ' + unexpectedTags.length,
+            '',
+            '📍 Reader: ' + (scanResults.readerId || 'N/A'),
+            '📍 Location: ' + (scanResults.scanLocation || 'N/A'),
+            '👤 Scanned By: ' + (scanResults.scannedBy || 'N/A'),
+            '',
+            confirmationStatus === 'confirmed'
+                ? '🎉 INVENTORY UPDATED: Items added to warehouse stock!'
+                : '⚠️  PARTIAL CONFIRMATION: Some items may need manual verification.'
+        ].join('\n');
+        
+        var alertTitle = confirmationStatus === 'confirmed'
+            ? '✅ RFID Confirmation Success'
+            : '⚠️ RFID Confirmation Partial';
+        
+        Ext.Msg.alert(alertTitle, message);
+    },
+
     handleGoodReceiveCreated: function(goodReceiveData) {
         console.log('Good receive created - awaiting RFID confirmation:', goodReceiveData);
         
@@ -653,6 +764,114 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         
         Ext.Msg.alert('Good Receive Created', message);
         this.loadInboundDeliveries(); // Refresh grid
+    },
+
+    /**
+     * Update existing inbound delivery via backend API - IMPLEMENTATION for TODO
+     * PUT /api/warehouse/inbound/{deliveryId}
+     */
+    updateInboundDelivery: function(deliveryId, deliveryData) {
+        console.log('Updating inbound delivery via backend API:', deliveryId, deliveryData);
+        
+        // Validate required fields
+        var missingFields = [];
+        if (!deliveryData.deliveryNumber) missingFields.push('deliveryNumber');
+        if (!deliveryData.supplierCode) missingFields.push('supplierCode');
+        if (!deliveryData.supplierName) missingFields.push('supplierName');
+        
+        if (missingFields.length > 0) {
+            var errorMsg = 'Missing required fields: ' + missingFields.join(', ');
+            Ext.Msg.alert('Validation Error', errorMsg);
+            return;
+        }
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        
+        // Build clean request data with only non-empty values
+        var requestData = {
+            deliveryNumber: deliveryData.deliveryNumber,
+            supplierCode: deliveryData.supplierCode,
+            supplierName: deliveryData.supplierName,
+            updatedBy: deliveryData.updatedBy || 'warehouse_user@company.com'
+        };
+        
+        // Only include optional fields if they have values
+        if (deliveryData.expectedDeliveryDate) {
+            requestData.expectedDeliveryDate = deliveryData.expectedDeliveryDate;
+        }
+        if (deliveryData.purchaseOrderNumber && deliveryData.purchaseOrderNumber.trim() !== '') {
+            requestData.purchaseOrderNumber = deliveryData.purchaseOrderNumber;
+        }
+        if (deliveryData.notes && deliveryData.notes.trim() !== '') {
+            requestData.notes = deliveryData.notes;
+        }
+        
+        // Clean up items array if provided
+        if (deliveryData.items && deliveryData.items.length > 0) {
+            var cleanedItems = [];
+            deliveryData.items.forEach(function(item) {
+                var cleanedItem = {
+                    itemCode: item.itemCode,
+                    itemName: item.itemName,
+                    expectedQuantity: parseInt(item.expectedQuantity) || 1,
+                    unit: item.unit || 'PCS',
+                    unitPrice: parseFloat(item.unitPrice) || 0
+                };
+                
+                // Only include optional fields if they have actual values
+                if (item.lotNumber && item.lotNumber.trim() !== '') {
+                    cleanedItem.lotNumber = item.lotNumber;
+                }
+                if (item.expiryDate && item.expiryDate !== null && item.expiryDate !== '') {
+                    cleanedItem.expiryDate = item.expiryDate;
+                }
+                
+                cleanedItems.push(cleanedItem);
+            });
+            requestData.items = cleanedItems;
+        }
+        
+        console.log('Sending update request with:', requestData);
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('inboundUpdate', {deliveryId: deliveryId}),
+            method: 'POST', // Using POST to avoid CORS preflight issues
+            headers: apiConfig.getStandardHeaders(),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('Inbound delivery updated successfully');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    
+                    if (result.deliveryId || result.inboundDeliveryId || response.status === 200) {
+                        var message = 'Inbound delivery updated successfully!\n\n' +
+                                    'Delivery Number: ' + (result.deliveryNumber || requestData.deliveryNumber) + '\n' +
+                                    'Supplier: ' + (result.supplierName || requestData.supplierName);
+                        
+                        Ext.Msg.alert('Success', message);
+                        this.loadInboundDeliveries(); // Refresh grid
+                    } else {
+                        console.error('Unexpected update response format:', result);
+                        Ext.Msg.alert('Error', result.error || result.message || 'Failed to update inbound delivery');
+                    }
+                } catch (e) {
+                    console.error('Error parsing update response:', e);
+                    Ext.Msg.alert('Error', 'Invalid response from server');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('Failed to update inbound delivery:', response);
+                var errorMsg = 'Failed to update inbound delivery. ';
+                try {
+                    var errorResult = Ext.decode(response.responseText);
+                    errorMsg += errorResult.error || errorResult.message || 'Network error occurred.';
+                } catch (e) {
+                    errorMsg += 'Network error occurred.';
+                }
+                Ext.Msg.alert('Error', errorMsg);
+            }.bind(this)
+        });
     },
     
     // ===== PUT AWAY METHODS =====
