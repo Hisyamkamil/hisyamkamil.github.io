@@ -1840,17 +1840,17 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
         
         var hasPendingItems = false;
         itemsGrid.getStore().each(function(record) {
-            var itemStatus = record.get('scanningStatus') || 'Pending';
             var epcCode = record.get('epcCode') || 'Not Generated';
             
-            if (itemStatus === 'Pending' || epcCode === 'Not Generated') {
+            // Item is pending EPC generation if it doesn't have an EPC code
+            if (epcCode === 'Not Generated' || epcCode === '' || epcCode === null) {
                 hasPendingItems = true;
                 return false; // Break the loop
             }
         });
         
         if (hasPendingItems) {
-            console.log('❌ Confirm Good Receive: Items still have pending EPC generation');
+            console.log('❌ Confirm Good Receive: Items still need EPC generation');
             return false;
         }
         
