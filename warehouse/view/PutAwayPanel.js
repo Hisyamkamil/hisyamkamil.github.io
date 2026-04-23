@@ -136,7 +136,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                         iconCls: 'fa fa-refresh',
                         handler: function() {
                             me.loadPutAwayTasks();
-                            Ext.Msg.alert('Info', 'Loading transfer orders from backend...');
+                            console.log('🔄 Refreshing put away tasks from backend...');
                         }
                     }
                 ]
@@ -300,28 +300,9 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         var isEdit = !!record;
         
         // Load real inbound deliveries and storage locations from backend
-        var inboundDeliveries = [];
+        var inboundDeliveries = me.getInboundDeliveriesList();
         var storageLocations = [];
         var controller = me.getWarehouseController();
-        
-        // Load confirmed inbound deliveries that are ready for put away
-        if (controller && controller.lastInboundDeliveriesResponse) {
-            inboundDeliveries = controller.lastInboundDeliveriesResponse.inboundDeliveries
-                .filter(function(delivery) {
-                    return delivery.status === 'Confirmed'; // Only confirmed deliveries can be put away
-                })
-                .map(function(delivery) {
-                    return {
-                        deliveryNumber: delivery.deliveryNumber || delivery.delivery_number,
-                        supplier: delivery.supplierName || delivery.supplier_name,
-                        location: 'INBOUND-STAGING', // Default inbound location
-                        items: delivery.totalItems || delivery.total_items || 0
-                    };
-                });
-            console.log('✅ Using', inboundDeliveries.length, 'confirmed deliveries for put away');
-        } else if (!controller) {
-            console.warn('⚠️ WarehouseController not available - Put Away form will work with manual input');
-        }
         
         // Load real storage locations from backend
         if (controller && controller.getCachedLocations) {
@@ -368,8 +349,9 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     allowBlank: false,
                     store: Ext.create('Ext.data.Store', {
                         fields: ['deliveryNumber', 'supplier', 'location', 'items'],
-                        data: inboundDeliveries
+                        data: inboundDeliveries.length > 0 ? inboundDeliveries : []
                     }),
+                    emptyText: inboundDeliveries.length === 0 ? 'No confirmed deliveries available - load Good Receive data first' : 'Select delivery...',
                     displayField: 'deliveryNumber',
                     valueField: 'deliveryNumber',
                     tpl: Ext.create('Ext.XTemplate',
@@ -414,7 +396,9 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     name: 'assignedTo',
                     fieldLabel: 'Assign To *',
                     allowBlank: false,
-                    store: ['operator_001', 'operator_002', 'operator_003', 'operator_004'],
+                    store: me.getOperatorsList(),
+                    displayField: 'name',
+                    valueField: 'id',
                     value: isEdit ? record.get('assignedTo') : 'operator_001'
                 },
                 {
@@ -1122,10 +1106,87 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
     getStatusColor: function(status) {
         var colorMap = {
             'Created': '#007bff',
-            'In Progress': '#ffc107', 
+            'In Progress': '#ffc107',
             'Completed': '#28a745',
             'Cancelled': '#dc3545'
         };
         return colorMap[status] || '#6c757d';
+    },
+
+    // Get list of inbound deliveries - try from backend first, fallback to empty
+    getInboundDeliveriesList: function() {
+        var me = this;
+        
+        // Try to get deliveries from GoodReceivePanel grid if it exists and has data
+        var goodReceiveGrid = Ext.ComponentQuery.query('#goodReceiveGrid')[0];
+        if (goodReceiveGrid && goodReceiveGrid.getStore && goodReceiveGrid.getStore().getCount() > 0) {
+            console.log('✅ Using inbound deliveries from GoodReceivePanel grid');
+            var deliveries = [];
+            goodReceiveGrid.getStore().each(function(record) {
+                // Only include confirmed deliveries for put away
+                if (record.get('status') === 'Confirmed') {
+                    deliveries.push({
+                        deliveryNumber: record.get('delivery_number'),
+                        supplier: record.get('supplier_name'),
+                        location: 'INBOUND-STAGING',
+                        items: record.get('total_items') || 0
+                    });
+                }
+            });
+            return deliveries;
+        }
+        
+        // Try controller cached data
+        var controller = me.getWarehouseController();
+        if (controller && controller.lastInboundDeliveriesResponse) {
+            var deliveries = controller.lastInboundDeliveriesResponse.inboundDeliveries
+                .filter(function(delivery) {
+                    return delivery.status === 'Confirmed';
+                })
+                .map(function(delivery) {
+                    return {
+                        deliveryNumber: delivery.deliveryNumber || delivery.delivery_number,
+                        supplier: delivery.supplierName || delivery.supplier_name,
+                        location: 'INBOUND-STAGING',
+                        items: delivery.totalItems || delivery.total_items || 0
+                    };
+                });
+            console.log('✅ Using', deliveries.length, 'confirmed deliveries from controller cache');
+            return deliveries;
+        }
+        
+        // No data available
+        console.log('⚠️ No confirmed inbound deliveries available - user should load Good Receive data first');
+        return [];
+    },
+
+    // Get list of operators - try from backend first, fallback to defaults
+    getOperatorsList: function() {
+        var me = this;
+        
+        // Try to get operators from controller/backend
+        var controller = me.getWarehouseController();
+        if (controller && controller.getCachedOperators) {
+            var operators = controller.getCachedOperators();
+            if (operators && operators.length > 0) {
+                console.log('✅ Using real operators from backend:', operators.length);
+                return operators.map(function(op) {
+                    return {
+                        id: op.operator_id || op.id,
+                        name: op.operator_name || op.name || op.id
+                    };
+                });
+            }
+        }
+        
+        // Fallback to default operators
+        console.log('⚠️ Using default operators - no backend data available');
+        return [
+            { id: 'operator_001', name: 'Operator 001 - Warehouse' },
+            { id: 'operator_002', name: 'Operator 002 - Storage' },
+            { id: 'operator_003', name: 'Operator 003 - RFID Specialist' },
+            { id: 'operator_004', name: 'Operator 004 - Team Lead' },
+            { id: 'current_user', name: 'Current User' }
+        ];
     }
 });
