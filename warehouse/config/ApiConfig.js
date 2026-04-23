@@ -59,6 +59,7 @@ Ext.define('Store.warehouse.config.ApiConfig', {
             epcGenerate: '/api/epc/generate',
             epcDecode: '/api/epc/decode/{epc}',
             epcValidate: '/api/epc/validate',
+            epcAssign: '/api/epc/assign',
             epcHistory: '/api/epc/history/{epc}',
             
             // Master data endpoints - ALIGNED WITH POSTMAN COLLECTION
@@ -164,10 +165,17 @@ Ext.define('Store.warehouse.config.ApiConfig', {
     
     /**
      * Create standardized request headers for warehouse API
-     * Simplified to avoid OPTIONS preflight requests
+     * CORS-safe headers - no Content-Type for GET requests
+     * @param {string} method - HTTP method (GET, POST, etc.)
      * @return {object} Standard headers
      */
-    getStandardHeaders: function() {
+    getStandardHeaders: function(method) {
+        // GET requests must not have Content-Type header to avoid CORS preflight
+        if (method && method.toLowerCase() === 'get') {
+            return {}; // No headers for GET requests
+        }
+        
+        // POST/PUT requests need Content-Type
         return {
             'Content-Type': 'application/json'
         };
@@ -185,7 +193,7 @@ Ext.define('Store.warehouse.config.ApiConfig', {
         return {
             url: this.getUrl(endpoint, urlParams),
             method: method || 'GET',
-            headers: this.getStandardHeaders(),
+            headers: this.getStandardHeaders(method || 'GET'), // Pass method for header logic
             jsonData: data,
             timeout: 15000
         };
