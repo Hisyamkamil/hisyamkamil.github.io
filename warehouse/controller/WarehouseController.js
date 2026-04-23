@@ -3278,5 +3278,171 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
         console.log('✅ Using default supplier data:', defaultSuppliers.length, 'suppliers');
         
         if (callback) callback(defaultSuppliers);
+    },
+
+    // ===== EPC MANAGEMENT METHODS =====
+
+    /**
+     * Generate EPC codes via backend API - Auto-generation
+     * POST /api/epc/generate
+     */
+    generateEPC: function(generateData) {
+        console.log('🔄 Calling Generate EPC API (auto-generation):', generateData);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestData = {
+            itemCode: generateData.itemCode,
+            quantity: generateData.quantity || 1
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('epcGenerate'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders('POST'),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('✅ EPC codes generated successfully via backend');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    this.handleEPCGenerationSuccess(result, generateData);
+                } catch (e) {
+                    console.error('❌ Error parsing EPC generation response:', e);
+                    Ext.Msg.alert('Error', 'Failed to process EPC generation response.');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('❌ Failed to generate EPC codes via backend:', response);
+                this.handleEPCGenerationFailure(response, generateData);
+            }.bind(this)
+        });
+    },
+
+    /**
+     * Assign EPC codes to items via backend API - Manual assignment
+     * POST /api/epc/assign
+     */
+    assignEPC: function(assignment) {
+        console.log('🔄 Calling Assign EPC API (manual assignment):', assignment);
+        
+        var apiConfig = Store.warehouse.config.ApiConfig;
+        var requestData = {
+            epcCode: assignment.epcCode,
+            itemId: assignment.itemId,
+            quantity: assignment.quantity || 1
+        };
+        
+        Ext.Ajax.request({
+            url: apiConfig.getUrl('epcAssign'),
+            method: 'POST',
+            headers: apiConfig.getStandardHeaders('POST'),
+            jsonData: requestData,
+            timeout: 15000,
+            success: function(response) {
+                console.log('✅ EPC assigned successfully via backend');
+                try {
+                    var result = Ext.decode(response.responseText);
+                    this.handleEPCAssignmentSuccess(result, assignment);
+                } catch (e) {
+                    console.error('❌ Error parsing EPC assignment response:', e);
+                    Ext.Msg.alert('Error', 'Failed to process EPC assignment response.');
+                }
+            }.bind(this),
+            failure: function(response) {
+                console.error('❌ Failed to assign EPC via backend:', response);
+                this.handleEPCAssignmentFailure(response, assignment);
+            }.bind(this)
+        });
+    },
+
+    /**
+     * Handle successful EPC generation
+     */
+    handleEPCGenerationSuccess: function(result, originalData) {
+        console.log('EPC generation result:', result);
+        
+        var generatedEPCs = result.epcs || result.generatedEPCs || [];
+        var message = '✅ EPC Generation Completed!\n\n' +
+                     'Item Code: ' + originalData.itemCode + '\n' +
+                     'Quantity: ' + originalData.quantity + '\n' +
+                     'Generated EPCs: ' + generatedEPCs.length + '\n\n';
+        
+        if (generatedEPCs.length > 0) {
+            message += 'Sample EPCs:\n';
+            generatedEPCs.slice(0, 3).forEach(function(epc, index) {
+                message += '• ' + epc + '\n';
+            });
+            if (generatedEPCs.length > 3) {
+                message += '• ... and ' + (generatedEPCs.length - 3) + ' more\n';
+            }
+        }
+        
+        message += '\n📋 EPCs are now ready for RFID scanning operations.';
+        
+        Ext.Msg.alert('EPC Generation Success', message);
+        
+        // Refresh the current view to show updated EPC status
+        this.refreshCurrentModule();
+    },
+
+    /**
+     * Handle failed EPC generation
+     */
+    handleEPCGenerationFailure: function(response, originalData) {
+        console.error('EPC generation failed for:', originalData);
+        
+        var errorMsg = 'Failed to generate EPC codes for item: ' + originalData.itemCode + '\n\n';
+        
+        try {
+            var errorResult = Ext.decode(response.responseText);
+            errorMsg += errorResult.error || errorResult.message || 'Backend API error occurred.';
+        } catch (e) {
+            errorMsg += 'Network error - please check connection and try again.';
+        }
+        
+        Ext.Msg.alert('EPC Generation Failed', errorMsg);
+    },
+
+    /**
+     * Handle successful EPC assignment
+     */
+    handleEPCAssignmentSuccess: function(result, originalData) {
+        console.log('EPC assignment result:', result);
+        
+        var message = '✅ EPC Assignment Completed!\n\n' +
+                     'EPC Code: ' + originalData.epcCode + '\n' +
+                     'Item ID: ' + originalData.itemId + '\n' +
+                     'Quantity: ' + originalData.quantity + '\n' +
+                     'Status: ' + (result.status || 'Assigned') + '\n\n' +
+                     '📋 EPC is now linked to the item and ready for RFID operations.';
+        
+        Ext.Msg.alert('EPC Assignment Success', message);
+        
+        // Refresh the current view to show updated EPC status
+        this.refreshCurrentModule();
+    },
+
+    /**
+     * Handle failed EPC assignment
+     */
+    handleEPCAssignmentFailure: function(response, originalData) {
+        console.error('EPC assignment failed for:', originalData);
+        
+        var errorMsg = 'Failed to assign EPC code: ' + originalData.epcCode + '\n\n';
+        
+        try {
+            var errorResult = Ext.decode(response.responseText);
+            if (response.status === 409) {
+                errorMsg += 'EPC code is already assigned to another item.';
+            } else if (response.status === 400) {
+                errorMsg += 'Invalid EPC format or item ID.';
+            } else {
+                errorMsg += errorResult.error || errorResult.message || 'Backend API error occurred.';
+            }
+        } catch (e) {
+            errorMsg += 'Network error - please check connection and try again.';
+        }
+        
+        Ext.Msg.alert('EPC Assignment Failed', errorMsg);
     }
 });
