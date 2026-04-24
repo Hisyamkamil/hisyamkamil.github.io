@@ -2118,7 +2118,7 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
     },
 
     /**
-     * Show Confirm Good Receive dialog - NEW method for handheld RFID scanner
+     * Show Confirm Good Receive dialog - Aligned with /api/warehouse/inbound/confirm-item API payload
      */
     showConfirmGoodReceiveDialog: function(record, parentWindow) {
         var me = this;
@@ -2128,91 +2128,148 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
             return;
         }
         
-        var deliveryId = record.get('inbound_delivery_id') || record.get('id');
-        var deliveryNumber = record.get('delivery_number') || 'Unknown';
+        // Get selected item information for inbound item confirmation
+        var selectedItem = null;
+        var selectedItemId = null;
         
-        // Create form for RFID scan configuration
+        if (parentWindow) {
+            var itemsGrid = parentWindow.down('#deliveryItemsGrid');
+            if (itemsGrid) {
+                var selectedItems = itemsGrid.getSelection();
+                if (selectedItems.length > 0) {
+                    selectedItem = selectedItems[0];
+                    selectedItemId = selectedItem.get('itemId') || selectedItem.get('inboundItemId');
+                }
+            }
+        }
+        
+        if (!selectedItem || !selectedItemId) {
+            Ext.Msg.alert('Item Selection Required', 'Please select an item from the delivery details grid to confirm good receive.');
+            return;
+        }
+        
+        var deliveryNumber = record.get('delivery_number') || 'Unknown';
+        var expectedQuantity = selectedItem.get('expectedQuantity') || 1;
+        
+        // Create form aligned with confirmInboundItem API payload structure
         var form = Ext.create('Ext.form.Panel', {
             bodyPadding: 15,
             defaults: {
                 anchor: '100%',
-                labelWidth: 120
+                labelWidth: 140
             },
             items: [
                 {
-                    xtype: 'displayfield',
-                    fieldLabel: 'Delivery',
-                    value: '<strong>' + deliveryNumber + '</strong>'
-                },
-                {
-                    xtype: 'displayfield',
-                    fieldLabel: 'Supplier',
-                    value: record.get('supplier_name') || 'N/A'
-                },
-                {
-                    xtype: 'displayfield',
-                    fieldLabel: 'Total Items',
-                    value: record.get('total_items') || 0
-                },
-                {
                     xtype: 'fieldset',
-                    title: '📱 Handheld RFID Scanner Configuration',
+                    title: 'Delivery Information',
                     defaults: {
                         anchor: '100%',
-                        labelWidth: 100
+                        labelWidth: 120
                     },
                     items: [
                         {
-                            xtype: 'textfield',
-                            name: 'readerId',
-                            fieldLabel: 'Reader ID',
-                            value: 'RFID-READER-001',
-                            allowBlank: false
+                            xtype: 'displayfield',
+                            fieldLabel: 'Delivery Number',
+                            value: '<strong>' + deliveryNumber + '</strong>'
                         },
                         {
-                            xtype: 'textfield',
-                            name: 'location',
-                            fieldLabel: 'Location',
-                            value: 'INBOUND-STAGING',
-                            allowBlank: false
+                            xtype: 'displayfield',
+                            fieldLabel: 'Supplier',
+                            value: record.get('supplier_name') || 'N/A'
                         },
                         {
-                            xtype: 'textfield',
-                            name: 'scannedBy',
-                            fieldLabel: 'Operator',
-                            value: 'operator@company.com',
-                            allowBlank: false
-                        },
-                        {
-                            xtype: 'numberfield',
-                            name: 'totalScanned',
-                            fieldLabel: 'Total Scanned',
-                            value: record.get('total_items') || 2,
-                            minValue: 0,
-                            allowBlank: false
+                            xtype: 'displayfield',
+                            fieldLabel: 'Selected Item',
+                            value: '<strong>' + selectedItem.get('itemCode') + '</strong> - ' + selectedItem.get('itemName')
                         }
                     ]
                 },
                 {
                     xtype: 'fieldset',
-                    title: '📡 Sample Scanned Tags (for demo)',
-                    html: '<div style="padding: 10px; background: #f8f9fa; border-radius: 4px;">' +
-                          '<p><strong>Note:</strong> In production, this would be automatically populated by the handheld RFID reader.</p>' +
-                          '<p>Sample EPC Tags:</p>' +
-                          '<ul>' +
-                          '<li>3034257BF7194E4000001A85 (RSSI: -45)</li>' +
-                          '<li>3034257BF7194E4000001A86 (RSSI: -52)</li>' +
-                          '</ul>' +
-                          '</div>'
+                    title: 'Confirmation Details',
+                    defaults: {
+                        anchor: '100%',
+                        labelWidth: 120
+                    },
+                    items: [
+                        {
+                            xtype: 'numberfield',
+                            name: 'confirmedQuantity',
+                            fieldLabel: 'Confirmed Quantity *',
+                            value: expectedQuantity,
+                            minValue: 0,
+                            allowBlank: false,
+                            emptyText: 'Enter confirmed quantity'
+                        },
+                        {
+                            xtype: 'combobox',
+                            name: 'condition',
+                            fieldLabel: 'Item Condition *',
+                            store: ['good', 'damaged', 'defective'],
+                            value: 'good',
+                            allowBlank: false,
+                            editable: false
+                        },
+                        {
+                            xtype: 'textfield',
+                            name: 'actualLocation',
+                            fieldLabel: 'Actual Location *',
+                            value: 'INBOUND-STAGING-A1',
+                            allowBlank: false,
+                            emptyText: 'Enter storage location'
+                        },
+                        {
+                            xtype: 'textfield',
+                            name: 'confirmedBy',
+                            fieldLabel: 'Confirmed By *',
+                            value: 'warehouse-staff@company.com',
+                            allowBlank: false,
+                            emptyText: 'Enter confirmer email'
+                        },
+                        {
+                            xtype: 'textarea',
+                            name: 'notes',
+                            fieldLabel: 'Notes',
+                            value: 'Items confirmed via warehouse management system',
+                            height: 60,
+                            emptyText: 'Enter confirmation notes'
+                        }
+                    ]
+                },
+                {
+                    xtype: 'fieldset',
+                    title: 'Quality Check (Optional)',
+                    checkboxToggle: true,
+                    collapsed: false,
+                    defaults: {
+                        anchor: '100%',
+                        labelWidth: 120
+                    },
+                    items: [
+                        {
+                            xtype: 'checkbox',
+                            name: 'qualityCheckPassed',
+                            fieldLabel: 'Quality Check Passed',
+                            checked: true,
+                            boxLabel: 'Items passed quality inspection'
+                        },
+                        {
+                            xtype: 'textfield',
+                            name: 'qualityInspector',
+                            fieldLabel: 'Inspector',
+                            value: 'qc-inspector@company.com',
+                            emptyText: 'Enter inspector email'
+                        }
+                    ]
                 }
             ]
         });
 
         var window = Ext.create('Ext.window.Window', {
-            title: '📱 Confirm Good Receive - Handheld RFID Scanner',
+            title: '✅ Confirm Good Receive - ' + selectedItem.get('itemCode'),
             modal: true,
             width: 500,
-            height: 450,
+            height: 550,
             layout: 'fit',
             items: [form],
             buttons: [
@@ -2223,69 +2280,38 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                     }
                 },
                 {
-                    text: 'Confirm with RFID Scan',
+                    text: 'Confirm Item Receipt',
                     iconCls: 'fa fa-check-circle',
                     handler: function() {
                         if (form.isValid()) {
                             var values = form.getValues();
                             
-                            // Build RFID scan data according to Postman collection spec
-                            var rfidScanData = {
-                                readerId: values.readerId,
-                                location: values.location,
-                                scannedBy: values.scannedBy,
-                                scanTimestamp: new Date().toISOString(),
-                                totalScanned: parseInt(values.totalScanned),
-                                scannedTags: [
-                                    {
-                                        epc: '3034257BF7194E4000001A85',
-                                        rssi: -45,
-                                        timestamp: new Date().toISOString(),
-                                        antenna: 1
-                                    },
-                                    {
-                                        epc: '3034257BF7194E4000001A86',
-                                        rssi: -52,
-                                        timestamp: new Date(Date.now() + 5000).toISOString(),
-                                        antenna: 2
-                                    }
-                                ]
+                            console.log('🔄 Confirming inbound item receipt for:', selectedItemId);
+                            
+                            // Build confirmation data exactly matching API payload structure
+                            var confirmationData = {
+                                confirmedQuantity: parseInt(values.confirmedQuantity) || 1,
+                                condition: values.condition || 'good',
+                                actualLocation: values.actualLocation,
+                                confirmedBy: values.confirmedBy,
+                                notes: values.notes || 'Items confirmed via warehouse management system'
                             };
                             
-                            console.log('🔄 Initiating frontend good receive confirmation for:', deliveryId);
-                            
-                            // Get selected item for frontend confirmation
-                            var selectedItemId = null;
-                            if (parentWindow) {
-                                var itemsGrid = parentWindow.down('#deliveryItemsGrid');
-                                if (itemsGrid) {
-                                    var selectedItems = itemsGrid.getSelection();
-                                    if (selectedItems.length > 0) {
-                                        selectedItemId = selectedItems[0].get('itemId') || selectedItems[0].get('inboundItemId');
-                                    }
-                                }
+                            // Add quality check if provided
+                            if (values.qualityCheckPassed || values.qualityInspector) {
+                                confirmationData.qualityCheck = {
+                                    passed: values.qualityCheckPassed !== false,
+                                    inspector: values.qualityInspector || 'qc-inspector@company.com',
+                                    checkedAt: new Date().toISOString()
+                                };
                             }
                             
-                            // Build confirmation data for frontend API (different from handheld RFID)
-                            var confirmationData = {
-                                confirmedQuantity: parseInt(values.totalScanned) || 1,
-                                condition: 'good',
-                                actualLocation: values.location,
-                                confirmedBy: values.scannedBy,
-                                notes: 'Items confirmed via warehouse management system frontend - RFID scan completed',
-                                qualityCheck: {
-                                    passed: true,
-                                    inspector: values.scannedBy,
-                                    checkedAt: new Date().toISOString()
-                                }
-                            };
+                            console.log('📤 Frontend confirmation payload:', confirmationData);
                             
-                            // CRITICAL FIX: Call frontend-focused API instead of handheld RFID API
+                            // Call the correct frontend API endpoint
                             var controller = me.getWarehouseController();
                             if (controller && controller.confirmInboundItem) {
-                                // Use selectedItemId if available, otherwise fallback to deliveryId
-                                var itemIdForConfirmation = selectedItemId || deliveryId;
-                                controller.confirmInboundItem(itemIdForConfirmation, confirmationData);
+                                controller.confirmInboundItem(selectedItemId, confirmationData);
                                 window.close();
                                 
                                 // Close parent window if it exists
