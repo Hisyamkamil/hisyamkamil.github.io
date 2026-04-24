@@ -467,7 +467,7 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
      * POST /api/warehouse/inbound/confirm-item
      * Simple user-friendly confirmation workflow for frontend applications
      */
-    confirmGoodReceiveRFID: function(inboundItemId, confirmationData) {
+    confirmInboundItem: function(inboundItemId, confirmationData) {
         console.log('🔄 Confirming inbound item via frontend API:', inboundItemId);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
