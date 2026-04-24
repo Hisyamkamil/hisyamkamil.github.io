@@ -2138,13 +2138,16 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                 var selectedItems = itemsGrid.getSelection();
                 if (selectedItems.length > 0) {
                     selectedItem = selectedItems[0];
-                    selectedItemId = selectedItem.get('itemId') || selectedItem.get('inboundItemId');
+                    // CRITICAL: Only use inboundItemId (delivery line item ID) for /api/warehouse/inbound/confirm-item API
+                    selectedItemId = selectedItem.get('inboundItemId');
                 }
             }
         }
         
         if (!selectedItem || !selectedItemId) {
-            Ext.Msg.alert('Item Selection Required', 'Please select an item from the delivery details grid to confirm good receive.');
+            Ext.Msg.alert('Item Selection Required',
+                'Please select an item from the delivery details grid to confirm good receive.\n\n' +
+                'Note: Inbound Item ID is required for confirmation API.');
             return;
         }
         
