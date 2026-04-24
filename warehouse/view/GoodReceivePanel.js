@@ -2252,12 +2252,40 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                 ]
                             };
                             
-                            console.log('🔄 Initiating RFID good receive confirmation for:', deliveryId);
+                            console.log('🔄 Initiating frontend good receive confirmation for:', deliveryId);
                             
-                            // Call the new controller method
+                            // Get selected item for frontend confirmation
+                            var selectedItemId = null;
+                            if (parentWindow) {
+                                var itemsGrid = parentWindow.down('#deliveryItemsGrid');
+                                if (itemsGrid) {
+                                    var selectedItems = itemsGrid.getSelection();
+                                    if (selectedItems.length > 0) {
+                                        selectedItemId = selectedItems[0].get('itemId') || selectedItems[0].get('inboundItemId');
+                                    }
+                                }
+                            }
+                            
+                            // Build confirmation data for frontend API (different from handheld RFID)
+                            var confirmationData = {
+                                confirmedQuantity: parseInt(values.totalScanned) || 1,
+                                condition: 'good',
+                                actualLocation: values.location,
+                                confirmedBy: values.scannedBy,
+                                notes: 'Items confirmed via warehouse management system frontend - RFID scan completed',
+                                qualityCheck: {
+                                    passed: true,
+                                    inspector: values.scannedBy,
+                                    checkedAt: new Date().toISOString()
+                                }
+                            };
+                            
+                            // CRITICAL FIX: Call frontend-focused API instead of handheld RFID API
                             var controller = me.getWarehouseController();
-                            if (controller && controller.confirmGoodReceiveRFID) {
-                                controller.confirmGoodReceiveRFID(deliveryId, rfidScanData);
+                            if (controller && controller.confirmInboundItem) {
+                                // Use selectedItemId if available, otherwise fallback to deliveryId
+                                var itemIdForConfirmation = selectedItemId || deliveryId;
+                                controller.confirmInboundItem(itemIdForConfirmation, confirmationData);
                                 window.close();
                                 
                                 // Close parent window if it exists
@@ -2270,8 +2298,8 @@ Ext.define('Store.warehouse.view.GoodReceivePanel', {
                                     me.loadInboundDeliveries();
                                 }, 1000);
                             } else {
-                                console.error('❌ WarehouseController.confirmGoodReceiveRFID not available');
-                                Ext.Msg.alert('API Error', 'Confirm Good Receive RFID API not available. Please check backend integration.');
+                                console.error('❌ WarehouseController.confirmInboundItem not available');
+                                Ext.Msg.alert('API Error', 'Confirm Inbound Item API not available. Please check backend integration.');
                             }
                         }
                     }
