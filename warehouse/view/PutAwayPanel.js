@@ -450,17 +450,23 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                 
                                 // Build items array with EPC codes - CRITICAL: New API requires itemCode, epcCode, quantity, targetBin
                                 var items = [];
-                                if (selectedDelivery && selectedDelivery.items) {
+                                
+                                // FIXED: Add proper null checks and array validation
+                                if (selectedDelivery && selectedDelivery.items && Array.isArray(selectedDelivery.items) && selectedDelivery.items.length > 0) {
+                                    console.log('✅ Using real delivery items data:', selectedDelivery.items.length + ' items');
                                     // Use real delivery items data if available
                                     items = selectedDelivery.items.map(function(item) {
                                         return {
-                                            itemCode: item.itemCode,
-                                            epcCode: item.epcCode || 'EPC-' + item.itemCode + '-' + Date.now(), // Generate if missing
-                                            quantity: item.quantity || 1,
+                                            itemCode: item.itemCode || item.item_code || 'ITM001',
+                                            epcCode: item.epcCode || item.epc_code || ('EPC-' + (item.itemCode || 'ITM001') + '-' + Date.now()),
+                                            quantity: parseInt(item.quantity || item.expected_quantity || 1),
                                             targetBin: values.toLocation + '-BIN-' + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
                                         };
                                     });
                                 } else {
+                                    console.log('⚠️ No valid delivery items found, using fallback items');
+                                    console.log('Debug selectedDelivery:', selectedDelivery);
+                                    
                                     // Fallback to sample items with generated EPC codes
                                     items = [
                                         {
