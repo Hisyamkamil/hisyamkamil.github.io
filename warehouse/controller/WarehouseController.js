@@ -877,26 +877,26 @@ Ext.define('Store.warehouse.controller.WarehouseController', {
     // ===== PUT AWAY METHODS =====
     
     /**
-     * Create put away task - Fixed field mapping for backend
+     * Create put away task - FIXED to match Postman API specification exactly
+     * POST /api/warehouse/putaway
      */
     createPutAwayTask: function(putAwayTaskData) {
         console.log('Creating put away task:', putAwayTaskData);
         
         var apiConfig = Store.warehouse.config.ApiConfig;
         
-        // Map UI field names to backend expected format
+        // CRITICAL FIX: Use the exact payload format from frontend (already validated)
+        // Don't transform the data - frontend sends the correct Postman format
         var requestData = {
-            items: [{
-                itemId: putAwayTaskData.item_id,
-                quantity: parseInt(putAwayTaskData.quantity) || 1,
-                fromLocationId: putAwayTaskData.from_location_id,
-                toLocationId: putAwayTaskData.to_location_id,
-                binLocation: putAwayTaskData.bin_location,
-                epcCodes: putAwayTaskData.epc_codes || []
-            }],
-            priority: putAwayTaskData.priority || 'medium',
-            notes: putAwayTaskData.notes
+            transferOrderNumber: putAwayTaskData.transferOrderNumber,
+            fromLocationCode: putAwayTaskData.fromLocationCode,
+            toLocationCode: putAwayTaskData.toLocationCode,
+            items: putAwayTaskData.items || [],
+            priority: putAwayTaskData.priority || 'normal',
+            notes: putAwayTaskData.notes || 'Put away task created from warehouse management system'
         };
+        
+        console.log('📤 Controller sending exact payload to backend:', requestData);
         
         Ext.Ajax.request({
             url: apiConfig.getUrl('putAwayCreate'),
