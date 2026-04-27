@@ -615,6 +615,16 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                 return;
                             }
                             
+                            // CRITICAL DEBUG: Check assignedTo field value
+                            console.log('🔍 DEBUG assignedTo field value:', values.assignedTo);
+                            console.log('🔍 DEBUG assignedTo type:', typeof values.assignedTo);
+                            console.log('🔍 DEBUG All form values:', values);
+                            
+                            if (!values.assignedTo || values.assignedTo.toString().trim() === '') {
+                                Ext.Msg.alert('Validation Error', 'Assigned To is required for backend API validation. Please select an operator.');
+                                return;
+                            }
+                            
                             if (isEdit) {
                                 record.set(values);
                                 Ext.Msg.alert('Success', 'Transfer order "' + values.transferNumber + '" updated successfully!');
