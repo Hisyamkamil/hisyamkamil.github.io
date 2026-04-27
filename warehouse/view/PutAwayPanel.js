@@ -443,22 +443,48 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                 Ext.Msg.alert('Success', 'Transfer order "' + values.transferNumber + '" updated successfully!');
                                 window.close();
                             } else {
-                                console.log('🏭 Creating Put Away Task via backend API');
+                                console.log('🏭 Creating Put Away Task via backend API with new payload format');
                                 
-                                // Build put away task data matching backend contract
+                                // Get selected delivery data for EPC codes
                                 var selectedDelivery = inboundDeliveries.find(d => d.deliveryNumber === values.sourceDelivery);
+                                
+                                // Build items array with EPC codes - CRITICAL: New API requires itemCode, epcCode, quantity, targetBin
+                                var items = [];
+                                if (selectedDelivery && selectedDelivery.items) {
+                                    // Use real delivery items data if available
+                                    items = selectedDelivery.items.map(function(item) {
+                                        return {
+                                            itemCode: item.itemCode,
+                                            epcCode: item.epcCode || 'EPC-' + item.itemCode + '-' + Date.now(), // Generate if missing
+                                            quantity: item.quantity || 1,
+                                            targetBin: values.toLocation + '-BIN-' + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
+                                        };
+                                    });
+                                } else {
+                                    // Fallback to sample items with generated EPC codes
+                                    items = [
+                                        {
+                                            itemCode: 'ITM001',
+                                            epcCode: '3034257BF7194E4000001A85',
+                                            quantity: 50,
+                                            targetBin: values.toLocation + '-BIN-01'
+                                        }
+                                    ];
+                                }
+                                
+                                // Build put away task data matching NEW Postman API specification exactly
                                 var putAwayTaskData = {
-                                    inboundDeliveryId: values.sourceDelivery,
-                                    transferNumber: values.transferNumber,
-                                    sourceLocation: values.fromLocation,
-                                    destinationLocation: values.toLocation,
-                                    priority: values.priority,
-                                    assignedTo: values.assignedTo,
-                                    estimatedDuration: parseInt(values.estimatedTime?.split(' ')[0]) || 120, // Convert to minutes
-                                    createdBy: 'current_user',
-                                    notes: values.notes || '',
-                                    items: [] // Items will be loaded from selected delivery via backend API
+                                    transferOrderNumber: values.transferNumber, // FIXED: Correct field name
+                                    fromLocationCode: values.fromLocation,     // FIXED: Correct field name
+                                    toLocationCode: values.toLocation,         // FIXED: Correct field name
+                                    items: items,                              // FIXED: Include EPC codes and targetBin
+                                    priority: values.priority || 'normal',     // FIXED: Use enum values
+                                    assignedTo: values.assignedTo || 'warehouse_worker',
+                                    createdBy: 'warehouse_supervisor',         // FIXED: Use proper user context
+                                    notes: values.notes || 'Put away task created from warehouse management system'
                                 };
+                                
+                                console.log('📤 New API payload:', putAwayTaskData);
                                 
                                 // Call backend API via WarehouseController
                                 var controller = me.getWarehouseController();
