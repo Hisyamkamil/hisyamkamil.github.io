@@ -342,6 +342,8 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
             height: 300,
             bodyPadding: 15,
             title: 'Transfer Order Details',
+            autoScroll: true,
+            scrollable: true,
             defaults: {
                 anchor: '100%',
                 labelWidth: 150
@@ -461,8 +463,8 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
             itemId: 'putAwayDeliveryItemsGrid',
             emptyText: 'No delivery selected. Choose a source delivery above to view its items.',
             autoHeight: true,
-            maxHeight: 300,
-            minHeight: 120,
+            maxHeight: 100,
+            minHeight: 20,
             scroll: 'vertical',
             columns: [
                 {
