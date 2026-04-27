@@ -338,10 +338,10 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         });
 
         var form = Ext.create('Ext.form.Panel', {
-            region: 'center',
+            region: 'north',
+            height: 300,
             bodyPadding: 15,
             title: 'Transfer Order Details',
-            flex: 3,
             defaults: {
                 anchor: '100%',
                 labelWidth: 150
@@ -460,6 +460,10 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
             store: deliveryItemsStore,
             itemId: 'putAwayDeliveryItemsGrid',
             emptyText: 'No delivery selected. Choose a source delivery above to view its items.',
+            autoHeight: true,
+            maxHeight: 300,
+            minHeight: 120,
+            scroll: 'vertical',
             columns: [
                 {
                     text: 'Item Code',
