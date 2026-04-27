@@ -1320,6 +1320,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                 if (deliveryStatus.toLowerCase() === 'confirmed') {
                     deliveries.push({
                         deliveryNumber: record.get('delivery_number'),
+                        deliveryId: record.get('inbound_delivery_id') || record.get('id'), // Add delivery ID for API calls
                         supplier: record.get('supplier_name'),
                         location: 'INBOUND-STAGING',
                         items: record.get('total_items') || 0
@@ -1341,6 +1342,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                 .map(function(delivery) {
                     return {
                         deliveryNumber: delivery.deliveryNumber || delivery.delivery_number,
+                        deliveryId: delivery.inboundDeliveryId || delivery.inbound_delivery_id || delivery.id, // Add delivery ID for API calls
                         supplier: delivery.supplierName || delivery.supplier_name,
                         location: 'INBOUND-STAGING',
                         items: delivery.totalItems || delivery.total_items || 0
@@ -1353,6 +1355,139 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         // No data available
         console.log('⚠️ No confirmed inbound deliveries available - user should load Good Receive data first');
         return [];
+    },
+
+    /**
+     * Load delivery items for Put Away form - Same API pattern as Good Receive View Details
+     */
+    loadDeliveryItemsForPutAway: function(deliveryNumber, itemsStore, parentWindow) {
+        var me = this;
+        
+        console.log('🔄 Loading delivery items for Put Away form:', deliveryNumber);
+        
+        // Find the delivery record to get the ID
+        var inboundDeliveries = me.getInboundDeliveriesList();
+        var selectedDelivery = inboundDeliveries.find(function(delivery) {
+            return delivery.deliveryNumber === deliveryNumber;
+        });
+        
+        if (!selectedDelivery || !selectedDelivery.deliveryId) {
+            console.error('❌ Cannot load delivery items - delivery ID not found for:', deliveryNumber);
+            me.updateDeliveryItemsGrid(null, itemsStore, parentWindow, 'Delivery ID not found');
+            return;
+        }
+        
+        var deliveryId = selectedDelivery.deliveryId;
+        console.log('✅ Found delivery ID for API call:', deliveryId);
+        
+        // Update UI to show loading
+        me.updateDeliveryItemsGrid(null, itemsStore, parentWindow, 'Loading delivery items...');
+        
+        // Get controller and call the same API as Good Receive View Details
+        var controller = me.getWarehouseController();
+        if (!controller || !controller.loadInboundDeliveryDetails) {
+            console.error('❌ WarehouseController not available for loadInboundDeliveryDetails');
+            me.updateDeliveryItemsGrid(null, itemsStore, parentWindow, 'Backend controller not available');
+            return;
+        }
+        
+        // Call the same API method as Good Receive panel
+        controller.loadInboundDeliveryDetails(deliveryId, function(deliveryData) {
+            if (deliveryData) {
+                console.log('✅ Loaded delivery details for Put Away:', deliveryData);
+                me.updateDeliveryItemsGrid(deliveryData, itemsStore, parentWindow);
+            } else {
+                console.error('❌ Failed to load delivery details for Put Away');
+                me.updateDeliveryItemsGrid(null, itemsStore, parentWindow, 'Failed to load delivery details');
+            }
+        });
+    },
+
+    /**
+     * Update delivery items grid with loaded data
+     */
+    updateDeliveryItemsGrid: function(deliveryData, itemsStore, parentWindow, errorMessage) {
+        var me = this;
+        
+        // Get grid components
+        var deliveryInfoField = parentWindow.down('#deliveryInfo');
+        var itemsCountField = parentWindow.down('#itemsCount');
+        var grid = parentWindow.down('#putAwayDeliveryItemsGrid');
+        
+        if (errorMessage) {
+            // Show error state
+            if (deliveryInfoField) {
+                deliveryInfoField.setValue('<span style="color: red;"><strong>' + errorMessage + '</strong></span>');
+            }
+            if (itemsCountField) {
+                itemsCountField.setValue('Items: 0');
+            }
+            if (grid) {
+                grid.setTitle('Delivery Items - Error loading items');
+            }
+            itemsStore.removeAll();
+            return;
+        }
+        
+        if (!deliveryData) {
+            // Show no data state
+            if (deliveryInfoField) {
+                deliveryInfoField.setValue('<strong>No delivery selected</strong>');
+            }
+            if (itemsCountField) {
+                itemsCountField.setValue('Items: 0');
+            }
+            if (grid) {
+                grid.setTitle('Delivery Items - Select a source delivery to view items');
+            }
+            itemsStore.removeAll();
+            return;
+        }
+        
+        // Show successful data load
+        var deliveryNumber = deliveryData.deliveryNumber || 'Unknown';
+        var supplierName = deliveryData.supplierName || 'Unknown';
+        var totalItems = (deliveryData.items && deliveryData.items.length) || 0;
+        
+        // Update info fields
+        if (deliveryInfoField) {
+            deliveryInfoField.setValue('<strong>' + deliveryNumber + '</strong> - ' + supplierName);
+        }
+        if (itemsCountField) {
+            itemsCountField.setValue('Items: ' + totalItems);
+        }
+        if (grid) {
+            grid.setTitle('Delivery Items - ' + deliveryNumber + ' (' + totalItems + ' items)');
+        }
+        
+        // Load items into store
+        if (deliveryData.items && deliveryData.items.length > 0) {
+            console.log('✅ Loading', deliveryData.items.length, 'delivery items into Put Away form grid');
+            
+            // Map items to expected format - same pattern as Good Receive panel
+            var mappedItems = deliveryData.items.map(function(item) {
+                return {
+                    itemId: item.itemId || item.item_id,
+                    inboundItemId: item.inboundItemId || item.inbound_item_id,
+                    itemCode: item.itemCode || item.item_code,
+                    itemName: item.itemName || item.item_name,
+                    category: item.category || item.item_group || 'General',
+                    unitOfMeasure: item.unit || item.unitOfMeasure || 'PCS',
+                    expectedQuantity: item.expectedQuantity || item.expected_quantity || 0,
+                    receivedQuantity: item.receivedQuantity || item.received_quantity || 0,
+                    epcCode: item.epcCode || item.epc_code || 'Not Generated',
+                    scanningStatus: item.scanningStatus || item.scanning_status || 'Pending',
+                    lotNumber: item.lotNumber || item.lot_number || '',
+                    expiryDate: item.expiryDate || item.expiry_date || null
+                };
+            });
+            
+            itemsStore.loadData(mappedItems);
+            console.log('✅ Delivery items loaded successfully for Put Away form');
+        } else {
+            console.log('⚠️ No items found in delivery data');
+            itemsStore.removeAll();
+        }
     },
 
     // Get list of operators - try from backend first, fallback to defaults
