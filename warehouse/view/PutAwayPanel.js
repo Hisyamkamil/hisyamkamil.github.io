@@ -569,9 +569,10 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         var window = Ext.create('Ext.window.Window', {
             title: isEdit ? 'Edit Transfer Order: ' + record.get('transferNumber') : 'Create Transfer Order',
             modal: true,
-            width: 800,
-            height: 700,
+            width: Math.max(900, Ext.getBody().getViewSize().width * 0.9),
+            height: Math.max(750, Ext.getBody().getViewSize().height * 0.9),
             layout: 'fit',
+            constrainHeader: true,
             items: [mainPanel],
             buttons: [
                 {
