@@ -1538,9 +1538,14 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
             items: realItems, // REAL items from backend API
             priority: formValues.priority || 'normal',
             assignedTo: formValues.assignedTo || 'warehouse_worker',
-            createdBy: 'warehouse_supervisor',
+            createdBy: formValues.assignedTo || 'warehouse_supervisor', // Use assignedTo or default
             notes: formValues.notes || 'Put away task created from warehouse management system with real delivery data'
         };
+        
+        // CRITICAL: Ensure createdBy is always present and not empty
+        if (!putAwayTaskData.createdBy || putAwayTaskData.createdBy.trim() === '') {
+            putAwayTaskData.createdBy = 'warehouse_supervisor';
+        }
         
         console.log('📤 REAL DATA API payload:', putAwayTaskData);
         
