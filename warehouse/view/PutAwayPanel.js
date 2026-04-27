@@ -483,76 +483,65 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                 console.log('🏭 Creating Put Away Task via backend API with VALIDATED payload format');
                                 console.log('🔍 Form Values Debug:', values);
                                 
-                                // Get selected delivery data for EPC codes
-                                var selectedDelivery = inboundDeliveries.find(d => d.deliveryNumber === values.sourceDelivery);
-                                
-                                // Build items array with EPC codes - CRITICAL: New API requires itemCode, epcCode, quantity, targetBin
-                                var items = [];
-                                
-                                // FIXED: Add proper null checks and array validation
-                                if (selectedDelivery && selectedDelivery.items && Array.isArray(selectedDelivery.items) && selectedDelivery.items.length > 0) {
-                                    console.log('✅ Using real delivery items data:', selectedDelivery.items.length + ' items');
-                                    // Use real delivery items data if available
-                                    items = selectedDelivery.items.map(function(item) {
-                                        return {
-                                            itemCode: item.itemCode || item.item_code || 'ITM001',
-                                            epcCode: item.epcCode || item.epc_code || ('EPC-' + (item.itemCode || 'ITM001') + '-' + Date.now()),
-                                            quantity: parseInt(item.quantity || item.expected_quantity || 1),
-                                            targetBin: values.toLocation + '-BIN-' + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
-                                        };
-                                    });
-                                } else {
-                                    console.log('⚠️ No valid delivery items found, using fallback items');
-                                    console.log('Debug selectedDelivery:', selectedDelivery);
-                                    
-                                    // Fallback to sample items with generated EPC codes
-                                    items = [
-                                        {
-                                            itemCode: 'ITM001',
-                                            epcCode: '3034257BF7194E4000001A85',
-                                            quantity: 50,
-                                            targetBin: values.toLocation + '-BIN-01'
-                                        }
-                                    ];
-                                }
-                                
-                                // Build put away task data matching Postman API specification exactly
-                                var putAwayTaskData = {
-                                    transferOrderNumber: values.transferNumber.trim(), // CRITICAL: Ensure not empty
-                                    fromLocationCode: values.fromLocation.trim(),
-                                    toLocationCode: values.toLocation.trim(),
-                                    items: items,
-                                    priority: values.priority || 'normal', // Enum: 'high'|'normal'|'low'
-                                    assignedTo: values.assignedTo || 'warehouse_worker',
-                                    createdBy: 'warehouse_supervisor',
-                                    notes: values.notes || 'Put away task created from warehouse management system'
-                                };
-                                
-                                console.log('📤 VALIDATED API payload:', putAwayTaskData);
-                                
-                                // Final validation: Double-check all required fields
-                                if (!putAwayTaskData.transferOrderNumber) {
-                                    console.error('❌ CRITICAL: transferOrderNumber is missing!');
-                                    Ext.Msg.alert('Validation Error', 'Transfer Order Number cannot be empty. Please check the form data.');
+                                // CRITICAL: Only allow put away tasks with real confirmed delivery data
+                                if (inboundDeliveries.length === 0) {
+                                    Ext.Msg.alert('No Confirmed Deliveries',
+                                        'No confirmed deliveries available for put away.\n\n' +
+                                        'Please go to Good Receive panel first to:\n' +
+                                        '1. Load inbound deliveries\n' +
+                                        '2. Generate EPC codes\n' +
+                                        '3. Confirm deliveries with RFID\n\n' +
+                                        'Only confirmed deliveries can be used for put away tasks.');
                                     return;
                                 }
                                 
-                                // Call backend API via WarehouseController
-                                var controller = me.getWarehouseController();
-                                if (controller && controller.createPutAwayTask) {
-                                    controller.createPutAwayTask(putAwayTaskData);
-                                    
-                                    Ext.Msg.alert('Success', 'Put Away task "' + values.transferNumber + '" created successfully!');
-                                    window.close();
-                                    
-                                    // Refresh the grid to show new task
-                                    setTimeout(function() {
-                                        me.loadPutAwayTasks();
-                                    }, 500);
-                                } else {
-                                    console.error('❌ WarehouseController not available for createPutAwayTask');
-                                    Ext.Msg.alert('Error', 'Backend controller not available. Please refresh the page and try again.');
+                                // Get selected delivery data - MUST have real data
+                                var selectedDelivery = inboundDeliveries.find(d => d.deliveryNumber === values.sourceDelivery);
+                                
+                                if (!selectedDelivery) {
+                                    Ext.Msg.alert('Invalid Selection', 'Selected delivery not found. Please select a valid confirmed delivery.');
+                                    return;
                                 }
+                                
+                                // Load REAL delivery items from backend API
+                                console.log('🔄 Loading real delivery items for:', selectedDelivery.deliveryNumber);
+                                var controller = me.getWarehouseController();
+                                
+                                if (!controller || !controller.loadDeliveryItems) {
+                                    Ext.Msg.alert('Backend Error', 'Cannot load delivery items - WarehouseController not available.');
+                                    return;
+                                }
+                                
+                                // Load real items from backend API
+                                controller.loadDeliveryItems(selectedDelivery.deliveryNumber, function(realItems) {
+                                    if (!realItems || realItems.length === 0) {
+                                        Ext.Msg.alert('No Items Found',
+                                            'No items found for delivery: ' + selectedDelivery.deliveryNumber + '\n\n' +
+                                            'This delivery may not have completed items or EPC generation.\n' +
+                                            'Please check the Good Receive panel.');
+                                        return;
+                                    }
+                                    
+                                    console.log('✅ Using REAL delivery items:', realItems.length, 'items');
+                                    
+                                    // Build items array with REAL data from backend API
+                                    var items = realItems.map(function(item) {
+                                        return {
+                                            itemCode: item.itemCode,
+                                            epcCode: item.epcCode,
+                                            quantity: parseInt(item.expectedQuantity || 1),
+                                            targetBin: values.toLocation + '-BIN-' + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
+                                        };
+                                    });
+                                    
+                                    // Continue with put away task creation using REAL data
+                                    me.createPutAwayTaskWithRealData(values, items, selectedDelivery, window);
+                                });
+                                
+                                // Exit here - createPutAwayTaskWithRealData will handle the rest
+                                return;
+                                
+                                // This section is now handled by createPutAwayTaskWithRealData method
                             }
                         } else {
                             console.error('❌ Form validation failed');
@@ -1271,5 +1260,61 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
             { id: 'operator_004', name: 'Operator 004 - Team Lead' },
             { id: 'current_user', name: 'Current User' }
         ];
+    },
+
+    /**
+     * Create put away task with REAL backend data only - No fallback data allowed
+     */
+    createPutAwayTaskWithRealData: function(formValues, realItems, selectedDelivery, formWindow) {
+        var me = this;
+        
+        console.log('🏭 Creating Put Away Task with REAL data only');
+        console.log('Real items count:', realItems.length);
+        console.log('Selected delivery:', selectedDelivery.deliveryNumber);
+        
+        // Build put away task data matching Postman API specification exactly
+        var putAwayTaskData = {
+            transferOrderNumber: formValues.transferNumber.trim(),
+            fromLocationCode: formValues.fromLocation.trim(),
+            toLocationCode: formValues.toLocation.trim(),
+            items: realItems, // REAL items from backend API
+            priority: formValues.priority || 'normal',
+            assignedTo: formValues.assignedTo || 'warehouse_worker',
+            createdBy: 'warehouse_supervisor',
+            notes: formValues.notes || 'Put away task created from warehouse management system with real delivery data'
+        };
+        
+        console.log('📤 REAL DATA API payload:', putAwayTaskData);
+        
+        // Final validation: Ensure all required fields are present
+        var missingFields = [];
+        if (!putAwayTaskData.transferOrderNumber) missingFields.push('transferOrderNumber');
+        if (!putAwayTaskData.fromLocationCode) missingFields.push('fromLocationCode');
+        if (!putAwayTaskData.toLocationCode) missingFields.push('toLocationCode');
+        if (!putAwayTaskData.items || putAwayTaskData.items.length === 0) missingFields.push('items');
+        
+        if (missingFields.length > 0) {
+            console.error('❌ Missing required fields:', missingFields);
+            Ext.Msg.alert('Validation Error', 'Missing required fields: ' + missingFields.join(', '));
+            return;
+        }
+        
+        // Call backend API via WarehouseController
+        var controller = me.getWarehouseController();
+        if (controller && controller.createPutAwayTask) {
+            console.log('🚀 Calling createPutAwayTask with real data...');
+            controller.createPutAwayTask(putAwayTaskData);
+            
+            Ext.Msg.alert('Success', 'Put Away task "' + formValues.transferNumber + '" created successfully with real delivery data!');
+            formWindow.close();
+            
+            // Refresh the grid to show new task
+            setTimeout(function() {
+                me.loadPutAwayTasks();
+            }, 500);
+        } else {
+            console.error('❌ WarehouseController not available for createPutAwayTask');
+            Ext.Msg.alert('Error', 'Backend controller not available. Please refresh the page and try again.');
+        }
     }
 });
