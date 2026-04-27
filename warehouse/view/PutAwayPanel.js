@@ -1123,8 +1123,9 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
             console.log('✅ Using inbound deliveries from GoodReceivePanel grid');
             var deliveries = [];
             goodReceiveGrid.getStore().each(function(record) {
-                // Only include confirmed deliveries for put away
-                if (record.get('status') === 'Confirmed') {
+                // Only include confirmed deliveries for put away - Case insensitive comparison
+                var deliveryStatus = record.get('status') || '';
+                if (deliveryStatus.toLowerCase() === 'confirmed') {
                     deliveries.push({
                         deliveryNumber: record.get('delivery_number'),
                         supplier: record.get('supplier_name'),
@@ -1141,7 +1142,9 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         if (controller && controller.lastInboundDeliveriesResponse) {
             var deliveries = controller.lastInboundDeliveriesResponse.inboundDeliveries
                 .filter(function(delivery) {
-                    return delivery.status === 'Confirmed';
+                    // Case insensitive comparison for confirmed status
+                    var deliveryStatus = delivery.status || '';
+                    return deliveryStatus.toLowerCase() === 'confirmed';
                 })
                 .map(function(delivery) {
                     return {
