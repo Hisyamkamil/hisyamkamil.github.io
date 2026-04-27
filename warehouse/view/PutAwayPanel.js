@@ -327,8 +327,21 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
             storageLocations = ['Loading...'];
         }
 
+        // Create delivery items store for displaying selected delivery items
+        var deliveryItemsStore = Ext.create('Ext.data.Store', {
+            fields: [
+                'itemId', 'inboundItemId', 'itemCode', 'itemName', 'category',
+                'unitOfMeasure', 'expectedQuantity', 'receivedQuantity',
+                'epcCode', 'scanningStatus', 'lotNumber', 'expiryDate'
+            ],
+            data: []
+        });
+
         var form = Ext.create('Ext.form.Panel', {
+            region: 'north',
+            height: 320,
             bodyPadding: 15,
+            title: 'Transfer Order Details',
             defaults: {
                 anchor: '100%',
                 labelWidth: 150
@@ -358,7 +371,7 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     fieldLabel: 'Source Delivery *',
                     allowBlank: false,
                     store: Ext.create('Ext.data.Store', {
-                        fields: ['deliveryNumber', 'supplier', 'location', 'items'],
+                        fields: ['deliveryNumber', 'supplier', 'location', 'items', 'deliveryId'],
                         data: inboundDeliveries.length > 0 ? inboundDeliveries : []
                     }),
                     emptyText: inboundDeliveries.length === 0 ? 'No confirmed deliveries available - load Good Receive data first' : 'Select delivery...',
@@ -371,9 +384,16 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     ),
                     value: isEdit ? record.get('sourceDelivery') : '',
                     listeners: {
-                        select: function(combo, record) {
+                        select: function(combo, selectedRecord) {
                             var formPanel = combo.up('form');
-                            formPanel.down('[name=fromLocation]').setValue(record.get('location'));
+                            var deliveryNumber = selectedRecord.get('deliveryNumber');
+                            
+                            // Set from location
+                            formPanel.down('[name=fromLocation]').setValue(selectedRecord.get('location'));
+                            
+                            // Load delivery items like Good Receive panel does
+                            console.log('🔄 Loading delivery items for selected delivery:', deliveryNumber);
+                            me.loadDeliveryItemsForPutAway(deliveryNumber, deliveryItemsStore, combo.up('window'));
                         }
                     }
                 },
@@ -428,18 +448,131 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     xtype: 'textarea',
                     name: 'notes',
                     fieldLabel: 'Notes',
-                    height: 60
+                    height: 50
                 }
             ]
+        });
+
+        // Create delivery items grid (like Good Receive panel's View Details)
+        var deliveryItemsGrid = Ext.create('Ext.grid.Panel', {
+            region: 'center',
+            title: 'Delivery Items - Select a source delivery to view items',
+            store: deliveryItemsStore,
+            itemId: 'putAwayDeliveryItemsGrid',
+            emptyText: 'No delivery selected. Choose a source delivery above to view its items.',
+            columns: [
+                {
+                    text: 'Item Code',
+                    dataIndex: 'itemCode',
+                    width: 100,
+                    renderer: function(value) {
+                        return value ? '<strong>' + value + '</strong>' : '-';
+                    }
+                },
+                {
+                    text: 'Item Name',
+                    dataIndex: 'itemName',
+                    flex: 2
+                },
+                {
+                    text: 'Category',
+                    dataIndex: 'category',
+                    width: 100
+                },
+                {
+                    text: 'Unit',
+                    dataIndex: 'unitOfMeasure',
+                    width: 60,
+                    align: 'center'
+                },
+                {
+                    text: 'Expected Qty',
+                    dataIndex: 'expectedQuantity',
+                    width: 100,
+                    align: 'center',
+                    renderer: function(value) {
+                        return '<strong>' + (value || 0) + '</strong>';
+                    }
+                },
+                {
+                    text: 'Received Qty',
+                    dataIndex: 'receivedQuantity',
+                    width: 100,
+                    align: 'center',
+                    renderer: function(value, metaData, record) {
+                        var expected = record.get('expectedQuantity');
+                        var color = value === expected ? 'green' : value > 0 ? 'orange' : 'black';
+                        return '<span style="color: ' + color + '; font-weight: bold;">' + (value || 0) + '</span>';
+                    }
+                },
+                {
+                    text: 'EPC Code',
+                    dataIndex: 'epcCode',
+                    width: 180,
+                    renderer: function(value) {
+                        if (!value || value === 'Not Generated') {
+                            return '<span style="color: #6c757d; font-style: italic;">Not Generated</span>';
+                        }
+                        var style = 'color: #007bff; font-family: monospace; font-size: 11px;';
+                        return '<span style="' + style + '">' + value + '</span>';
+                    }
+                },
+                {
+                    text: 'Scanning Status',
+                    dataIndex: 'scanningStatus',
+                    width: 120,
+                    renderer: function(value) {
+                        var colorMap = {
+                            'Confirmed': 'green',
+                            'Pending': 'orange',
+                            'Error': 'red'
+                        };
+                        var color = colorMap[value] || '#6c757d';
+                        return '<span style="color: ' + color + '; font-weight: bold;">' + (value || 'Pending') + '</span>';
+                    }
+                },
+                {
+                    text: 'Lot Number',
+                    dataIndex: 'lotNumber',
+                    width: 110
+                },
+                {
+                    text: 'Expiry Date',
+                    dataIndex: 'expiryDate',
+                    width: 100,
+                    renderer: function(value) {
+                        return value ? Ext.util.Format.date(new Date(value), 'd M Y') : '-';
+                    }
+                }
+            ],
+            tbar: [
+                {
+                    xtype: 'displayfield',
+                    itemId: 'deliveryInfo',
+                    value: '<strong>No delivery selected</strong>',
+                    style: 'color: #6c757d;'
+                },
+                '->',
+                {
+                    xtype: 'displayfield',
+                    itemId: 'itemsCount',
+                    value: 'Items: 0'
+                }
+            ]
+        });
+
+        var mainPanel = Ext.create('Ext.panel.Panel', {
+            layout: 'border',
+            items: [form, deliveryItemsGrid]
         });
 
         var window = Ext.create('Ext.window.Window', {
             title: isEdit ? 'Edit Transfer Order: ' + record.get('transferNumber') : 'Create Transfer Order',
             modal: true,
-            width: 500,
-            height: 450,
+            width: 800,
+            height: 700,
             layout: 'fit',
-            items: [form],
+            items: [mainPanel],
             buttons: [
                 {
                     text: 'Cancel',
@@ -495,7 +628,34 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                     return;
                                 }
                                 
-                                // Get selected delivery data - MUST have real data
+                                // Get real delivery items from the grid (already loaded via API)
+                                var deliveryItemsGrid = window.down('#putAwayDeliveryItemsGrid');
+                                if (!deliveryItemsGrid || !deliveryItemsGrid.getStore()) {
+                                    Ext.Msg.alert('Error', 'Delivery items grid not found. Please refresh and try again.');
+                                    return;
+                                }
+                                
+                                var itemsStore = deliveryItemsGrid.getStore();
+                                if (itemsStore.getCount() === 0) {
+                                    Ext.Msg.alert('No Items',
+                                        'No delivery items loaded. Please select a source delivery first to load its items.');
+                                    return;
+                                }
+                                
+                                // Build items array from the loaded grid data (real backend data)
+                                var realItems = [];
+                                itemsStore.each(function(record) {
+                                    realItems.push({
+                                        itemCode: record.get('itemCode'),
+                                        epcCode: record.get('epcCode'),
+                                        quantity: parseInt(record.get('expectedQuantity') || record.get('receivedQuantity') || 1),
+                                        targetBin: values.toLocation + '-BIN-' + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
+                                    });
+                                });
+                                
+                                console.log('✅ Using REAL delivery items from grid:', realItems.length, 'items');
+                                
+                                // Get selected delivery data
                                 var selectedDelivery = inboundDeliveries.find(d => d.deliveryNumber === values.sourceDelivery);
                                 
                                 if (!selectedDelivery) {
@@ -503,45 +663,8 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                     return;
                                 }
                                 
-                                // Load REAL delivery items from backend API
-                                console.log('🔄 Loading real delivery items for:', selectedDelivery.deliveryNumber);
-                                var controller = me.getWarehouseController();
-                                
-                                if (!controller || !controller.loadDeliveryItems) {
-                                    Ext.Msg.alert('Backend Error', 'Cannot load delivery items - WarehouseController not available.');
-                                    return;
-                                }
-                                
-                                // Load real items from backend API
-                                controller.loadDeliveryItems(selectedDelivery.deliveryNumber, function(realItems) {
-                                    if (!realItems || realItems.length === 0) {
-                                        Ext.Msg.alert('No Items Found',
-                                            'No items found for delivery: ' + selectedDelivery.deliveryNumber + '\n\n' +
-                                            'This delivery may not have completed items or EPC generation.\n' +
-                                            'Please check the Good Receive panel.');
-                                        return;
-                                    }
-                                    
-                                    console.log('✅ Using REAL delivery items:', realItems.length, 'items');
-                                    
-                                    // Build items array with REAL data from backend API
-                                    var items = realItems.map(function(item) {
-                                        return {
-                                            itemCode: item.itemCode,
-                                            epcCode: item.epcCode,
-                                            quantity: parseInt(item.expectedQuantity || 1),
-                                            targetBin: values.toLocation + '-BIN-' + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0')
-                                        };
-                                    });
-                                    
-                                    // Continue with put away task creation using REAL data
-                                    me.createPutAwayTaskWithRealData(values, items, selectedDelivery, window);
-                                });
-                                
-                                // Exit here - createPutAwayTaskWithRealData will handle the rest
-                                return;
-                                
-                                // This section is now handled by createPutAwayTaskWithRealData method
+                                // Continue with put away task creation using REAL data from grid
+                                me.createPutAwayTaskWithRealData(values, realItems, selectedDelivery, window);
                             }
                         } else {
                             console.error('❌ Form validation failed');
