@@ -339,8 +339,18 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     name: 'transferNumber',
                     fieldLabel: 'Transfer Number *',
                     allowBlank: false,
+                    msgTarget: 'side',
                     readOnly: isEdit,
-                    value: isEdit ? record.get('transferNumber') : 'TRF-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')
+                    value: isEdit ? record.get('transferNumber') : 'TRF-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 999) + 1).padStart(3, '0'),
+                    validator: function(value) {
+                        if (!value || value.trim() === '') {
+                            return 'Transfer Number is required and cannot be empty';
+                        }
+                        if (value.length < 5) {
+                            return 'Transfer Number must be at least 5 characters long';
+                        }
+                        return true;
+                    }
                 },
                 {
                     xtype: 'combobox',
@@ -388,8 +398,14 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                     name: 'priority',
                     fieldLabel: 'Priority *',
                     allowBlank: false,
-                    store: ['High', 'Medium', 'Normal'],
-                    value: isEdit ? record.get('priority') : 'Normal'
+                    store: [
+                        { value: 'high', text: 'High' },
+                        { value: 'normal', text: 'Normal' },
+                        { value: 'low', text: 'Low' }
+                    ],
+                    displayField: 'text',
+                    valueField: 'value',
+                    value: isEdit ? record.get('priority') : 'normal'
                 },
                 {
                     xtype: 'combobox',
@@ -438,12 +454,34 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                         if (form.isValid()) {
                             var values = form.getValues();
                             
+                            // CRITICAL: Validate required fields before API call
+                            if (!values.transferNumber || values.transferNumber.trim() === '') {
+                                Ext.Msg.alert('Validation Error', 'Transfer Number is required and cannot be empty.');
+                                return;
+                            }
+                            
+                            if (!values.sourceDelivery || values.sourceDelivery.trim() === '') {
+                                Ext.Msg.alert('Validation Error', 'Source Delivery is required.');
+                                return;
+                            }
+                            
+                            if (!values.fromLocation || values.fromLocation.trim() === '') {
+                                Ext.Msg.alert('Validation Error', 'From Location is required.');
+                                return;
+                            }
+                            
+                            if (!values.toLocation || values.toLocation.trim() === '') {
+                                Ext.Msg.alert('Validation Error', 'To Location is required.');
+                                return;
+                            }
+                            
                             if (isEdit) {
                                 record.set(values);
                                 Ext.Msg.alert('Success', 'Transfer order "' + values.transferNumber + '" updated successfully!');
                                 window.close();
                             } else {
-                                console.log('🏭 Creating Put Away Task via backend API with new payload format');
+                                console.log('🏭 Creating Put Away Task via backend API with VALIDATED payload format');
+                                console.log('🔍 Form Values Debug:', values);
                                 
                                 // Get selected delivery data for EPC codes
                                 var selectedDelivery = inboundDeliveries.find(d => d.deliveryNumber === values.sourceDelivery);
@@ -478,19 +516,26 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                     ];
                                 }
                                 
-                                // Build put away task data matching NEW Postman API specification exactly
+                                // Build put away task data matching Postman API specification exactly
                                 var putAwayTaskData = {
-                                    transferOrderNumber: values.transferNumber, // FIXED: Correct field name
-                                    fromLocationCode: values.fromLocation,     // FIXED: Correct field name
-                                    toLocationCode: values.toLocation,         // FIXED: Correct field name
-                                    items: items,                              // FIXED: Include EPC codes and targetBin
-                                    priority: values.priority || 'normal',     // FIXED: Use enum values
+                                    transferOrderNumber: values.transferNumber.trim(), // CRITICAL: Ensure not empty
+                                    fromLocationCode: values.fromLocation.trim(),
+                                    toLocationCode: values.toLocation.trim(),
+                                    items: items,
+                                    priority: values.priority || 'normal', // Enum: 'high'|'normal'|'low'
                                     assignedTo: values.assignedTo || 'warehouse_worker',
-                                    createdBy: 'warehouse_supervisor',         // FIXED: Use proper user context
+                                    createdBy: 'warehouse_supervisor',
                                     notes: values.notes || 'Put away task created from warehouse management system'
                                 };
                                 
-                                console.log('📤 New API payload:', putAwayTaskData);
+                                console.log('📤 VALIDATED API payload:', putAwayTaskData);
+                                
+                                // Final validation: Double-check all required fields
+                                if (!putAwayTaskData.transferOrderNumber) {
+                                    console.error('❌ CRITICAL: transferOrderNumber is missing!');
+                                    Ext.Msg.alert('Validation Error', 'Transfer Order Number cannot be empty. Please check the form data.');
+                                    return;
+                                }
                                 
                                 // Call backend API via WarehouseController
                                 var controller = me.getWarehouseController();
@@ -509,6 +554,9 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
                                     Ext.Msg.alert('Error', 'Backend controller not available. Please refresh the page and try again.');
                                 }
                             }
+                        } else {
+                            console.error('❌ Form validation failed');
+                            Ext.Msg.alert('Form Validation', 'Please fix the form errors before submitting.');
                         }
                     }
                 }
