@@ -338,10 +338,10 @@ Ext.define('Store.warehouse.view.PutAwayPanel', {
         });
 
         var form = Ext.create('Ext.form.Panel', {
-            region: 'north',
-            height: 320,
+            region: 'center',
             bodyPadding: 15,
             title: 'Transfer Order Details',
+            flex: 3,
             defaults: {
                 anchor: '100%',
                 labelWidth: 150
