@@ -372,7 +372,8 @@ Ext.define('Store.dashpanel.view.DTCHandler', {
             175: 'Engine Oil Temperature',
             190: 'Engine Speed',
             512: 'Driver\'s Demand Engine - Percent Torque',
-            513: 'Actual Engine - Percent Torque'
+            513: 'Actual Engine - Percent Torque',
+            517712:'Trailer stop brake light' 
         };
         
         return descriptions[spn] || 'Unknown Parameter (SPN: ' + spn + ')';
