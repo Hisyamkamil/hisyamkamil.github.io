@@ -242,6 +242,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             var gridData = data.tokenRequests.map(function(request) {
                 return {
                     id: request.id,
+                    tokenId: request.tokenId || null,
                     requestId: request.requestId,
                     tokenNumber: request.requestId, // Use requestId as token number
                     requestorName: request.requestorName,
@@ -252,12 +253,15 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     imei: request.imei, // Add IMEI field from API response
                     status: request.status,
                     tokenStatus: request.tokenStatus,
+                    tokenType: request.tokenType || null,
                     requestDate: request.requestDate,
                     periodStart: request.periodStartDate,
                     periodEnd: request.periodEndDate,
                     expirationDate: request.tokenExpiryDate,
-                    remainingHours: request.remainingHours,
+                    remainingHours: request.remainingQuotaHours || request.remainingHours,
+                    remainingQuotaHours: request.remainingQuotaHours || request.remainingHours,
                     durationHours: request.durationHours,
+                    quotaHours: request.quotaHours || request.durationHours,
                     contractValue: request.contractValue,
                     contractId: request.contractId || request.id, // Add contractId for generate token
                     unitDetails: request.unitDetails,
@@ -608,7 +612,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Customer Name:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">' + (data.customerName || 'N/A') + '</td></tr>',
             '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>RO Number:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">' + (data.roNumber || 'N/A') + '</td></tr>',
             '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Status:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">' + (data.status || 'N/A') + '</td></tr>',
-            '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Remaining Hours:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">' + (data.remainingHours || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Remaining Quota Hours:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">' + (data.remainingHours !== null && data.remainingHours !== undefined ? data.remainingHours : 'N/A') + '</td></tr>',
             '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Expiration Date:</strong></td><td style="padding: 8px; border: 1px solid #ddd;">' + (data.expirationDate || 'N/A') + '</td></tr>',
             '</table>'
         ].join('');
@@ -854,7 +858,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                     },
                                     {
                                         xtype: 'datefield',
-                                        fieldLabel: 'Period Expired *',
+                                        fieldLabel: 'Validity End *',
                                         name: 'periodExpiredToken',
                                         allowBlank: false,
                                         format: 'd M Y',
@@ -894,7 +898,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                     },
                                     {
                                         xtype: 'numberfield',
-                                        fieldLabel: 'Additional Duration',
+                                        fieldLabel: 'Additional Operating Hours',
                                         name: 'additionalDuration',
                                         emptyText: 'Enter additional hours...',
                                         minValue: 0,
@@ -1369,6 +1373,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 additionalDuration: parseInt(values.additionalDuration || 0, 10),
                 requestorName: values.requestorName || 'Current User'
             };
+
+            requestData.quotaHours = requestData.duration;
             
             var apiUrl = apiConfig.getUrl('tokenRequest');
             console.log('=== API REQUEST DETAILS ===');
@@ -1523,6 +1529,91 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         
         // Format to ISO string with .000Z suffix
         return date.toISOString();
+    },
+
+    getTokenActionRecord: function(actionId) {
+        var grid = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid]')[0];
+        if (!grid || !grid.getStore()) {
+            return null;
+        }
+
+        var store = grid.getStore();
+        return store.findRecord('tokenId', actionId) ||
+               store.findRecord('id', actionId) ||
+               store.findRecord('requestId', actionId) ||
+               store.findRecord('tokenNumber', actionId);
+    },
+
+    resolveImeiForTokenAction: function(tokenData) {
+        var imeiPattern = /^\d{15}$/;
+        var candidateSources = [];
+        var seenValues = {};
+
+        var addCandidate = function(value) {
+            if (!value) {
+                return;
+            }
+
+            var normalized = String(value).trim();
+            if (!imeiPattern.test(normalized) || seenValues[normalized]) {
+                return;
+            }
+
+            seenValues[normalized] = true;
+            candidateSources.push(normalized);
+        };
+
+        var addNestedCandidate = function(source) {
+            if (!source) {
+                return;
+            }
+
+            addCandidate(source.imei);
+            addCandidate(source.uniqid);
+            addCandidate(source.serialNumber);
+
+            if (source.unitDetails) {
+                addCandidate(source.unitDetails.imei);
+                addCandidate(source.unitDetails.serialNumber);
+            }
+
+            if (source.contractDetails) {
+                addCandidate(source.contractDetails.imei);
+                addCandidate(source.contractDetails.serialNumber);
+            }
+        };
+
+        addNestedCandidate(tokenData);
+
+        addNestedCandidate(window.RDMSelectedVehicle);
+        addNestedCandidate(window.RDMSelectedVehicleDashboard);
+        addNestedCandidate(window.RDMSelectedVehicleForContract);
+        addNestedCandidate(window.RDMSelectedContract);
+
+        var serialNumber = tokenData && (tokenData.serialNumber || tokenData.unitId || tokenData.external_unit_id);
+        var unitStore = window.RDMStores && window.RDMStores.units;
+
+        if (serialNumber && unitStore) {
+            var unitRecord = unitStore.findRecord('serialnumber', serialNumber) ||
+                unitStore.findRecord('serialNumber', serialNumber) ||
+                unitStore.findRecord('vin', serialNumber);
+
+            if (!unitRecord && unitStore.queryBy) {
+                unitStore.each(function(record) {
+                    var recordData = record.getData ? record.getData() : {};
+                    if (recordData.serialnumber === serialNumber || recordData.vin === serialNumber) {
+                        unitRecord = record;
+                        return false;
+                    }
+                });
+            }
+
+            if (unitRecord) {
+                addCandidate(unitRecord.get('imei'));
+            }
+        }
+
+        return candidateSources.length > 0 ? candidateSources[0] : null;
     },
 
     // Helper methods
@@ -1805,7 +1896,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                             '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Customer:</td><td style="padding: 5px;">' + (tokenData.customerName || 'N/A') + '</td></tr>',
                             '<tr><td style="padding: 5px; font-weight: 600;">RO Number:</td><td style="padding: 5px;">' + (tokenData.roNumber || 'N/A') + '</td></tr>',
                             '<tr><td style="padding: 5px; font-weight: 600;">Serial Number:</td><td style="padding: 5px;">' + (responseData.stsEquipmentBinding?.serialNumber || requestData.serialNumber || 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Token Expires:</td><td style="padding: 5px; color: #dc3545; font-weight: 600;">' + expirationTime + '</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Quota Expiry:</td><td style="padding: 5px; color: #dc3545; font-weight: 600;">' + expirationTime + '</td></tr>',
                             '</table>',
                             '</div>',
                             
@@ -1828,7 +1919,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                             (tokenData.contractDetails?.contractStartDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractStartDate), 'd M Y') : 'N/A') + '</td></tr>',
                             '<tr><td style="padding: 5px; font-weight: 600;">Contract End:</td><td style="padding: 5px;">' +
                             (tokenData.contractDetails?.contractEndDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractEndDate), 'd M Y') : 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Duration:</td><td style="padding: 5px;">' + (tokenData.durationHours || 'N/A') + ' hours</td></tr>',
+                            '<tr><td style="padding: 5px; font-weight: 600;">Quota Hours:</td><td style="padding: 5px;">' + (tokenData.durationHours !== null && tokenData.durationHours !== undefined ? tokenData.durationHours : 'N/A') + ' hours</td></tr>',
                             '<tr><td style="padding: 5px; font-weight: 600;">Contract Value:</td><td style="padding: 5px; color: #28a745; font-weight: 600;">Rp ' +
                             (tokenData.contractValue ? Ext.util.Format.number(tokenData.contractValue, '0,0') : 'N/A') + '</td></tr>',
                             '</table>',
@@ -1909,45 +2000,95 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
      */
     renewToken: function(tokenId) {
         var me = this;
+        var tokenRecord = this.getTokenActionRecord(tokenId);
+        var tokenData = tokenRecord ? tokenRecord.getData() : {};
+        var currentTokenId = tokenData.tokenId || tokenData.id || tokenId;
+        var resolvedImei = this.resolveImeiForTokenAction(tokenData);
+        var currentContractEnd = tokenData.contractDetails && tokenData.contractDetails.contractEndDate
+            ? new Date(tokenData.contractDetails.contractEndDate)
+            : new Date();
+        var defaultContractStart = Ext.Date.add(currentContractEnd, Ext.Date.DAY, 1);
+        var defaultContractEnd = Ext.Date.add(defaultContractStart, Ext.Date.DAY, 30);
+        var defaultQuotaHours = parseInt(tokenData.quotaHours || tokenData.durationHours, 10) || 24;
+        var defaultContractValue = tokenData.contractValue ||
+            (tokenData.contractDetails ? tokenData.contractDetails.contractValue : 0) || 0;
         
         var renewForm = Ext.create('Ext.window.Window', {
             title: 'Renew Token - ' + tokenId,
             modal: true,
-            width: 400,
+            width: 480,
             layout: 'fit',
             items: [{
                 xtype: 'form',
                 bodyPadding: 20,
                 defaults: {
-                    labelWidth: 120,
+                    labelWidth: 140,
                     anchor: '100%',
                     margin: '0 0 15 0'
                 },
                 items: [{
+                    xtype: 'displayfield',
+                    fieldLabel: 'Serial Number',
+                    value: tokenData.serialNumber || 'N/A'
+                }, {
+                    xtype: 'datefield',
+                    name: 'newContractStart',
+                    fieldLabel: 'New Contract Start *',
+                    format: 'd M Y',
+                    value: defaultContractStart,
+                    allowBlank: false,
+                }, {
+                    xtype: 'datefield',
+                    name: 'newContractEnd',
+                    fieldLabel: 'New Contract End *',
+                    format: 'd M Y',
+                    value: defaultContractEnd,
+                    allowBlank: false,
+                }, {
                     xtype: 'numberfield',
-                    name: 'renewal_days',
-                    fieldLabel: 'Renewal Period',
-                    value: 30,
+                    name: 'newDurationHours',
+                    fieldLabel: 'Quota Hours *',
+                    value: defaultQuotaHours,
                     minValue: 1,
-                    maxValue: 365,
+                    maxValue: 4095,
                     allowBlank: false,
                     fieldStyle: 'text-align: right',
                     listeners: {
                         change: function(field, newValue) {
-                            var newExpiry = new Date(Date.now() + (newValue || 30) * 24 * 60 * 60 * 1000);
+                            var newExpiry = new Date(Date.now() + ((newValue || defaultQuotaHours) * 60 * 60 * 1000));
                             field.up('form').down('[name=new_expiry_preview]').setValue(
                                 Ext.util.Format.date(newExpiry, 'Y-m-d H:i')
                             );
                         }
                     }
                 }, {
+                    xtype: 'numberfield',
+                    name: 'contractValue',
+                    fieldLabel: 'Contract Value *',
+                    value: defaultContractValue,
+                    minValue: 0,
+                    decimalPrecision: 2,
+                    allowBlank: false,
+                }, {
+                    xtype: 'textfield',
+                    name: 'paymentReference',
+                    fieldLabel: 'Payment Reference *',
+                    allowBlank: false,
+                    emptyText: 'Enter payment reference...'
+                }, {
+                    xtype: 'textfield',
+                    name: 'requestorName',
+                    fieldLabel: 'Requestor Name *',
+                    allowBlank: false,
+                    value: 'Current User'
+                }, {
                     xtype: 'displayfield',
                     name: 'new_expiry_preview',
-                    fieldLabel: 'New Expiry Date',
-                    value: Ext.util.Format.date(new Date(Date.now() + 30*24*60*60*1000), 'Y-m-d H:i')
+                    fieldLabel: 'Projected Quota Expiry',
+                    value: Ext.util.Format.date(new Date(Date.now() + defaultQuotaHours * 60 * 60 * 1000), 'Y-m-d H:i')
                 }, {
                     xtype: 'textarea',
-                    name: 'renewal_notes',
+                    name: 'renewalNotes',
                     fieldLabel: 'Notes',
                     height: 80,
                     emptyText: 'Optional notes for renewal...'
@@ -1962,24 +2103,86 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     formBind: true,
                     cls: 'btn-success',
                     handler: function() {
-                        var formValues = this.up('form').getValues();
-                        console.log('Renewing token:', tokenId, 'for', formValues.renewal_days, 'days');
+                        var form = this.up('form');
+                    if (!form.isValid()) {
+                        Ext.Msg.alert('Validation Error', 'Please complete the renewal form first.');
+                        return;
+                    }
+
+                    if (!resolvedImei) {
+                        Ext.Msg.alert(
+                            'IMEI Required',
+                            'Unable to resolve the device IMEI for this token. Please load the vehicle or token data again before renewing.'
+                        );
+                        return;
+                    }
+
+                    var formValues = form.getValues();
+                    var apiConfig = Store.rdmtoken.config.ApiConfig;
+                    var requestData = {
+                        serialNumber: tokenData.serialNumber,
+                        currentTokenId: currentTokenId,
+                        imei: resolvedImei,
+                        newContractStart: me.formatDateToISO(formValues.newContractStart),
+                        newContractEnd: me.formatDateToISO(formValues.newContractEnd),
+                        newDurationHours: parseInt(formValues.newDurationHours, 10) || 0,
+                        contractValue: parseFloat(formValues.contractValue) || 0,
+                        paymentReference: formValues.paymentReference,
+                            requestorName: formValues.requestorName,
+                            renewalNotes: formValues.renewalNotes || ''
+                        };
+
+                        console.log('Renewing token with payload:', requestData);
                         
                         Ext.Msg.wait('Processing token renewal...', 'Please wait');
-                        
-                        // Simulate API call
-                        setTimeout(function() {
-                            Ext.Msg.hide();
-                            renewForm.close();
-                            Ext.Msg.alert('Success',
-                                'Token renewed successfully!<br><br>' +
-                                'Token ID: ' + tokenId + '<br>' +
-                                'Extended by: ' + formValues.renewal_days + ' days<br>' +
-                                'New expiry: ' + formValues.new_expiry_preview
-                            );
-                            
-                            me.refreshTokenGrid();
-                        }, 1500);
+
+                        Ext.Ajax.request({
+                            url: apiConfig.getUrl('tokenRenew'),
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            jsonData: requestData,
+                            success: function(response) {
+                                Ext.Msg.hide();
+                                renewForm.close();
+
+                                try {
+                                    var result = Ext.decode(response.responseText);
+                                    if (result.status === 200 && result.body) {
+                                        Ext.Msg.alert('Success',
+                                            'Token renewed successfully!<br><br>' +
+                                            'Token ID: ' + currentTokenId + '<br>' +
+                                            'New quota hours: ' + (result.body.durationHours || requestData.newDurationHours) + ' hours<br>' +
+                                            'New contract end: ' + (result.body.contractEndDate || requestData.newContractEnd) + '<br>' +
+                                            'Projected quota expiry: ' + (result.body.tokenExpirationDate || formValues.new_expiry_preview)
+                                        );
+                                    } else {
+                                        Ext.Msg.alert('Renew Token Failed', result.body ? result.body.message : 'Failed to renew token');
+                                    }
+                                } catch (parseError) {
+                                    console.error('Error parsing renew response:', parseError);
+                                    Ext.Msg.alert('Renew Token Failed', 'Invalid response from server');
+                                }
+
+                                me.refreshTokenGrid();
+                            },
+                            failure: function(response) {
+                                Ext.Msg.hide();
+
+                                var errorMessage = 'Failed to renew token - Network error occurred';
+                                if (response.responseText) {
+                                    try {
+                                        var errorResult = Ext.decode(response.responseText);
+                                        errorMessage = errorResult.body ? errorResult.body.message : errorResult.message || errorMessage;
+                                    } catch (e) {
+                                        console.error('Could not parse renewal error response:', e);
+                                    }
+                                }
+
+                                Ext.Msg.alert('Renew Token Failed', errorMessage);
+                            }
+                        });
                     }
                 }]
             }]
@@ -1993,63 +2196,55 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
      */
     topUpToken: function(tokenId) {
         var me = this;
+        var tokenRecord = this.getTokenActionRecord(tokenId);
+        var tokenData = tokenRecord ? tokenRecord.getData() : {};
+        var currentTokenId = tokenData.tokenId || tokenData.id || tokenId;
+        var resolvedImei = this.resolveImeiForTokenAction(tokenData);
         
         var topUpForm = Ext.create('Ext.window.Window', {
             title: 'Top Up Token - ' + tokenId,
             modal: true,
-            width: 450,
+            width: 460,
             layout: 'fit',
             items: [{
                 xtype: 'form',
                 bodyPadding: 20,
                 defaults: {
-                    labelWidth: 130,
+                    labelWidth: 150,
                     anchor: '100%',
                     margin: '0 0 15 0'
                 },
                 items: [{
-                    xtype: 'radiogroup',
-                    fieldLabel: 'Top Up Type',
-                    name: 'topup_type',
-                    value: {topup_type: 'time'},
-                    items: [
-                        {boxLabel: 'Time Extension', name: 'topup_type', inputValue: 'time'},
-                        {boxLabel: 'Usage Credit', name: 'topup_type', inputValue: 'credit'}
-                    ],
-                    listeners: {
-                        change: function(radiogroup, newValue) {
-                            var form = radiogroup.up('form');
-                            var isTime = newValue.topup_type === 'time';
-                            
-                            form.down('[name=time_extension]').setVisible(isTime);
-                            form.down('[name=credit_amount]').setVisible(!isTime);
-                        }
-                    }
+                    xtype: 'displayfield',
+                    fieldLabel: 'Serial Number',
+                    value: tokenData.serialNumber || 'N/A'
                 }, {
                     xtype: 'numberfield',
-                    name: 'time_extension',
-                    fieldLabel: 'Additional Days',
-                    value: 15,
+                    name: 'additionalHours',
+                    fieldLabel: 'Additional Quota Hours *',
+                    value: 8,
                     minValue: 1,
-                    maxValue: 180,
+                    maxValue: 4095,
                     allowBlank: false,
                     fieldStyle: 'text-align: right'
                 }, {
-                    xtype: 'numberfield',
-                    name: 'credit_amount',
-                    fieldLabel: 'Credit Amount',
-                    value: 100,
-                    minValue: 1,
-                    maxValue: 10000,
+                    xtype: 'textfield',
+                    name: 'paymentReference',
+                    fieldLabel: 'Payment Reference *',
                     allowBlank: false,
-                    fieldStyle: 'text-align: right',
-                    hidden: true
+                    emptyText: 'Enter payment reference...'
+                }, {
+                    xtype: 'textfield',
+                    name: 'requestorName',
+                    fieldLabel: 'Requestor Name *',
+                    allowBlank: false,
+                    value: 'Current User'
                 }, {
                     xtype: 'textarea',
-                    name: 'topup_notes',
+                    name: 'notes',
                     fieldLabel: 'Notes',
                     height: 80,
-                    emptyText: 'Reason for top up...'
+                    emptyText: 'Reason for quota top up...'
                 }],
                 buttons: [{
                     text: 'Cancel',
@@ -2061,20 +2256,35 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     formBind: true,
                     cls: 'btn-warning',
                     handler: function() {
-                        var formValues = this.up('form').getValues();
-                        console.log('Topping up token:', tokenId, formValues);
-                        
-                        Ext.Msg.wait('Processing token top up...', 'Please wait');
+                        var form = this.up('form');
+                    if (!form.isValid()) {
+                        Ext.Msg.alert('Validation Error', 'Please complete the top up form first.');
+                        return;
+                    }
+
+                    if (!resolvedImei) {
+                        Ext.Msg.alert(
+                            'IMEI Required',
+                            'Unable to resolve the device IMEI for this token. Please load the vehicle or token data again before topping up.'
+                        );
+                        return;
+                    }
+
+                    var formValues = form.getValues();
+                    console.log('Topping up token:', currentTokenId, formValues);
+                    
+                    Ext.Msg.wait('Processing token top up...', 'Please wait');
                         
                         // Prepare API request data
                         var apiConfig = Store.rdmtoken.config.ApiConfig;
                         var requestData = {
-                            tokenId: tokenId,
-                            topUpType: formValues.topup_type,
-                            timeExtension: formValues.topup_type === 'time' ? parseInt(formValues.time_extension, 10) : 0,
-                            creditAmount: formValues.topup_type === 'credit' ? parseInt(formValues.credit_amount, 10) : 0,
-                            notes: formValues.topup_notes || '',
-                            timestamp: new Date().toISOString()
+                            serialNumber: tokenData.serialNumber,
+                            currentTokenId: currentTokenId,
+                            imei: resolvedImei,
+                            additionalHours: parseInt(formValues.additionalHours, 10) || 0,
+                            paymentReference: formValues.paymentReference,
+                            requestorName: formValues.requestorName,
+                            notes: formValues.notes || ''
                         };
                         
                         console.log('=== TOP UP TOKEN API REQUEST ===');
@@ -2101,15 +2311,12 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                     
                                     if (result.status === 200) {
                                         console.log('✅ Token topped up successfully');
-                                        
-                                        var topUpText = formValues.topup_type === 'time'
-                                            ? formValues.time_extension + ' days added'
-                                            : formValues.credit_amount + ' credits added';
                                             
                                         Ext.Msg.alert('Success',
                                             'Token topped up successfully!<br><br>' +
-                                            'Token ID: ' + tokenId + '<br>' +
-                                            'Top up: ' + topUpText
+                                            'Token ID: ' + currentTokenId + '<br>' +
+                                            'Added quota: ' + (result.body && result.body.addedHours !== undefined ? result.body.addedHours : requestData.additionalHours) + ' hours<br>' +
+                                            'Remaining quota: ' + (result.body && result.body.totalRemainingHours !== undefined ? result.body.totalRemainingHours : 'N/A') + ' hours'
                                         );
                                     } else {
                                         console.error('❌ API returned error:', result.status);

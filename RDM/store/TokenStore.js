@@ -31,6 +31,7 @@ Ext.define('Store.rdmtoken.store.TokenStore', {
 
     fields: [
         'id', 
+        'tokenId',
         'requestId', 
         'tokenNumber', 
         'serialNumber', 
@@ -40,10 +41,13 @@ Ext.define('Store.rdmtoken.store.TokenStore', {
         'roNumber', 
         'status', 
         'tokenStatus',
+        'tokenType',
         'issuedDate', 
         'expirationDate', 
         'remainingHours', 
+        'remainingQuotaHours',
         'durationHours',
+        'quotaHours',
         'contractValue', 
         'actions', 
         'unitDetails', 

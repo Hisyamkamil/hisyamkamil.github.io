@@ -7,7 +7,7 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
 
     proxy: {
         type: 'ajax',
-        url: '/api/contracts/{serialNumber}',
+        url: '/api/rdm/contracts',
         reader: {
             type: 'json'
         }
@@ -15,6 +15,7 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
 
     fields: [
         'contractStartDate',
+        'contractEndDate',
         'contractExpirationDate', 
         'customerName',
         'customerCode', 
@@ -22,6 +23,7 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
         'rentalOrderNumber',
         'geofenceDetails',
         'contractValue',
+        'status',
         'contractStatus',
         'paymentTerms',
         'renewalOptions'
@@ -31,16 +33,15 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
     loadBySerialNumber: function(serialNumber, callback) {
         var proxy = this.getProxy();
         var originalUrl = proxy.getUrl();
-        
-        // Replace placeholder with actual serial number
-        var url = originalUrl.replace('{serialNumber}', serialNumber);
+        var url = '/api/rdm/contracts?serialNumber=' + encodeURIComponent(serialNumber);
+
         proxy.setUrl(url);
-        
+
         this.load({
             callback: function(records, operation, success) {
-                // Restore original URL template
+                // Restore original URL
                 proxy.setUrl(originalUrl);
-                
+
                 if (callback) {
                     callback(records, operation, success);
                 }
@@ -86,7 +87,9 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
     isContractValid: function(contractData) {
         var now = new Date();
         var startDate = new Date(contractData.contractStartDate);
-        var endDate = new Date(contractData.contractExpirationDate);
+        var endDateValue = contractData.contractEndDate || contractData.contractExpirationDate;
+        var endDate = new Date(endDateValue);
+        var contractStatus = contractData.status || contractData.contractStatus;
         
         // Contract must be active (current date between start and end)
         if (now < startDate || now > endDate) {
@@ -94,7 +97,7 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
         }
         
         // Contract status must be active
-        if (contractData.contractStatus !== 'active') {
+        if (contractStatus !== 'active') {
             return false;
         }
         
@@ -118,15 +121,17 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
             }
         }
         
-        if (contractData.contractExpirationDate) {
-            var endDate = new Date(contractData.contractExpirationDate);
+        var endDateValue = contractData.contractEndDate || contractData.contractExpirationDate;
+        if (endDateValue) {
+            var endDate = new Date(endDateValue);
             if (now > endDate) {
                 issues.push('Contract has expired');
             }
         }
         
-        if (contractData.contractStatus !== 'active') {
-            issues.push('Contract status is not active: ' + contractData.contractStatus);
+        var contractStatus = contractData.status || contractData.contractStatus;
+        if (contractStatus !== 'active') {
+            issues.push('Contract status is not active: ' + contractStatus);
         }
         
         if (!contractData.customerName) {

@@ -9,10 +9,10 @@ Ext.define('Store.rdmtoken.view.MainPanel', {
     requires: [
         'Store.rdmtoken.view.DashboardPanel',
         'Store.rdmtoken.view.TokenManagementPanel',
-        'Store.rdmtoken.view.LocationMonitoringPanel',
-        'Store.rdmtoken.view.ContractPanel',
-        'Store.rdmtoken.view.ApprovalPanel',
-        'Store.rdmtoken.view.ReportPanel'
+        // 'Store.rdmtoken.view.LocationMonitoringPanel',
+        'Store.rdmtoken.view.ContractPanel'
+        // 'Store.rdmtoken.view.ApprovalPanel',
+        // 'Store.rdmtoken.view.ReportPanel'
     ],
 
     initComponent: function() {
@@ -23,18 +23,18 @@ Ext.define('Store.rdmtoken.view.MainPanel', {
             Ext.apply(Ext.create('Store.rdmtoken.view.TokenManagementPanel'), {
                 itemId: 'tokenmanagement'
             }),
-            Ext.apply(Ext.create('Store.rdmtoken.view.LocationMonitoringPanel'), {
-                itemId: 'locationmonitoring'
-            }),
+            // Ext.apply(Ext.create('Store.rdmtoken.view.LocationMonitoringPanel'), {
+            //     itemId: 'locationmonitoring'
+            // }),
             Ext.apply(Ext.create('Store.rdmtoken.view.ContractPanel'), {
                 itemId: 'contract'
-            }),
-            Ext.apply(Ext.create('Store.rdmtoken.view.ApprovalPanel'), {
-                itemId: 'approval'
-            }),
-            Ext.apply(Ext.create('Store.rdmtoken.view.ReportPanel'), {
-                itemId: 'report'
             })
+            // Ext.apply(Ext.create('Store.rdmtoken.view.ApprovalPanel'), {
+            //     itemId: 'approval'
+            // }),
+            // Ext.apply(Ext.create('Store.rdmtoken.view.ReportPanel'), {
+            //     itemId: 'report'
+            // })
         ];
 
         this.callParent(arguments);

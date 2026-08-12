@@ -120,10 +120,10 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                 {text: 'RO Number', dataIndex: 'roNumber', flex: 1},
                 {text: 'Customer Name', dataIndex: 'customerName', flex: 1},
                 {
-                    text: 'Remaining Hours',
+                    text: 'Remaining Quota Hours',
                     dataIndex: 'remainingHours',
                     renderer: function(value) {
-                        return value ? value + 'h' : '-';
+                        return value !== null && value !== undefined ? value + 'h' : '-';
                     }
                 },
                 {
@@ -141,25 +141,26 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
     actionColumnRenderer: function(value, metaData, record) {
         var me = this;
         var status = record.get('status');
-        var tokenId = record.get('id') || record.get('tokenNumber');
+        var requestActionId = record.get('requestId') || record.get('tokenNumber') || record.get('id');
+        var tokenActionId = record.get('tokenId') || record.get('id') || requestActionId;
         var html = '<div class="token-actions" style="display: flex; gap: 5px; align-items: center;">';
         
         // Conditional actions based on token status
         switch(status) {
             case 'pending':
                 // Pending tokens can only be generated
-                html += '<button class="action-btn btn-primary" onclick="rdmToken.generateToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px;">Generate Token</button>';
+                html += '<button class="action-btn btn-primary" onclick="rdmToken.generateToken(\'' + requestActionId + '\')" style="padding: 4px 8px; font-size: 11px;">Generate Token</button>';
                 break;
                 
             case 'active':
                 // Active tokens can be topped up or renewed
-                html += '<button class="action-btn btn-success" onclick="rdmToken.renewToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px;">Renew</button>';
-                html += '<button class="action-btn btn-warning" onclick="rdmToken.topUpToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px; margin-left: 3px;">Top Up</button>';
+                html += '<button class="action-btn btn-success" onclick="rdmToken.renewToken(\'' + tokenActionId + '\')" style="padding: 4px 8px; font-size: 11px;">Renew</button>';
+                html += '<button class="action-btn btn-warning" onclick="rdmToken.topUpToken(\'' + tokenActionId + '\')" style="padding: 4px 8px; font-size: 11px; margin-left: 3px;">Top Up</button>';
                 break;
                 
             case 'expired':
                 // Expired tokens can be renewed
-                html += '<button class="action-btn btn-info" onclick="rdmToken.renewToken(\'' + tokenId + '\')" style="padding: 4px 8px; font-size: 11px;">Renew</button>';
+                html += '<button class="action-btn btn-info" onclick="rdmToken.renewToken(\'' + tokenActionId + '\')" style="padding: 4px 8px; font-size: 11px;">Renew</button>';
                 break;
                 
             case 'cancelled':
