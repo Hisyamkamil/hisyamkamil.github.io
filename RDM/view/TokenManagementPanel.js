@@ -52,6 +52,8 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                             {value: 'all', label: 'All Status'},
                             {value: 'active', label: 'Active'},
                             {value: 'expired', label: 'Expired'},
+                            {value: 'revoked', label: 'Revoked'},
+                            {value: 'superseded', label: 'Superseded'},
                             {value: 'pending', label: 'Pending'},
                             {value: 'cancelled', label: 'Cancelled'}
                         ]
@@ -59,6 +61,12 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                     listeners: {
                         change: this.onStatusFilter.bind(this)
                     }
+                },
+                {
+                    xtype: 'button',
+                    text: 'Refresh',
+                    iconCls: 'fa fa-refresh',
+                    handler: this.onRefreshClick.bind(this)
                 },
                 {
                     xtype: 'datefield',
@@ -156,6 +164,8 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
                 // Active tokens can be topped up or renewed
                 html += '<button class="action-btn btn-success" onclick="rdmToken.renewToken(\'' + tokenActionId + '\')" style="padding: 4px 8px; font-size: 11px;">Renew</button>';
                 html += '<button class="action-btn btn-warning" onclick="rdmToken.topUpToken(\'' + tokenActionId + '\')" style="padding: 4px 8px; font-size: 11px; margin-left: 3px;">Top Up</button>';
+                // Change Unit action (visible for active tokens)
+                html += '<button class="action-btn btn-info" onclick="rdmToken.changeUnit(\'' + tokenActionId + '\')" style="padding: 4px 8px; font-size: 11px; margin-left: 3px;">Change Unit</button>';
                 break;
                 
             case 'expired':
@@ -182,12 +192,30 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         var statusConfig = {
             'active': {color: '#28a745', text: 'Active'},
             'expired': {color: '#dc3545', text: 'Expired'},
+            'revoked': {color: '#6c757d', text: 'Revoked'},
+            'superseded': {color: '#17a2b8', text: 'Superseded'},
             'pending': {color: '#ffc107', text: 'Pending'},
             'cancelled': {color: '#6c757d', text: 'Cancelled'}
         };
         
         var config = statusConfig[value] || {color: '#6c757d', text: value};
         return '<span style="color: ' + config.color + '; font-weight: bold;">' + config.text + '</span>';
+    },
+
+    onRefreshClick: function() {
+        console.log('Manual refresh clicked');
+        var controller = this.findController();
+        if (controller && typeof controller.applyFilters === 'function') {
+            controller.applyFilters();
+        } else {
+            var grid = this.down('#tokenGrid');
+            var store = grid && grid.getStore();
+            if (store) {
+                store.load();
+            } else {
+                console.warn('Unable to load store: grid/store not available');
+            }
+        }
     },
 
     onTokenSelectionChange: function(model, selected) {

@@ -14,8 +14,9 @@ Ext.define('Store.rdmtoken.store.TokenStore', {
         url: Store.rdmtoken.config.ApiConfig.getUrl('tokenList'),
         reader: {
             type: 'json',
-            rootProperty: 'body.tokens',  // AWS API Gateway response format
-            totalProperty: 'body.totalRecords'
+            // Align with Backend/RDM-API.postman_collection.json where tokens are top-level
+            rootProperty: 'tokens',
+            totalProperty: 'pagination.totalRecords'
         },
         extraParams: {
             page: 1,

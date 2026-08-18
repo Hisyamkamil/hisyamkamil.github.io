@@ -19,6 +19,8 @@ Ext.define('Store.rdmtoken.config.ApiConfig', {
             tokenStatus: '/api/rdm/token/status/{serialNumber}',
             tokenTopup: '/api/rdm/token/topup',
             tokenRenew: '/api/rdm/token/renew',
+            // Change Unit
+            tokenChangeUnit: '/api/rdm/token/change-unit',
             tokenReports: '/api/rdm/token/reports',
             tokenDashboard: '/api/rdm/token/dashboard',
             healthCheck: '/api/rdm/token/health',

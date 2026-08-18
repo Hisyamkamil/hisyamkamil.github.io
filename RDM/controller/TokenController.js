@@ -169,18 +169,45 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
 
     // Token Management methods
     loadTokenData: function(filters) {
-        console.log('Loading token data from API...');
-        
+        console.log('Loading token data via TokenStore (/api/rdm/token/list)');
+        var store = window.RDMStores && window.RDMStores.tokens;
+        if (store && store.getProxy) {
+            var proxy = store.getProxy();
+            var params = proxy.extraParams || {};
+            // defaults
+            params.page = (filters && filters.page) || params.page || 1;
+            params.limit = (filters && filters.limit) || params.limit || 20;
+            params.status = (filters && filters.status) || params.status || 'all';
+            // optional filters supported by backend
+            if (filters) {
+                if (filters.serialNumber) params.serialNumber = filters.serialNumber;
+                if (filters.customerName) params.customerName = filters.customerName;
+                if (filters.requestor) params.requestor = filters.requestor;
+                if (filters.startDate) params.startDate = filters.startDate;
+                if (filters.endDate) params.endDate = filters.endDate;
+                if (filters.roNumber) params.roNumber = filters.roNumber;
+            }
+            proxy.extraParams = params;
+            console.log('TokenStore params:', params);
+            store.load({
+                callback: function(records, operation, success) {
+                    if (!success) {
+                        console.warn('TokenStore load failed, falling back to legacy tokenRequest list');
+                        this.loadTokenDataLegacy(filters);
+                    }
+                }.bind(this)
+            });
+            return;
+        }
+        // Fallback to legacy tokenRequest list if store is unavailable
+        this.loadTokenDataLegacy(filters);
+    },
+
+    // Legacy loader for token requests list (fallback only)
+    loadTokenDataLegacy: function(filters) {
+        console.log('Legacy load of token requests list...');
         var apiConfig = Store.rdmtoken.config.ApiConfig;
-        
-        // Build query parameters for token request listing
-        var params = {
-            page: 1,
-            limit: 20,
-            status: 'all'
-        };
-        
-        // Apply filters if provided
+        var params = { page: 1, limit: 20, status: 'all' };
         if (filters) {
             if (filters.status) params.status = filters.status;
             if (filters.customerName) params.customerName = filters.customerName;
@@ -191,40 +218,29 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             if (filters.page) params.page = filters.page;
             if (filters.limit) params.limit = filters.limit;
         }
-        
-        // Build query string
         var queryString = Object.keys(params).map(function(key) {
             return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
         }).join('&');
-        
         var apiUrl = apiConfig.getUrl('tokenRequest') + '?' + queryString;
-        console.log('Token API URL:', apiUrl);
-        
         Ext.Ajax.request({
             url: apiUrl,
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             timeout: 15000,
             success: function(response) {
-                console.log('Token data loaded successfully');
                 try {
                     var result = Ext.decode(response.responseText);
-                    console.log('Token API Response:', result);
-                    
                     if (result.status === 200 && result.body && result.body.tokenRequests) {
                         this.processTokenData(result.body);
                     } else {
-                        console.error('Invalid token response format:', result);
+                        console.error('Invalid legacy token response format:', result);
                     }
                 } catch (e) {
-                    console.error('Error parsing token response:', e);
+                    console.error('Error parsing legacy token response:', e);
                 }
             }.bind(this),
             failure: function(response) {
-                console.error('Failed to load token data:', response);
+                console.error('Failed to load legacy token data:', response);
                 this.handleTokenLoadFailure(response);
             }.bind(this)
         });
@@ -1646,7 +1662,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             
             changeUnit: function(tokenId) {
                 console.log('Change unit for token:', tokenId);
-                this.performTokenAction('changeunit', tokenId);
+                // Open dedicated Change Unit flow (modal + API call)
+                this.changeUnit(tokenId);
             }.bind(this)
         };
     },
@@ -1656,8 +1673,9 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var apiConfig = Store.rdmtoken.config.ApiConfig;
         var actionEndpoints = {
             'renew': 'tokenRenew',
-            'topup': 'tokenTopup'
-            // Note: toggle and changeunit are not in the API spec, may need custom implementation
+            'topup': 'tokenTopup',
+            'changeunit': 'tokenChangeUnit'
+            // Note: toggle may need custom implementation server-side
         };
 
         var endpoint = actionEndpoints[action];
@@ -2356,6 +2374,201 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         
         topUpForm.show();
     },
+
+    /**
+     * Change Unit: rebind current active token to a new unit (carry remaining hours)
+     * POST /api/rdm/token/change-unit
+     * Payload: { serialNumber, currentTokenId, newSerial, newIMEI, newRO, requestorName, notes }
+     */
+    changeUnit: function(tokenId) {
+        var me = this;
+        var tokenRecord = this.getTokenActionRecord(tokenId);
+        var tokenData = tokenRecord ? tokenRecord.getData() : {};
+        var currentTokenId = tokenData.tokenId || tokenData.id || tokenId;
+        var oldSerial = tokenData.serialNumber || tokenData.unitId || '';
+
+        var win = Ext.create('Ext.window.Window', {
+            title: 'Change Unit - ' + tokenId,
+            modal: true,
+            width: 520,
+            layout: 'fit',
+            items: [{
+                xtype: 'form',
+                bodyPadding: 20,
+                defaults: { labelWidth: 150, anchor: '100%', margin: '0 0 12 0' },
+                items: [{
+                    xtype: 'displayfield',
+                    fieldLabel: 'Old Serial',
+                    value: oldSerial || 'N/A'
+                }, {
+                    xtype: 'displayfield',
+                    fieldLabel: 'Current Token ID',
+                    value: currentTokenId
+                }, {
+                    xtype: 'textfield',
+                    name: 'newSerial',
+                    allowBlank: false,
+                    fieldLabel: 'New Serial (VIN) *',
+                    emptyText: 'Enter new serial/VIN...'
+                }, {
+                    xtype: 'textfield',
+                    name: 'newIMEI',
+                    fieldLabel: 'New IMEI',
+                    emptyText: 'Auto-filled from vehicle tree if available'
+                }, {
+                    xtype: 'textfield',
+                    name: 'newRO',
+                    allowBlank: false,
+                    fieldLabel: 'New RO *',
+                    emptyText: 'Enter new RO number...'
+                }, {
+                    xtype: 'textfield',
+                    name: 'requestorName',
+                    allowBlank: false,
+                    fieldLabel: 'Requestor Name *',
+                    value: 'Current User'
+                }, {
+                    xtype: 'textarea',
+                    name: 'notes',
+                    fieldLabel: 'Notes',
+                    emptyText: 'Reason for rebinding (optional)',
+                    height: 70
+                }],
+                listeners: {
+                    afterrender: function(formCmp) {
+                        var newSerialField = formCmp.down('[name=newSerial]');
+                        var newIMEIField = formCmp.down('[name=newIMEI]');
+                        if (newSerialField) {
+                            newSerialField.on('blur', function(field) {
+                                var val = field.getValue();
+                                if (!val) return;
+                                me.fetchImeiForNewSerial(val, function(imei) {
+                                    if (imei && newIMEIField) {
+                                        newIMEIField.setValue(imei);
+                                    }
+                                });
+                            });
+                        }
+                    }
+                },
+                buttons: [{
+                    text: 'Cancel',
+                    handler: function() { win.close(); }
+                }, {
+                    text: 'Change Unit',
+                    cls: 'btn-info',
+                    formBind: true,
+                    handler: function() {
+                        var form = this.up('form');
+                        if (!form.isValid()) {
+                            Ext.Msg.alert('Validation Error', 'Please complete required fields.');
+                            return;
+                        }
+                        var v = form.getValues();
+                        var payload = {
+                            serialNumber: oldSerial,
+                            currentTokenId: currentTokenId,
+                            newSerial: v.newSerial,
+                            newIMEI: v.newIMEI || undefined,
+                            newRO: v.newRO,
+                            requestorName: v.requestorName,
+                            notes: v.notes || ''
+                        };
+
+                        var apiConfig = Store.rdmtoken.config.ApiConfig;
+                        Ext.Msg.wait('Processing change unit...', 'Please wait');
+                        Ext.Ajax.request({
+                            url: apiConfig.getUrl('tokenChangeUnit'),
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            jsonData: payload,
+                            success: function(response) {
+                                Ext.Msg.hide();
+                                win.close();
+                                try {
+                                    var result = Ext.decode(response.responseText);
+                                    if (result.status === 200 && result.body) {
+                                        var b = result.body;
+                                        var mstId = me.getMstCommandIdFromResult(b);
+                                        var msg = [
+                                            '<div style="text-align:left">',
+                                            '<h3 style="color:#28a745;">Unit Changed Successfully</h3>',
+                                            '<p><strong>New Token ID:</strong> ' + (b.newTokenId || '-') + '</p>',
+                                            '<p><strong>Carried Hours:</strong> ' + (b.carriedHours != null ? b.carriedHours : '-') + '</p>',
+                                            '<p><strong>New RO:</strong> ' + (b.roNumber || b.newRO || '-') + '</p>',
+                                            '<p><strong>Token Expiration:</strong> ' + (b.tokenExpirationDate || '-') + '</p>',
+                                            '<div style="background:#e9f7ff;padding:10px;border-left:4px solid #17a2b8;margin-top:8px;">' +
+                                                me.buildMstDeliveryHtml(mstId) +
+                                            '</div>',
+                                            '</div>'
+                                        ].join('');
+                                        Ext.Msg.show({
+                                            title: 'Change Unit',
+                                            message: msg,
+                                            buttons: [{
+                                                text: 'Check Delivery Status',
+                                                handler: function(){ Ext.Msg.alert('Status', 'Delivery status check is not implemented yet.'); }
+                                            }, Ext.Msg.OK],
+                                            icon: Ext.MessageBox.INFO
+                                        });
+                                    } else {
+                                        Ext.Msg.alert('Change Unit Failed', result.body ? result.body.message : 'Server returned an error');
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing change-unit response', e);
+                                    Ext.Msg.alert('Change Unit Failed', 'Invalid response from server');
+                                }
+                                me.refreshTokenGrid();
+                            },
+                            failure: function(response) {
+                                Ext.Msg.hide();
+                                var err = 'Failed to change unit - network error';
+                                if (response.responseText) {
+                                    try {
+                                        var r = Ext.decode(response.responseText);
+                                        err = r.body ? r.body.message : r.message || err;
+                                    } catch(_) {}
+                                }
+                                Ext.Msg.alert('Change Unit Failed', err);
+                            }
+                        });
+                    }
+                }]
+            }]
+        });
+        win.show();
+    },
+
+    // Helper: lookup IMEI for a given VIN using PILOT tree
+    fetchImeiForNewSerial: function(newSerial, callback) {
+        Ext.Ajax.request({
+            url: '/ax/tree.php?vehs=1&state=1',
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            timeout: 15000,
+            success: function(response) {
+                try {
+                    var data = Ext.decode(response.responseText);
+                    var imei = this.findImeiByUnitId(data, newSerial);
+                    callback(imei || null);
+                } catch (e) { callback(null); }
+            }.bind(this),
+            failure: function(){ callback(null); }
+        });
+    },
+
+    // Helper: read mst command id from backend response
+    getMstCommandIdFromResult: function(body) {
+        if (!body) return null;
+        return body.mstCommandId || (body.mst && body.mst.commandId) || (body.delivery && body.delivery.mstCommandId) || null;
+    },
+
+    buildMstDeliveryHtml: function(mstId) {
+        if (!mstId) {
+            return '<strong>Device Delivery:</strong> Automatic: pending';
+        }
+        return '<strong>Device Delivery:</strong> Automatic: pending<br><strong>Command ID:</strong> ' + Ext.util.Format.htmlEncode(mstId);
+    },
     
     showRenewTokenModal: function(tokenId) {
         // Delegate to main renewToken method
@@ -2591,71 +2804,6 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 zone_name: matchedZone.text
             });
         }
-    },
-
-    // ===== CONTRACT MANAGEMENT METHODS =====
-
-    /**
-     * Load contract data with optional filters
-     */
-    loadContractData: function(filters) {
-        console.log('Loading contract data from API...');
-        
-        var apiConfig = Store.rdmtoken.config.ApiConfig;
-        
-        // Build query parameters for contract listing
-        var params = {
-            page: 1,
-            limit: 20,
-            status: 'all'
-        };
-        
-        // Apply filters if provided
-        if (filters) {
-            if (filters.status && filters.status !== 'all') params.status = filters.status;
-            if (filters.customerName) params.customerName = filters.customerName;
-            if (filters.serialNumber) params.serialNumber = filters.serialNumber;
-            if (filters.salesRepresentative) params.salesRepresentative = filters.salesRepresentative;
-            if (filters.page) params.page = filters.page;
-            if (filters.limit) params.limit = filters.limit;
-        }
-        
-        // Build query string
-        var queryString = Object.keys(params).map(function(key) {
-            return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
-        }).join('&');
-        
-        var apiUrl = apiConfig.getUrl('contractList') + '?' + queryString;
-        console.log('Contract API URL:', apiUrl);
-        
-        Ext.Ajax.request({
-            url: apiUrl,
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            timeout: 15000,
-            success: function(response) {
-                console.log('Contract data loaded successfully');
-                try {
-                    var result = Ext.decode(response.responseText);
-                    console.log('Contract API Response:', result);
-                    
-                    if (result.status === 200 && result.body && result.body.contracts) {
-                        this.processContractData(result.body);
-                    } else {
-                        console.error('Invalid contract response format:', result);
-                    }
-                } catch (e) {
-                    console.error('Error parsing contract response:', e);
-                }
-            }.bind(this),
-            failure: function(response) {
-                console.error('Failed to load contract data:', response);
-                this.handleContractLoadFailure(response);
-            }.bind(this)
-        });
     },
 
     processContractData: function(data) {
