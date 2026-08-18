@@ -49,6 +49,64 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     //     console.log('Report activated');
     // },
 
+    // Contracts list loader (store-driven, top-level API)
+    loadContractData: function(filters) {
+        console.log('Loading contract data via ContractsStore (/api/rdm/contracts)');
+        var store = window.RDMStores && window.RDMStores.contracts;
+        if (store && store.getProxy) {
+            var proxy = store.getProxy();
+            var params = proxy.extraParams || {};
+            // defaults
+            params.page = (filters && filters.page) || params.page || 1;
+            params.limit = (filters && filters.limit) || params.limit || 20;
+            // optional filters supported by backend
+            if (filters) {
+                if (filters.status) params.status = filters.status;
+                if (filters.customerName) params.customerName = filters.customerName;
+                if (filters.salesRepresentative) params.salesRepresentative = filters.salesRepresentative;
+            }
+            proxy.extraParams = params;
+            console.log('ContractsStore params:', params);
+            store.load({
+                callback: function(records, operation, success) {
+                    if (!success) {
+                        console.warn('ContractsStore load failed, falling back to manual fetch');
+                        this.loadContractDataFallback(filters);
+                    }
+                }.bind(this)
+            });
+            return;
+        }
+        // Fallback if store unavailable
+        this.loadContractDataFallback(filters);
+    },
+
+    // Manual fallback that normalizes response and updates grid without store reader
+    loadContractDataFallback: function(filters) {
+        var apiConfig = Store.rdmtoken.config.ApiConfig;
+        var query = [];
+        var params = filters || {};
+        Object.keys(params || {}).forEach(function(k){ if (params[k] !== undefined && params[k] !== null) query.push(encodeURIComponent(k)+'='+encodeURIComponent(params[k])); });
+        var url = apiConfig.getUrl('contractList') + (query.length ? ('?' + query.join('&')) : '');
+        Ext.Ajax.request({
+            url: url,
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            success: function(response){
+                try {
+                    var parsed = Ext.decode(response.responseText);
+                    var normalizer = (window.RDMApiResponse && window.RDMApiResponse.normalizeContractsListResponse) ? window.RDMApiResponse : null;
+                    var data = normalizer ? normalizer.normalizeContractsListResponse(parsed) : { contracts: parsed.contracts || [], pagination: parsed.pagination || null };
+                    this.processContractData(data);
+                } catch (e) {
+                    console.error('Error parsing contracts fallback response:', e);
+                    this.handleContractLoadFailure(response);
+                }
+            }.bind(this),
+            failure: this.handleContractLoadFailure.bind(this)
+        });
+    },
+
     // Dashboard methods
     loadDashboardMetrics: function() {
         console.log('Loading dashboard metrics...');
@@ -77,22 +135,26 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             var result = Ext.decode(response.responseText);
             console.log('Dashboard API Response:', result);
             
-            if (result.status === 200 && result.body && result.body.overview) {
-                var overview = result.body.overview;
-                
-                // Extract the 4 key metrics
+            // Normalize response (supports old envelope and new top-level)
+            var normalizer = (window.RDMApiResponse && window.RDMApiResponse.normalizeDashboardResponse)
+                ? window.RDMApiResponse
+                : null;
+            var overview = null;
+            if (normalizer) {
+                overview = normalizer.normalizeDashboardResponse(result).overview;
+            } else {
+                overview = (result && result.overview) ? result.overview : (result && result.body && result.body.overview) ? result.body.overview : null;
+            }
+
+            if (overview) {
                 var dashboardData = {
                     totalRequestedTokens: overview.totalRequestedTokens || 0,
                     totalActiveTokens: overview.totalActiveTokens || 0,
                     totalExpiredTokens: overview.totalExpiredTokens || 0,
                     pendingApprovals: overview.pendingApprovals || 0
                 };
-                
                 console.log('Key Dashboard Metrics:', dashboardData);
-                
-                // Update dashboard UI
                 this.updateDashboardUI(dashboardData);
-                
             } else {
                 console.error('Invalid dashboard response format:', result);
                 this.showDashboardError();
@@ -1078,14 +1140,17 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 console.log('Contract fetch success:', response.responseText);
                 
                 try {
-                    var result = Ext.decode(response.responseText);
-                    if (result.status === 200 && result.body && result.body.contracts && result.body.contracts.length > 0) {
-                        var contract = result.body.contracts[0]; // Use first contract
+                    var parsed = Ext.decode(response.responseText);
+                    var normalizer = (window.RDMApiResponse && window.RDMApiResponse.normalizeContractGetBySerial)
+                        ? window.RDMApiResponse
+                        : null;
+                    var contract = normalizer ? normalizer.normalizeContractGetBySerial(parsed)
+                                               : (parsed.contracts && parsed.contracts[0]) ? parsed.contracts[0] : null;
+                    if (contract) {
                         console.log('Contract found:', contract);
                         this.populateFormWithContract(modal, contract);
                     } else {
                         console.warn('No contract found for serial number:', serialNumber);
-                        // Form remains with vehicle data only
                     }
                 } catch (e) {
                     console.error('Error parsing contract response:', e);
@@ -3660,23 +3725,19 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     console.log('=== CONTRACT API SUCCESS RESPONSE ===');
                     console.log('Raw Response:', response);
                     console.log('Response Text:', response.responseText);
-                    
                     try {
-                        var result = Ext.decode(response.responseText);
-                        console.log('Parsed Result:', result);
-                        
-                        if (result.status === 200) {
+                        var parsed = Ext.decode(response.responseText);
+                        console.log('Parsed Result (top-level):', parsed);
+                        var ok = (!isEdit && response.status === 201) || (isEdit && response.status === 200) || (response.status >= 200 && response.status < 300);
+                        if (ok) {
                             console.log('✅ Contract ' + (isEdit ? 'updated' : 'created') + ' successfully');
-                            
-                            // Show success modal with contract details
-                            this.showContractSuccessModal(result.body, requestData, isEdit);
-                            
+                            this.showContractSuccessModal(parsed, requestData, isEdit);
                             modal.close();
-                            this.loadContractData(); // Refresh contract grid
+                            this.loadContractData();
                         } else {
-                            console.error('❌ API returned error status:', result.status);
-                            var errorMsg = result.body?.message || 'Failed to ' + (isEdit ? 'update' : 'create') + ' contract';
-                            Ext.Msg.alert('Error', errorMsg);
+                            var errMsg = (parsed && (parsed.message || parsed.error)) || 'Failed to ' + (isEdit ? 'update' : 'create') + ' contract';
+                            console.error('❌ API returned non-2xx:', response.status, errMsg);
+                            Ext.Msg.alert('Error', errMsg);
                         }
                     } catch (parseError) {
                         console.error('❌ Error parsing API response:', parseError);
@@ -3696,7 +3757,7 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     if (response.responseText) {
                         try {
                             var errorResult = Ext.decode(response.responseText);
-                            errorMessage = errorResult.body?.message || errorResult.message || errorMessage;
+                            errorMessage = errorResult.message || errorResult.error || errorMessage;
                         } catch (e) {
                             console.error('Could not parse error response:', e);
                         }

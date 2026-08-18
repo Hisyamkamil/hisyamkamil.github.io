@@ -370,7 +370,7 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                                         }(),
                                         reader: {
                                             type: 'json',
-                                            rootProperty: 'body.contracts'
+                                            rootProperty: 'contracts'
                                         }
                                     },
                                     autoLoad: true

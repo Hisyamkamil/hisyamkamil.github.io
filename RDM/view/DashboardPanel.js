@@ -73,9 +73,19 @@ Ext.define('Store.rdmtoken.view.DashboardPanel', {
         try {
             var result = Ext.decode(response.responseText);
             console.log('DashboardPanel: Metrics loaded:', result);
-            
-            if (result.status === 200 && result.body && result.body.overview) {
-                this.updateMetricCards(result.body.overview);
+            // Use normalizer to support both top-level and legacy envelope
+            var normalizer = (window.RDMApiResponse && window.RDMApiResponse.normalizeDashboardResponse)
+                ? window.RDMApiResponse
+                : null;
+            var overview = null;
+            if (normalizer) {
+                overview = normalizer.normalizeDashboardResponse(result).overview;
+            } else {
+                // Fallback: try top-level first then envelope
+                overview = (result && result.overview) ? result.overview : (result && result.body && result.body.overview) ? result.body.overview : null;
+            }
+            if (overview) {
+                this.updateMetricCards(overview);
             } else {
                 console.error('Invalid dashboard response format');
             }

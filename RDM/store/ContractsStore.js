@@ -7,9 +7,17 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
 
     proxy: {
         type: 'ajax',
-        url: '/api/rdm/contracts',
+        url: Store.rdmtoken && Store.rdmtoken.config && Store.rdmtoken.config.ApiConfig
+            ? Store.rdmtoken.config.ApiConfig.getUrl('contractList')
+            : '/api/rdm/contracts',
         reader: {
-            type: 'json'
+            type: 'json',
+            // Top-level contracts list with pagination
+            rootProperty: 'contracts',
+            totalProperty: 'pagination.totalRecords'
+        },
+        headers: {
+            'Accept': 'application/json'
         }
     },
 
@@ -33,7 +41,9 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
     loadBySerialNumber: function(serialNumber, callback) {
         var proxy = this.getProxy();
         var originalUrl = proxy.getUrl();
-        var url = '/api/rdm/contracts?serialNumber=' + encodeURIComponent(serialNumber);
+        var api = Store.rdmtoken && Store.rdmtoken.config && Store.rdmtoken.config.ApiConfig;
+        var baseUrl = api ? api.getUrl('contractList') : '/api/rdm/contracts';
+        var url = baseUrl + '?serialNumber=' + encodeURIComponent(serialNumber);
 
         proxy.setUrl(url);
 
