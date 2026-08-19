@@ -6,7 +6,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     extend: 'Ext.Base',
     
     requires: [
-        'Store.rdmtoken.config.ApiConfig'
+        'Store.rdmtoken.config.ApiConfig',
+        'Store.rdmtoken.utils.ApiResponse'
     ],
 
     config: {
@@ -1919,21 +1920,18 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 Ext.Msg.hide();
                 
                 try {
-                    var result = Ext.decode(response.responseText);
-                    console.log('Parsed Result:', result);
+                    var unwrap = (window.RDMApiResponse && window.RDMApiResponse.unwrap2xx)
+                        ? window.RDMApiResponse.unwrap2xx(response)
+                        : (function(){
+                            var parsed = null; try { parsed = Ext.decode(response.responseText);} catch(e){}
+                            var isOk = (response.status >= 200 && response.status < 300);
+                            if (parsed && parsed.status === 200 && parsed.body) return { ok: true, data: parsed.body, status: 200 };
+                            if (isOk) return { ok: true, data: parsed, status: response.status };
+                            return { ok: false, error: (parsed && (parsed.message || parsed.error)) || 'Request failed', status: response.status };
+                        })();
 
-                    // Treat either classic wrapped format {status:200, body:{...}} or
-                    // raw payload object returned directly by the backend as success
-                    var isHttpOk = (response.status >= 200 && response.status < 300);
-                    var responseData = null;
-                    if (result && result.status === 200 && result.body) {
-                        responseData = result.body;
-                        isHttpOk = true;
-                    } else {
-                        responseData = result; // assume raw payload on 2xx
-                    }
-                    
-                    if (isHttpOk && responseData) {
+                    if (unwrap.ok && unwrap.data) {
+                        var responseData = unwrap.data;
                         console.log('✅ Token generated successfully');
                         console.log('Token response data:', responseData);
                         var expirationTime = responseData.expirationTime ?
@@ -1997,13 +1995,11 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                         
                         Ext.Msg.alert('Token Generated', successMessage);
                     } else {
-                        console.error('❌ API returned error or non-2xx status:', result && result.status);
-                        var errorMsg = 'Failed to generate token';
-                        if (result && result.body && (result.body.message || result.body.error)) {
-                            errorMsg = result.body.message || result.body.error;
-                        } else if (result && (result.message || result.error)) {
-                            errorMsg = result.message || result.error;
-                        }
+                        console.error('❌ API returned error or non-2xx status');
+                        var parsedErr = null; try { parsedErr = Ext.decode(response.responseText); } catch(e){}
+                        var errorMsg = (window.RDMApiResponse && window.RDMApiResponse.extractErrorMessage)
+                            ? window.RDMApiResponse.extractErrorMessage(parsedErr || unwrap)
+                            : (unwrap.error || 'Failed to generate token');
                         Ext.Msg.alert('Generate Token Failed', errorMsg);
                     }
                 } catch (parseError) {
@@ -2230,17 +2226,35 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                 renewForm.close();
 
                                 try {
-                                    var result = Ext.decode(response.responseText);
-                                    if (result.status === 200 && result.body) {
-                                        Ext.Msg.alert('Success',
-                                            'Token renewed successfully!<br><br>' +
-                                            'Token ID: ' + currentTokenId + '<br>' +
-                                            'New quota hours: ' + (result.body.durationHours || requestData.newDurationHours) + ' hours<br>' +
-                                            'New contract end: ' + (result.body.contractEndDate || requestData.newContractEnd) + '<br>' +
-                                            'Projected quota expiry: ' + (result.body.tokenExpirationDate || formValues.new_expiry_preview)
-                                        );
+                                    var unwrap = (window.RDMApiResponse && window.RDMApiResponse.unwrap2xx)
+                                        ? window.RDMApiResponse.unwrap2xx(response)
+                                        : (function(){
+                                            var parsed = null; try { parsed = Ext.decode(response.responseText);} catch(e){}
+                                            var isOk = (response.status >= 200 && response.status < 300);
+                                            if (parsed && parsed.status === 200 && parsed.body) return { ok: true, data: parsed.body, status: 200 };
+                                            if (isOk) return { ok: true, data: parsed, status: response.status };
+                                            return { ok: false, error: (parsed && (parsed.message || parsed.error)) || 'Request failed', status: response.status };
+                                        })();
+
+                                    if (unwrap.ok && unwrap.data) {
+                                        var data = unwrap.data;
+                                        var msg = [
+                                            'Token renewed successfully!<br><br>',
+                                            'Token ID: ' + currentTokenId + '<br>',
+                                            'New quota hours: ' + (data.durationHours || requestData.newDurationHours) + ' hours<br>',
+                                            'New contract end: ' + (data.contractEndDate || requestData.newContractEnd) + '<br>',
+                                            'Projected quota expiry: ' + (data.tokenExpirationDate || formValues.new_expiry_preview)
+                                        ];
+                                        if (data.deliveryMethods && data.deliveryMethods.automatic) {
+                                            msg.push('<br>Device delivery: <strong>' + data.deliveryMethods.automatic + '</strong>');
+                                        }
+                                        Ext.Msg.alert('Success', msg.join(''));
                                     } else {
-                                        Ext.Msg.alert('Renew Token Failed', result.body ? result.body.message : 'Failed to renew token');
+                                        var parsedErr = null; try { parsedErr = Ext.decode(response.responseText);} catch(e){}
+                                        var err = (window.RDMApiResponse && window.RDMApiResponse.extractErrorMessage)
+                                            ? window.RDMApiResponse.extractErrorMessage(parsedErr || unwrap)
+                                            : (unwrap.error || 'Failed to renew token');
+                                        Ext.Msg.alert('Renew Token Failed', err);
                                     }
                                 } catch (parseError) {
                                     console.error('Error parsing renew response:', parseError);
@@ -2389,20 +2403,37 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                 topUpForm.close();
                                 
                                 try {
-                                    var result = Ext.decode(response.responseText);
-                                    
-                                    if (result.status === 200) {
+                                    var unwrap = (window.RDMApiResponse && window.RDMApiResponse.unwrap2xx)
+                                        ? window.RDMApiResponse.unwrap2xx(response)
+                                        : (function(){
+                                            var parsed = null; try { parsed = Ext.decode(response.responseText);} catch(e){}
+                                            var isOk = (response.status >= 200 && response.status < 300);
+                                            if (parsed && parsed.status === 200 && parsed.body) return { ok: true, data: parsed.body, status: 200 };
+                                            if (isOk) return { ok: true, data: parsed, status: response.status };
+                                            return { ok: false, error: (parsed && (parsed.message || parsed.error)) || 'Request failed', status: response.status };
+                                        })();
+
+                                    if (unwrap.ok && unwrap.data) {
+                                        var data = unwrap.data;
                                         console.log('✅ Token topped up successfully');
-                                            
-                                        Ext.Msg.alert('Success',
-                                            'Token topped up successfully!<br><br>' +
-                                            'Token ID: ' + currentTokenId + '<br>' +
-                                            'Added quota: ' + (result.body && result.body.addedHours !== undefined ? result.body.addedHours : requestData.additionalHours) + ' hours<br>' +
-                                            'Remaining quota: ' + (result.body && result.body.totalRemainingHours !== undefined ? result.body.totalRemainingHours : 'N/A') + ' hours'
-                                        );
+                                        var added = (data.addedHours != null ? data.addedHours : requestData.additionalHours);
+                                        var remaining = (data.totalRemainingHours != null ? data.totalRemainingHours : 'N/A');
+                                        var msg = [
+                                            'Token topped up successfully!<br><br>',
+                                            'Token ID: ' + currentTokenId + '<br>',
+                                            'Added quota: ' + added + ' hours<br>',
+                                            'Remaining quota: ' + remaining + ' hours'
+                                        ];
+                                        if (data.stsDeliveryMethods && data.stsDeliveryMethods.display) {
+                                            msg.push('<br>Device delivery: <strong>pending</strong>');
+                                        }
+                                        Ext.Msg.alert('Success', msg.join(''));
                                     } else {
-                                        console.error('❌ API returned error:', result.status);
-                                        Ext.Msg.alert('Error', result.body ? result.body.message : 'Failed to top up token');
+                                        var parsedErr = null; try { parsedErr = Ext.decode(response.responseText);} catch(e){}
+                                        var errMsg = (window.RDMApiResponse && window.RDMApiResponse.extractErrorMessage)
+                                            ? window.RDMApiResponse.extractErrorMessage(parsedErr || unwrap)
+                                            : (unwrap.error || 'Failed to top up token');
+                                        Ext.Msg.alert('Error', errMsg);
                                     }
                                 } catch (parseError) {
                                     console.error('❌ Error parsing API response:', parseError);
