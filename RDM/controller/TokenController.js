@@ -1694,13 +1694,6 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             (opts.extraRowsHtml || ''),
             '</table>',
             '<p style="color:#666;font-size:13px;margin-top:10px">Token cannot be retrieved again. Please copy and deliver if needed.</p>',
-            // Response area
-            '<div style="background:#f1f3f5;padding:10px;border-radius:6px;margin-top:10px;">',
-            '<h4 style="margin:0 0 6px 0;color:#495057;">Flespi Response</h4>',
-            '<div id="rdm-flespi-response-body" style="max-height:180px;overflow:auto;background:#fff;border:1px solid #dee2e6;border-radius:4px;padding:8px;font-family:monospace;font-size:12px;color:#333;">',
-            'Not sent yet',
-            '</div>',
-            '</div>',
             '</div>'
         ].join('');
     },
@@ -1736,24 +1729,12 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                         btn.setDisabled(false);
                         var statusEl = Ext.get('rdm-flespi-delivery-status');
                         if (statusEl) statusEl.setHtml('Device delivery: <strong>sent</strong>' + (res.commandId ? ' (id: ' + Ext.util.Format.htmlEncode(res.commandId) + ')' : ''));
-                        var respEl = Ext.get('rdm-flespi-response-body');
-                        if (respEl) {
-                            var pretty = JSON.stringify(res.raw || {}, null, 2);
-                            var encoded = Ext.util.Format.htmlEncode(pretty);
-                            respEl.setHtml('<pre style="margin:0;white-space:pre-wrap;">' + encoded + '</pre>');
-                        }
                         Ext.toast({ html: 'Command sent' + (res.commandId ? ' (id ' + res.commandId + ')' : ''), align: 't', width: 260 });
                     }).catch(function(err){
                         Ext.Msg.hide();
                         btn.setDisabled(false);
                         var statusEl = Ext.get('rdm-flespi-delivery-status');
                         if (statusEl) statusEl.setHtml('Device delivery: <strong>failed</strong>');
-                        var respEl = Ext.get('rdm-flespi-response-body');
-                        if (respEl) {
-                            var errObj = { error: (err && err.message) || String(err) };
-                            var encoded = Ext.util.Format.htmlEncode(JSON.stringify(errObj, null, 2));
-                            respEl.setHtml('<pre style="margin:0;white-space:pre-wrap;">' + encoded + '</pre>');
-                        }
                         Ext.Msg.alert('Send Failed', (err && err.message) || 'Flespi request failed');
                     });
                 }
