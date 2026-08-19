@@ -1584,16 +1584,20 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     getTokenActionRecord: function(actionId) {
-        var grid = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid]')[0];
-        if (!grid || !grid.getStore()) {
-            return null;
+        // Search both Tokens grid and Pending Requests grid for a matching record
+        var grids = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid], gridpanel[itemId=requestGrid]');
+        for (var i = 0; i < grids.length; i++) {
+            var grid = grids[i];
+            if (!grid || !grid.getStore) continue;
+            var store = grid.getStore();
+            if (!store) continue;
+            var rec = store.findRecord('tokenId', actionId) ||
+                      store.findRecord('id', actionId) ||
+                      store.findRecord('requestId', actionId) ||
+                      store.findRecord('tokenNumber', actionId);
+            if (rec) return rec;
         }
-
-        var store = grid.getStore();
-        return store.findRecord('tokenId', actionId) ||
-               store.findRecord('id', actionId) ||
-               store.findRecord('requestId', actionId) ||
-               store.findRecord('tokenNumber', actionId);
+        return null;
     },
 
     resolveImeiForTokenAction: function(tokenData) {
@@ -1767,15 +1771,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     // Show loading mask
                     Ext.Msg.wait('Generating token...', 'Processing');
                     
-                    // Get token request data from grid to build proper payload
-                    var tokenRequestRecord = null;
-                    var grid = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid]')[0];
-                    if (grid && grid.getStore()) {
-                        var store = grid.getStore();
-                        tokenRequestRecord = store.findRecord('requestId', tokenId) ||
-                                           store.findRecord('id', tokenId) ||
-                                           store.findRecord('tokenNumber', tokenId);
-                    }
+                    // Get token request data from either Tokens or Pending Requests grid
+                    var tokenRequestRecord = this.getTokenActionRecord(tokenId);
                     
                     if (!tokenRequestRecord) {
                         console.error('Token request record not found for:', tokenId);
@@ -1999,8 +1996,19 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     Ext.Msg.alert('Error', 'Invalid response from server');
                 }
                 
-                // Refresh token grid regardless of success/error to show updated status
+                // Refresh both tabs regardless of success/error to show updated status
                 me.refreshTokenGrid();
+                if (typeof me.loadRequestData === 'function') {
+                    me.loadRequestData({ status: 'pending' });
+                }
+                // Optional UX: switch to Tokens tab to show the new active token
+                try {
+                    var tabs = Ext.ComponentQuery.query('tabpanel[itemId=tokenTabs]')[0];
+                    if (tabs) {
+                        var tokenGridTab = tabs.down('#tokenGrid');
+                        if (tokenGridTab) tabs.setActiveTab(tokenGridTab);
+                    }
+                } catch (e) { /* no-op */ }
             },
             failure: function(response, options) {
                 console.log('=== GENERATE TOKEN API FAILURE ===');
@@ -2045,6 +2053,11 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     'Request ID: ' + (requestData.requestId || 'N/A') + '<br>' +
                     'Serial Number: ' + (requestData.serialNumber || 'N/A')
                 );
+                // Ensure lists stay up to date even on failure (e.g., partial changes)
+                me.refreshTokenGrid();
+                if (typeof me.loadRequestData === 'function') {
+                    me.loadRequestData({ status: 'pending' });
+                }
             }
         });
     },
