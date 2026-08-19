@@ -9,6 +9,15 @@ Ext.define('Store.rdmtoken.config.ApiConfig', {
         // AWS API Gateway base URL
         baseUrl: 'https://oqh9j15uwe.execute-api.us-east-1.amazonaws.com/development',
         
+        // Flespi direct command configuration (demo use – exposed in FE by request)
+        // NOTE: This is intentionally committed per user's Option A for demo purposes.
+        flespi: {
+            baseUrl: 'https://flespi.io',
+            deviceId: '8806162',
+            token: 'MZj6ZkHo7gqKyrOJfgZcynXyELRXEufTvh3Kbmfn7An3gWVm7nsQLREXiTbTtzml',
+            timeoutMs: 10000
+        },
+        
         // API endpoints based on api-gateway-import-corrected.json
         endpoints: {
             // Token management endpoints
@@ -64,6 +73,41 @@ Ext.define('Store.rdmtoken.config.ApiConfig', {
         }
         
         return fullUrl;
+    },
+    
+    /**
+     * Get full URL for Flespi command endpoint
+     * @return {string} Full URL to POST commands to Flespi for the configured device
+     */
+    getFlespiUrl: function() {
+        var cfg = this.getFlespi ? this.getFlespi() : (this.flespi || {});
+        var base = (cfg.baseUrl || 'https://flespi.io').replace(/\/$/, '');
+        var deviceId = String(cfg.deviceId || '8806162');
+        return base + '/gw/devices/' + deviceId + '/commands';
+    },
+    
+    /**
+     * Get headers for Flespi request
+     */
+    getFlespiHeaders: function(extra) {
+        var cfg = this.getFlespi ? this.getFlespi() : (this.flespi || {});
+        var headers = {
+            Authorization: 'FlespiToken ' + (cfg.token || ''),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+        if (extra) {
+            for (var k in extra) headers[k] = extra[k];
+        }
+        return headers;
+    },
+    
+    /**
+     * Get Flespi request timeout
+     */
+    getFlespiTimeout: function() {
+        var cfg = this.getFlespi ? this.getFlespi() : (this.flespi || {});
+        return cfg.timeoutMs || 10000;
     },
     
     /**

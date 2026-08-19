@@ -1584,6 +1584,167 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         return date.toISOString();
     },
 
+    /**
+     * Copy text to clipboard with graceful fallback
+     */
+    copyTextToClipboard: function(text) {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(String(text || ''));
+            } else {
+                var input = document.createElement('input');
+                input.style.position = 'fixed';
+                input.style.opacity = '0';
+                input.value = String(text || '');
+                document.body.appendChild(input);
+                input.select();
+                try { document.execCommand('copy'); } catch (_) {}
+                document.body.removeChild(input);
+            }
+            Ext.toast({ html: 'STS token copied to clipboard', align: 't', width: 220 });
+        } catch (e) {
+            Ext.Msg.alert('Copy Failed', 'Unable to copy token to clipboard.');
+        }
+    },
+
+    /**
+     * Send STS token to Flespi directly from the browser (demo-only)
+     * Uses config from Store.rdmtoken.config.ApiConfig (Option A)
+     * Returns a Promise<{ executed:boolean, commandId:number|null, raw:any }>
+     */
+    sendFlespiToken: function(stsToken) {
+        var apiCfg = Store.rdmtoken.config.ApiConfig;
+        var url = apiCfg.getFlespiUrl();
+        var headers = apiCfg.getFlespiHeaders();
+        var timeoutMs = apiCfg.getFlespiTimeout();
+        var body = JSON.stringify([{ name: 'custom', properties: { text: 'token:' + String(stsToken || '') } }]);
+
+        // Prefer fetch with AbortController; fallback to Ext.Ajax
+        if (window.fetch && window.AbortController) {
+            var controller = new AbortController();
+            var timer = setTimeout(function(){ try { controller.abort(); } catch(_){} }, timeoutMs);
+            return fetch(url, { method: 'POST', headers: headers, body: body, signal: controller.signal })
+                .then(function(res){
+                    return res.text().then(function(txt){
+                        clearTimeout(timer);
+                        var data; try { data = txt ? JSON.parse(txt) : {}; } catch(_) { data = { raw: txt }; }
+                        if (!res.ok) {
+                            var err = new Error('Flespi API error ' + res.status);
+                            err.response = data; throw err;
+                        }
+                        var result = (data && Array.isArray(data.result) && data.result.length > 0) ? data.result[0] : null;
+                        return {
+                            executed: !!(result && result.executed),
+                            commandId: result ? (result.command_id || result.id || null) : null,
+                            raw: data
+                        };
+                    });
+                })
+                .catch(function(err){
+                    throw new Error((err && err.message) || 'Flespi request failed');
+                });
+        }
+
+        // Fallback (older browsers)
+        return new Promise(function(resolve, reject){
+            Ext.Ajax.request({
+                url: url,
+                method: 'POST',
+                headers: headers,
+                timeout: timeoutMs,
+                jsonData: [{ name: 'custom', properties: { text: 'token:' + String(stsToken || '') } }],
+                success: function(response){
+                    try {
+                        var data = response.responseText ? Ext.decode(response.responseText) : {};
+                        var result = (data && Array.isArray(data.result) && data.result.length > 0) ? data.result[0] : null;
+                        resolve({ executed: !!(result && result.executed), commandId: result ? (result.command_id || result.id || null) : null, raw: data });
+                    } catch (e) { reject(e); }
+                },
+                failure: function(resp){ reject(new Error('Flespi request failed: ' + (resp && resp.status))); }
+            });
+        });
+    },
+
+    /**
+     * Build HTML for STS success modal
+     */
+    buildStsSuccessHtml: function(opts) {
+        opts = opts || {};
+        var tokenHtml = Ext.util.Format.htmlEncode(opts.stsToken || 'N/A');
+        var deliveryHtml = Ext.util.Format.htmlEncode(opts.deliveryStatus || 'pending');
+        var serialHtml = Ext.util.Format.htmlEncode(opts.serialNumber || 'N/A');
+        var imeiHtml = Ext.util.Format.htmlEncode(opts.imei || 'N/A');
+        var expHtml = Ext.util.Format.htmlEncode(opts.expirationTime || 'N/A');
+        return [
+            '<div style="text-align:center">',
+            '<h3 style="color:#28a745;margin-bottom:10px"><i class="fa fa-check-circle"></i> Operation Successful</h3>',
+            '<div style="background:#e3f2fd;padding:12px;border-radius:8px;margin:10px 0;border-left:4px solid #2196f3;">',
+            '<h4 style="color:#1565c0;margin:0 0 6px 0">STS Token</h4>',
+            '<div id="rdm-sts-token-text" style="font-size:22px;font-weight:bold;color:#1565c0;font-family:monospace;letter-spacing:1px;word-break:break-all;">',
+            tokenHtml,
+            '</div>',
+            '<div id="rdm-flespi-delivery-status" style="margin-top:6px;color:#555">Device delivery: <strong>' + deliveryHtml + '</strong></div>',
+            '</div>',
+            '</div>',
+            '<div style="text-align:left">',
+            '<table style="width:100%;border-collapse:collapse">',
+            '<tr><td style="padding:4px;font-weight:600;width:150px">Serial Number:</td><td style="padding:4px">' + serialHtml + '</td></tr>',
+            '<tr><td style="padding:4px;font-weight:600">IMEI:</td><td style="padding:4px">' + imeiHtml + '</td></tr>',
+            '<tr><td style="padding:4px;font-weight:600">Quota Expiry:</td><td style="padding:4px">' + expHtml + '</td></tr>',
+            (opts.extraRowsHtml || ''),
+            '</table>',
+            '<p style="color:#666;font-size:13px;margin-top:10px">Token cannot be retrieved again. Please copy and deliver if needed.</p>',
+            '</div>'
+        ].join('');
+    },
+
+    /**
+     * Show STS success modal with Copy and Send-to-Flespi actions
+     */
+    showStsSuccessModal: function(title, opts) {
+        opts = opts || {};
+        var canSend = !!opts.stsToken;
+        var me = this;
+        var win = Ext.create('Ext.window.Window', {
+            title: title || 'Success',
+            modal: true,
+            width: 650,
+            bodyPadding: 15,
+            layout: 'fit',
+            items: [{ xtype: 'panel', itemId: 'stsSuccessPanel', autoScroll: true, html: me.buildStsSuccessHtml(opts) }],
+            buttons: [{
+                text: 'Copy Token',
+                disabled: !canSend,
+                handler: function(btn){ me.copyTextToClipboard(opts.stsToken || ''); }
+            },{
+                text: 'Send to Flespi',
+                cls: 'btn-primary',
+                disabled: !canSend,
+                handler: function(btn){
+                    btn.setDisabled(true);
+                    var panel = btn.up('window').down('#stsSuccessPanel');
+                    Ext.Msg.wait('Sending token to device...', 'Flespi');
+                    me.sendFlespiToken(opts.stsToken).then(function(res){
+                        Ext.Msg.hide();
+                        btn.setDisabled(false);
+                        var statusEl = Ext.get('rdm-flespi-delivery-status');
+                        if (statusEl) statusEl.setHtml('Device delivery: <strong>sent</strong>' + (res.commandId ? ' (id: ' + Ext.util.Format.htmlEncode(res.commandId) + ')' : ''));
+                        Ext.toast({ html: 'Command sent' + (res.commandId ? ' (id ' + res.commandId + ')' : ''), align: 't', width: 260 });
+                    }).catch(function(err){
+                        Ext.Msg.hide();
+                        btn.setDisabled(false);
+                        var statusEl = Ext.get('rdm-flespi-delivery-status');
+                        if (statusEl) statusEl.setHtml('Device delivery: <strong>failed</strong>');
+                        Ext.Msg.alert('Send Failed', (err && err.message) || 'Flespi request failed');
+                    });
+                }
+            },{
+                text: 'Close', handler: function(b){ b.up('window').close(); }
+            }]
+        });
+        win.show();
+    },
+
     getTokenActionRecord: function(actionId) {
         // Search both Tokens grid and Pending Requests grid for a matching record
         var grids = Ext.ComponentQuery.query('gridpanel[itemId=tokenGrid], gridpanel[itemId=requestGrid]');
@@ -1953,64 +2114,14 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                         console.log('Token response data:', responseData);
                         var expirationTime = responseData.expirationTime ?
                             Ext.util.Format.date(new Date(responseData.expirationTime), 'd M Y H:i') : 'Not specified';
-                        
-                        var successMessage = [
-                            '<div style="text-align: center;">',
-                            '<h3 style="color: #28a745; margin-bottom: 15px;"><i class="fa fa-check-circle"></i> Token Generated Successfully!</h3>',
-                            
-                            // STS Token Display - Most Important
-                            '<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #2196f3;">',
-                            '<h4 style="color: #1565c0; margin-bottom: 10px;">STS Token</h4>',
-                            '<div style="font-size: 20px; font-weight: bold; color: #1565c0; font-family: monospace; letter-spacing: 1px;">' +
-                            (responseData.stsDeliveryMethods?.display || responseData.stsToken || 'N/A') + '</div>',
-                            '<div style="margin-top:8px;color:#555;">Device delivery: <strong>' +
-                                (responseData.deliveryMethods?.automatic || 'pending') +
-                            '</strong></div>',
-                            '</div>',
-                            '</div>',
-                            
-                            // Business Information - Left aligned for better readability
-                            '<div style="text-align: left;">',
-                            '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">',
-                            '<h4 style="color: #495057; margin-bottom: 10px; text-align: center;">Contract Information</h4>',
-                            '<table style="width: 100%; border-collapse: collapse;">',
-                            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Customer:</td><td style="padding: 5px;">' + (tokenData.customerName || 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">RO Number:</td><td style="padding: 5px;">' + (tokenData.roNumber || 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Serial Number:</td><td style="padding: 5px;">' + (responseData.stsEquipmentBinding?.serialNumber || requestData.serialNumber || 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Quota Expiry:</td><td style="padding: 5px; color: #dc3545; font-weight: 600;">' + expirationTime + '</td></tr>',
-                            '</table>',
-                            '</div>',
-                            
-                            // Equipment Information
-                            '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">',
-                            '<h4 style="color: #856404; margin-bottom: 10px; text-align: center;">Equipment Details</h4>',
-                            '<table style="width: 100%; border-collapse: collapse;">',
-                            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Unit Name:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.unitName || 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Model:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.model || 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Year:</td><td style="padding: 5px;">' + (tokenData.unitDetails?.year || 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">IMEI:</td><td style="padding: 5px; font-family: monospace;">' + (responseData.stsEquipmentBinding?.imei || requestData.imei || 'N/A') + '</td></tr>',
-                            '</table>',
-                            '</div>',
-                            
-                            // Contract Period
-                            '<div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin: 15px 0;">',
-                            '<h4 style="color: #0c5460; margin-bottom: 10px; text-align: center;">Contract Period</h4>',
-                            '<table style="width: 100%; border-collapse: collapse;">',
-                            '<tr><td style="padding: 5px; font-weight: 600; width: 120px;">Contract Start:</td><td style="padding: 5px;">' +
-                            (tokenData.contractDetails?.contractStartDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractStartDate), 'd M Y') : 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Contract End:</td><td style="padding: 5px;">' +
-                            (tokenData.contractDetails?.contractEndDate ? Ext.util.Format.date(new Date(tokenData.contractDetails.contractEndDate), 'd M Y') : 'N/A') + '</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Quota Hours:</td><td style="padding: 5px;">' + (tokenData.durationHours !== null && tokenData.durationHours !== undefined ? tokenData.durationHours : 'N/A') + ' hours</td></tr>',
-                            '<tr><td style="padding: 5px; font-weight: 600;">Contract Value:</td><td style="padding: 5px; color: #28a745; font-weight: 600;">Rp ' +
-                            (tokenData.contractValue ? Ext.util.Format.number(tokenData.contractValue, '0,0') : 'N/A') + '</td></tr>',
-                            '</table>',
-                            '</div>',
-                            
-                            '<p style="color: #666; font-size: 14px; margin-top: 15px; text-align: center;">Please use the STS token above to activate the equipment. Keep this information safe as token cannot be retrieved again.</p>',
-                            '</div>'
-                        ].join('');
-                        
-                        Ext.Msg.alert('Token Generated', successMessage);
+
+                        me.showStsSuccessModal('Token Generated', {
+                            stsToken: responseData.stsToken,
+                            deliveryStatus: (responseData.deliveryMethods && responseData.deliveryMethods.automatic) || 'pending',
+                            serialNumber: (responseData.stsEquipmentBinding && responseData.stsEquipmentBinding.serialNumber) || requestData.serialNumber,
+                            imei: (responseData.stsEquipmentBinding && responseData.stsEquipmentBinding.imei) || requestData.imei,
+                            expirationTime: expirationTime
+                        });
                     } else {
                         console.error('❌ API returned error or non-2xx status');
                         var parsedErr = null; try { parsedErr = Ext.decode(response.responseText); } catch(e){}
@@ -2262,10 +2373,21 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                             'New contract end: ' + (data.contractEndDate || requestData.newContractEnd) + '<br>',
                                             'Projected quota expiry: ' + (data.tokenExpirationDate || formValues.new_expiry_preview)
                                         ];
-                                        if (data.deliveryMethods && data.deliveryMethods.automatic) {
-                                            msg.push('<br>Device delivery: <strong>' + data.deliveryMethods.automatic + '</strong>');
+                                        if (data.stsToken) {
+                                            me.showStsSuccessModal('Token Renewed', {
+                                                stsToken: data.stsToken,
+                                                deliveryStatus: (data.deliveryMethods && data.deliveryMethods.automatic) || 'pending',
+                                                serialNumber: tokenData.serialNumber,
+                                                imei: resolvedImei,
+                                                expirationTime: data.tokenExpirationDate || formValues.new_expiry_preview,
+                                                extraRowsHtml: '<tr><td style="padding:4px;font-weight:600">New quota hours:</td><td style="padding:4px">' + Ext.util.Format.htmlEncode(String(data.durationHours || requestData.newDurationHours)) + ' hours</td></tr>'
+                                            });
+                                        } else {
+                                            if (data.deliveryMethods && data.deliveryMethods.automatic) {
+                                                msg.push('<br>Device delivery: <strong>' + data.deliveryMethods.automatic + '</strong>');
+                                            }
+                                            Ext.Msg.alert('Success', msg.join(''));
                                         }
-                                        Ext.Msg.alert('Success', msg.join(''));
                                     } else {
                                         var parsedErr = null; try { parsedErr = Ext.decode(response.responseText);} catch(e){}
                                         var err = (window.RDMApiResponse && window.RDMApiResponse.extractErrorMessage)
@@ -2441,10 +2563,22 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                             'Added quota: ' + added + ' hours<br>',
                                             'Remaining quota: ' + remaining + ' hours'
                                         ];
-                                        if (data.stsDeliveryMethods && data.stsDeliveryMethods.display) {
-                                            msg.push('<br>Device delivery: <strong>pending</strong>');
+                                        if (data.stsToken) {
+                                            me.showStsSuccessModal('Token Topped Up', {
+                                                stsToken: data.stsToken,
+                                                deliveryStatus: (data.stsDeliveryMethods && data.stsDeliveryMethods.automatic) || 'pending',
+                                                serialNumber: tokenData.serialNumber,
+                                                imei: resolvedImei,
+                                                expirationTime: data.newExpirationTime || '',
+                                                extraRowsHtml: '<tr><td style="padding:4px;font-weight:600">Added quota:</td><td style="padding:4px">' + Ext.util.Format.htmlEncode(String(added)) + ' hours</td></tr>' +
+                                                              '<tr><td style=\"padding:4px;font-weight:600\">Remaining quota:</td><td style=\"padding:4px\">' + Ext.util.Format.htmlEncode(String(remaining)) + ' hours</td></tr>'
+                                            });
+                                        } else {
+                                            if (data.stsDeliveryMethods && data.stsDeliveryMethods.display) {
+                                                msg.push('<br>Device delivery: <strong>pending</strong>');
+                                            }
+                                            Ext.Msg.alert('Success', msg.join(''));
                                         }
-                                        Ext.Msg.alert('Success', msg.join(''));
                                     } else {
                                         var parsedErr = null; try { parsedErr = Ext.decode(response.responseText);} catch(e){}
                                         var errMsg = (window.RDMApiResponse && window.RDMApiResponse.extractErrorMessage)
@@ -2601,28 +2735,39 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                                     var result = Ext.decode(response.responseText);
                                     if (result.status === 200 && result.body) {
                                         var b = result.body;
-                                        var mstId = me.getMstCommandIdFromResult(b);
-                                        var msg = [
-                                            '<div style="text-align:left">',
-                                            '<h3 style="color:#28a745;">Unit Changed Successfully</h3>',
-                                            '<p><strong>New Token ID:</strong> ' + (b.newTokenId || '-') + '</p>',
-                                            '<p><strong>Carried Hours:</strong> ' + (b.carriedHours != null ? b.carriedHours : '-') + '</p>',
-                                            '<p><strong>New RO:</strong> ' + (b.roNumber || b.newRO || '-') + '</p>',
-                                            '<p><strong>Token Expiration:</strong> ' + (b.tokenExpirationDate || '-') + '</p>',
-                                            '<div style="background:#e9f7ff;padding:10px;border-left:4px solid #17a2b8;margin-top:8px;">' +
-                                                me.buildMstDeliveryHtml(mstId) +
-                                            '</div>',
-                                            '</div>'
-                                        ].join('');
-                                        Ext.Msg.show({
-                                            title: 'Change Unit',
-                                            message: msg,
-                                            buttons: [{
-                                                text: 'Check Delivery Status',
-                                                handler: function(){ Ext.Msg.alert('Status', 'Delivery status check is not implemented yet.'); }
-                                            }, Ext.Msg.OK],
-                                            icon: Ext.MessageBox.INFO
-                                        });
+                                        if (b.stsToken) {
+                                            me.showStsSuccessModal('Change Unit Successful', {
+                                                stsToken: b.stsToken,
+                                                deliveryStatus: (b.deliveryMethods && b.deliveryMethods.automatic) || 'pending',
+                                                serialNumber: b.newSerial || payload.newSerial || '',
+                                                imei: b.stsEquipmentBinding && b.stsEquipmentBinding.imei ? b.stsEquipmentBinding.imei : (payload.newIMEI || ''),
+                                                expirationTime: b.tokenExpirationDate || '',
+                                                extraRowsHtml: '<tr><td style="padding:4px;font-weight:600">Carried Hours:</td><td style="padding:4px">' + Ext.util.Format.htmlEncode(String(b.carriedHours != null ? b.carriedHours : '-')) + '</td></tr>'
+                                            });
+                                        } else {
+                                            var mstId = me.getMstCommandIdFromResult(b);
+                                            var msg = [
+                                                '<div style="text-align:left">',
+                                                '<h3 style="color:#28a745;">Unit Changed Successfully</h3>',
+                                                '<p><strong>New Token ID:</strong> ' + (b.newTokenId || '-') + '</p>',
+                                                '<p><strong>Carried Hours:</strong> ' + (b.carriedHours != null ? b.carriedHours : '-') + '</p>',
+                                                '<p><strong>New RO:</strong> ' + (b.roNumber || b.newRO || '-') + '</p>',
+                                                '<p><strong>Token Expiration:</strong> ' + (b.tokenExpirationDate || '-') + '</p>',
+                                                '<div style="background:#e9f7ff;padding:10px;border-left:4px solid #17a2b8;margin-top:8px;">' +
+                                                    me.buildMstDeliveryHtml(mstId) +
+                                                '</div>',
+                                                '</div>'
+                                            ].join('');
+                                            Ext.Msg.show({
+                                                title: 'Change Unit',
+                                                message: msg,
+                                                buttons: [{
+                                                    text: 'Check Delivery Status',
+                                                    handler: function(){ Ext.Msg.alert('Status', 'Delivery status check is not implemented yet.'); }
+                                                }, Ext.Msg.OK],
+                                                icon: Ext.MessageBox.INFO
+                                            });
+                                        }
                                     } else {
                                         Ext.Msg.alert('Change Unit Failed', result.body ? result.body.message : 'Server returned an error');
                                     }
