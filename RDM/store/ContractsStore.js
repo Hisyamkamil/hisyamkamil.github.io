@@ -22,6 +22,7 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
     },
 
     fields: [
+        // Core contract fields
         'contractStartDate',
         'contractEndDate',
         'contractExpirationDate', 
@@ -34,7 +35,25 @@ Ext.define('Store.rdmtoken.store.ContractsStore', {
         'status',
         'contractStatus',
         'paymentTerms',
-        'renewalOptions'
+        'renewalOptions',
+
+        // Backend sends unit identifier as unitId and nested unitDetails.externalUnitId.
+        // Compute a stable serialNumber on the FE that equals backend unitId.
+        // Keep unitId and unitDetails accessible for renderers/other logic.
+        { name: 'unitId', mapping: 'unitId' },
+        { name: 'unitDetails', mapping: 'unitDetails' },
+        {
+            name: 'serialNumber',
+            convert: function(v, record) {
+                try {
+                    var u = record.get('unitDetails') || {};
+                    // Priority: provided value -> nested serialNumber -> externalUnitId -> top-level unitId
+                    return v || u.serialNumber || u.externalUnitId || record.get('unitId') || null;
+                } catch (e) {
+                    return null;
+                }
+            }
+        }
     ],
 
     // Load contract by serial number

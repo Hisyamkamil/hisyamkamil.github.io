@@ -15,21 +15,11 @@
         }
       });
     }
-    // Also expose on global for non-Ext contexts
     root.RDMApiResponse = api;
   }
 })(typeof window !== 'undefined' ? window : global, function () {
-  function isEnvelope(obj) {
-    return obj && typeof obj === 'object' && 'status' in obj && 'body' in obj;
-  }
-
-  function unwrap(obj) {
-    return isEnvelope(obj) ? (obj.body || {}) : obj || {};
-  }
-
   function normalizeDashboardResponse(raw) {
-    var body = unwrap(raw);
-    var overview = body.overview || body.data?.overview || {};
+    var overview = (raw && raw.overview) ? raw.overview : {};
     return {
       overview: {
         totalRequestedTokens: toNumber(overview.totalRequestedTokens, 0),
@@ -41,9 +31,8 @@
   }
 
   function normalizeContractsListResponse(raw) {
-    var body = unwrap(raw);
-    var contracts = Array.isArray(body.contracts) ? body.contracts : [];
-    var pagination = body.pagination || null;
+    var contracts = Array.isArray(raw && raw.contracts) ? raw.contracts : [];
+    var pagination = raw ? raw.pagination || null : null;
     return { contracts: contracts, pagination: pagination };
   }
 

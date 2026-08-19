@@ -356,8 +356,16 @@ Ext.define('Store.rdmtoken.view.NavigationTab', {
                                         'id', 'customerName', 'customerCode', 'rentalOrderNumber',
                                         'contractStartDate', 'contractEndDate', 'contractValue',
                                         'status', 'durationHours', 'salesRepresentative',
-                                        // Unit details fields
-                                        {name: 'serialNumber', mapping: 'unitDetails.serialNumber'},
+                                        // Unit identifiers and details
+                                        { name: 'unitId', mapping: 'unitId' },
+                                        { name: 'unitDetails', mapping: 'unitDetails' },
+                                        {
+                                            name: 'serialNumber',
+                                            convert: function(v, record) {
+                                                var u = record.get('unitDetails') || {};
+                                                return v || u.serialNumber || u.externalUnitId || record.get('unitId') || null;
+                                            }
+                                        },
                                         {name: 'unitName', mapping: 'unitDetails.unitName'},
                                         {name: 'unitModel', mapping: 'unitDetails.model'},
                                         {name: 'unitYear', mapping: 'unitDetails.year'}

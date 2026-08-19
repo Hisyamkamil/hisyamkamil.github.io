@@ -49,118 +49,51 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     //     console.log('Report activated');
     // },
 
-    // Contracts list loader (store-driven, top-level API)
+    // Contracts list loader (store-driven, top-level API only)
     loadContractData: function(filters) {
-        console.log('Loading contract data via ContractsStore (/api/rdm/contracts)');
         var store = window.RDMStores && window.RDMStores.contracts;
-        if (store && store.getProxy) {
-            var proxy = store.getProxy();
-            var params = proxy.extraParams || {};
-            // defaults
-            params.page = (filters && filters.page) || params.page || 1;
-            params.limit = (filters && filters.limit) || params.limit || 20;
-            // optional filters supported by backend
-            if (filters) {
-                if (filters.status) params.status = filters.status;
-                if (filters.customerName) params.customerName = filters.customerName;
-                if (filters.salesRepresentative) params.salesRepresentative = filters.salesRepresentative;
-            }
-            proxy.extraParams = params;
-            console.log('ContractsStore params:', params);
-            store.load({
-                callback: function(records, operation, success) {
-                    if (!success) {
-                        console.warn('ContractsStore load failed, falling back to manual fetch');
-                        this.loadContractDataFallback(filters);
-                    }
-                }.bind(this)
-            });
+        if (!store || !store.getProxy) {
+            console.error('ContractsStore not available');
             return;
         }
-        // Fallback if store unavailable
-        this.loadContractDataFallback(filters);
-    },
-
-    // Manual fallback that normalizes response and updates grid without store reader
-    loadContractDataFallback: function(filters) {
-        var apiConfig = Store.rdmtoken.config.ApiConfig;
-        var query = [];
-        var params = filters || {};
-        Object.keys(params || {}).forEach(function(k){ if (params[k] !== undefined && params[k] !== null) query.push(encodeURIComponent(k)+'='+encodeURIComponent(params[k])); });
-        var url = apiConfig.getUrl('contractList') + (query.length ? ('?' + query.join('&')) : '');
-        Ext.Ajax.request({
-            url: url,
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            success: function(response){
-                try {
-                    var parsed = Ext.decode(response.responseText);
-                    var normalizer = (window.RDMApiResponse && window.RDMApiResponse.normalizeContractsListResponse) ? window.RDMApiResponse : null;
-                    var data = normalizer ? normalizer.normalizeContractsListResponse(parsed) : { contracts: parsed.contracts || [], pagination: parsed.pagination || null };
-                    this.processContractData(data);
-                } catch (e) {
-                    console.error('Error parsing contracts fallback response:', e);
-                    this.handleContractLoadFailure(response);
-                }
-            }.bind(this),
-            failure: this.handleContractLoadFailure.bind(this)
-        });
+        var proxy = store.getProxy();
+        var params = proxy.extraParams || {};
+        params.page = (filters && filters.page) || params.page || 1;
+        params.limit = (filters && filters.limit) || params.limit || 20;
+        if (filters) {
+            if (filters.status) params.status = filters.status;
+            if (filters.customerName) params.customerName = filters.customerName;
+            if (filters.salesRepresentative) params.salesRepresentative = filters.salesRepresentative;
+        }
+        proxy.extraParams = params;
+        store.load();
     },
 
     // Dashboard methods
     loadDashboardMetrics: function() {
-        console.log('Loading dashboard metrics...');
-        
         var apiConfig = Store.rdmtoken.config.ApiConfig;
         Ext.Ajax.request({
             url: apiConfig.getUrl('tokenDashboard'),
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: { 'Accept': 'application/json' },
             timeout: 15000,
             success: this.onDashboardMetricsLoaded.bind(this),
-            failure: function(response) {
-                console.error('Failed to load dashboard metrics:', response);
-                this.showDashboardError();
-            }.bind(this)
+            failure: this.showDashboardError.bind(this)
         });
     },
 
     onDashboardMetricsLoaded: function(response) {
-        console.log('Dashboard metrics loaded successfully');
-        
         try {
             var result = Ext.decode(response.responseText);
-            console.log('Dashboard API Response:', result);
-            
-            // Normalize response (supports old envelope and new top-level)
-            var normalizer = (window.RDMApiResponse && window.RDMApiResponse.normalizeDashboardResponse)
-                ? window.RDMApiResponse
-                : null;
-            var overview = null;
-            if (normalizer) {
-                overview = normalizer.normalizeDashboardResponse(result).overview;
-            } else {
-                overview = (result && result.overview) ? result.overview : (result && result.body && result.body.overview) ? result.body.overview : null;
-            }
-
-            if (overview) {
-                var dashboardData = {
-                    totalRequestedTokens: overview.totalRequestedTokens || 0,
-                    totalActiveTokens: overview.totalActiveTokens || 0,
-                    totalExpiredTokens: overview.totalExpiredTokens || 0,
-                    pendingApprovals: overview.pendingApprovals || 0
-                };
-                console.log('Key Dashboard Metrics:', dashboardData);
-                this.updateDashboardUI(dashboardData);
-            } else {
-                console.error('Invalid dashboard response format:', result);
-                this.showDashboardError();
-            }
+            var overview = (window.RDMApiResponse)
+                .normalizeDashboardResponse(result).overview;
+            this.updateDashboardUI({
+                totalRequestedTokens: overview.totalRequestedTokens || 0,
+                totalActiveTokens: overview.totalActiveTokens || 0,
+                totalExpiredTokens: overview.totalExpiredTokens || 0,
+                pendingApprovals: overview.pendingApprovals || 0
+            });
         } catch (e) {
-            console.error('Error parsing dashboard metrics:', e);
             this.showDashboardError();
         }
     },
@@ -215,17 +148,12 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     showDashboardError: function() {
         var dashboardPanel = this.findDashboardPanel();
         if (dashboardPanel) {
-            // Show error state with fallback data
-            var fallbackData = {
+            this.updateDashboardUI({
                 totalRequestedTokens: 0,
                 totalActiveTokens: 0,
                 totalExpiredTokens: 0,
                 pendingApprovals: 0
-            };
-            this.updateDashboardUI(fallbackData);
-            
-            // Optional: Show error message
-            Ext.Msg.alert('Dashboard Warning', 'Could not load latest dashboard data. Showing default values.');
+            });
         }
     },
 
@@ -263,6 +191,41 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         }
         // Fallback to legacy tokenRequest list if store is unavailable
         this.loadTokenDataLegacy(filters);
+    },
+
+    // Load token requests into Pending Requests grid
+    loadRequestData: function(filters) {
+        console.log('Loading token requests via TokenRequestStore (/api/rdm/token/request)');
+        var store = window.RDMStores && window.RDMStores.tokenRequests;
+        if (store && store.getProxy) {
+            var proxy = store.getProxy();
+            var params = proxy.extraParams || {};
+            // defaults
+            params.page = (filters && filters.page) || params.page || 1;
+            params.limit = (filters && filters.limit) || params.limit || 20;
+            params.status = (filters && filters.status) || params.status || 'pending';
+            // optional filters supported by backend
+            if (filters) {
+                if (filters.serialNumber) params.serialNumber = filters.serialNumber;
+                if (filters.customerName) params.customerName = filters.customerName;
+                if (filters.requestor) params.requestor = filters.requestor;
+                if (filters.startDate) params.startDate = filters.startDate;
+                if (filters.endDate) params.endDate = filters.endDate;
+                if (filters.roNumber) params.roNumber = filters.roNumber;
+                if (filters.requestType) params.requestType = filters.requestType;
+            }
+            proxy.extraParams = params;
+            console.log('TokenRequestStore params:', params);
+            store.load({
+                callback: function(records, operation, success) {
+                    if (!success) {
+                        console.warn('TokenRequestStore load failed');
+                    }
+                }.bind(this)
+            });
+            return;
+        }
+        console.error('TokenRequestStore not available');
     },
 
     // Legacy loader for token requests list (fallback only)
@@ -418,8 +381,16 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
         var apiFilters = this.convertUIFiltersToAPI(filters);
         console.log('API filters to be sent to server:', apiFilters);
         
-        // Reload data with filters
-        this.loadTokenData(apiFilters);
+        // Reload data for whichever tab is active
+        var tokenPanel = Ext.ComponentQuery.query('rdmtokenmanagementpanel')[0];
+        var tabs = tokenPanel && tokenPanel.down ? tokenPanel.down('#tokenTabs') : null;
+        var activeItem = tabs && tabs.getActiveTab ? tabs.getActiveTab() : null;
+        var itemId = activeItem && activeItem.getItemId ? activeItem.getItemId() : 'tokenGrid';
+        if (itemId === 'requestGrid') {
+            this.loadRequestData(apiFilters);
+        } else {
+            this.loadTokenData(apiFilters);
+        }
     },
 
     convertUIFiltersToAPI: function(uiFilters) {
@@ -3024,15 +2995,15 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
     },
 
     generateContractDetailsHtml: function(contractData, unitDetails) {
+        // Align FE serialNumber with backend unitId; apply consistent fallback chain
+        var u = unitDetails || {};
+        var serial = (u.serialNumber || u.externalUnitId || contractData.unitId || 'N/A');
         return [
             '<div style="max-width: 600px;">',
             '<h2 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">Contract Details</h2>',
-            
-            '<div style="margin: 20px 0;">',
-            '<h3 style="color: #007bff;">Contract Information</h3>',
             '<table style="width: 100%; border-collapse: collapse;">',
-            '<tr><td style="padding: 8px; font-weight: bold; width: 150px;">Contract ID:</td><td style="padding: 8px;">' + contractData.id + '</td></tr>',
-            '<tr><td style="padding: 8px; font-weight: bold;">Customer:</td><td style="padding: 8px;">' + (contractData.customerName || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold; width: 150px;">Serial Number:</td><td style="padding: 8px;">' + serial + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Unit Name:</td><td style="padding: 8px;">' + (u.unitName || 'N/A') + '</td></tr>',
             '<tr><td style="padding: 8px; font-weight: bold;">Customer Code:</td><td style="padding: 8px;">' + (contractData.customerCode || 'N/A') + '</td></tr>',
             '<tr><td style="padding: 8px; font-weight: bold;">RO Number:</td><td style="padding: 8px;">' + (contractData.rentalOrderNumber || 'N/A') + '</td></tr>',
             '<tr><td style="padding: 8px; font-weight: bold;">Sales Rep:</td><td style="padding: 8px;">' + (contractData.salesRepresentative || 'N/A') + '</td></tr>',
@@ -3043,10 +3014,10 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             '<div style="margin: 20px 0;">',
             '<h3 style="color: #007bff;">Unit Details</h3>',
             '<table style="width: 100%; border-collapse: collapse;">',
-            '<tr><td style="padding: 8px; font-weight: bold; width: 150px;">Serial Number:</td><td style="padding: 8px;">' + (unitDetails.serialNumber || 'N/A') + '</td></tr>',
-            '<tr><td style="padding: 8px; font-weight: bold;">Unit Name:</td><td style="padding: 8px;">' + (unitDetails.unitName || 'N/A') + '</td></tr>',
-            '<tr><td style="padding: 8px; font-weight: bold;">Model:</td><td style="padding: 8px;">' + (unitDetails.model || 'N/A') + '</td></tr>',
-            '<tr><td style="padding: 8px; font-weight: bold;">Year:</td><td style="padding: 8px;">' + (unitDetails.year || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold; width: 150px;">Serial Number:</td><td style="padding: 8px;">' + serial + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Unit Name:</td><td style="padding: 8px;">' + (u.unitName || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Model:</td><td style="padding: 8px;">' + (u.model || 'N/A') + '</td></tr>',
+            '<tr><td style="padding: 8px; font-weight: bold;">Year:</td><td style="padding: 8px;">' + (u.year || 'N/A') + '</td></tr>',
             '</table>',
             '</div>',
             
@@ -3064,7 +3035,6 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             '<div style="margin: 20px 0;">',
             '<h3 style="color: #007bff;">Geofence Information</h3>',
             '<p style="background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff;">' + this.formatGeofenceDetails(contractData.geofenceDetails) + '</p>',
-            '</div>',
             '</div>'
         ].join('');
     },

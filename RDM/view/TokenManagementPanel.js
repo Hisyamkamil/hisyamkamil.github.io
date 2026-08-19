@@ -14,7 +14,7 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
     initComponent: function() {
         this.items = [
             this.createTokenManagementToolbar(),
-            this.createTokenGrid()
+            this.createTokenTabPanel()
         ];
 
         this.callParent(arguments);
@@ -105,6 +105,98 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         };
     },
 
+    // The main center area now uses a TabPanel with two grids: Tokens and Pending Requests
+    createTokenTabPanel: function() {
+        return {
+            region: 'center',
+            xtype: 'tabpanel',
+            itemId: 'tokenTabs',
+            activeTab: 0,
+            listeners: {
+                tabchange: this.onTabChange.bind(this)
+            },
+            items: [
+                {
+                    title: 'Tokens',
+                    xtype: 'gridpanel',
+                    itemId: 'tokenGrid',
+                    store: null, // bound in afterRender
+                    columns: [
+                        {
+                            text: 'Status',
+                            dataIndex: 'status',
+                            width: 100,
+                            renderer: this.statusRenderer.bind(this)
+                        },
+                        {
+                            text: 'Actions',
+                            width: 200,
+                            renderer: this.actionColumnRenderer.bind(this)
+                        },
+                        {text: 'Requestor', dataIndex: 'requestor', flex: 1},
+                        {text: 'Token Number', dataIndex: 'tokenNumber', flex: 1},
+                        {text: 'RO Number', dataIndex: 'roNumber', flex: 1},
+                        {text: 'Customer Name', dataIndex: 'customerName', flex: 1},
+                        {
+                            text: 'Remaining Quota Hours',
+                            dataIndex: 'remainingHours',
+                            renderer: function(value) {
+                                return value !== null && value !== undefined ? value + 'h' : '-';
+                            }
+                        },
+                        {
+                            text: 'Expiration Date',
+                            dataIndex: 'expirationDate',
+                            renderer: Ext.util.Format.dateRenderer('d M Y H:i')
+                        }
+                    ],
+                    listeners: {
+                        selectionchange: this.onTokenSelectionChange.bind(this)
+                    }
+                },
+                {
+                    title: 'Pending Requests',
+                    xtype: 'gridpanel',
+                    itemId: 'requestGrid',
+                    store: null, // bound in afterRender
+                    columns: [
+                        {
+                            text: 'Status',
+                            dataIndex: 'status',
+                            width: 100,
+                            renderer: this.statusRenderer.bind(this)
+                        },
+                        {
+                            text: 'Actions',
+                            width: 200,
+                            renderer: this.actionColumnRenderer.bind(this)
+                        },
+                        {text: 'Requestor', dataIndex: 'requestor', flex: 1},
+                        {text: 'Request ID', dataIndex: 'tokenNumber', flex: 1},
+                        {text: 'RO Number', dataIndex: 'roNumber', flex: 1},
+                        {text: 'Customer Name', dataIndex: 'customerName', flex: 1},
+                        {
+                            text: 'Requested Quota Hours',
+                            dataIndex: 'remainingHours',
+                            renderer: function(value) {
+                                return value !== null && value !== undefined ? value + 'h' : '-';
+                            }
+                        },
+                        {
+                            text: 'Validity End',
+                            dataIndex: 'expirationDate',
+                            renderer: Ext.util.Format.dateRenderer('d M Y H:i')
+                        }
+                    ],
+                    listeners: {
+                        selectionchange: this.onTokenSelectionChange.bind(this)
+                    }
+                }
+            ]
+        };
+    },
+
+    // Legacy grid factory retained for compatibility (no longer used directly)
     createTokenGrid: function() {
         return {
             region: 'center',
@@ -208,7 +300,9 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         if (controller && typeof controller.applyFilters === 'function') {
             controller.applyFilters();
         } else {
-            var grid = this.down('#tokenGrid');
+            var tabs = this.down('#tokenTabs');
+            var activeItem = tabs && tabs.getActiveTab && tabs.getActiveTab();
+            var grid = activeItem && activeItem.down ? activeItem : this.down('#tokenGrid');
             var store = grid && grid.getStore();
             if (store) {
                 store.load();
@@ -277,62 +371,89 @@ Ext.define('Store.rdmtoken.view.TokenManagementPanel', {
         console.warn('Global RDMStores not available, will retry...');
         return null; // Don't create fallback, wait for global stores
     },
+
+    // Helper method to get token request store
+    getTokenRequestStore: function() {
+        if (window.RDMStores && window.RDMStores.tokenRequests) {
+            console.log('Using global token request store');
+            return window.RDMStores.tokenRequests;
+        }
+        console.warn('Global RDMStores.tokenRequests not available, will retry...');
+        return null;
+    },
     
     // Method to bind store after component render
     afterRender: function() {
         this.callParent(arguments);
         
         // Ensure store is properly bound
-        var grid = this.down('#tokenGrid');
-        var store = this.getTokenStore();
-        
-        console.log('TokenManagementPanel afterRender - Grid:', !!grid);
-        
-        // Retry getting store if not available initially
+        var tabs = this.down('#tokenTabs');
+        var tokenGrid = this.down('#tokenGrid');
+        var requestGrid = this.down('#requestGrid');
+        var tokenStore = this.getTokenStore();
+        var requestStore = this.getTokenRequestStore();
+
+        console.log('TokenManagementPanel afterRender - Grids:', {
+            tokenGrid: !!tokenGrid,
+            requestGrid: !!requestGrid
+        });
+
+        // Retry getting stores if not available initially
         var retryCount = 0;
         var maxRetries = 10;
         
         var bindStore = function() {
-            var store = this.getTokenStore();
-            console.log('Attempt', retryCount + 1, '- Store available:', !!store);
-            
-            if (store && grid) {
-                console.log('Binding token store to grid...');
-                grid.setStore(store);
-            
-                // Add store listeners for debugging
-                store.on('load', function(store, records, successful) {
-                    console.log('Store load event - Success:', successful, 'Records:', records.length);
-                    if (successful && records.length > 0) {
-                        console.log('First record data:', records[0].getData());
-                        console.log('Grid store after load:', grid.getStore().getCount());
-                        
-                        // Force grid refresh
-                        setTimeout(function() {
-                            console.log('Forcing grid view refresh...');
-                            if (grid.getView()) {
-                                grid.getView().refresh();
-                            }
-                        }, 100);
-                    }
+            tokenStore = this.getTokenStore();
+            requestStore = this.getTokenRequestStore();
+            console.log('Attempt', retryCount + 1, '- Stores available:', {
+                token: !!tokenStore,
+                requests: !!requestStore
+            });
+
+            if (tokenStore && tokenGrid) {
+                console.log('Binding token store to token grid...');
+                tokenGrid.setStore(tokenStore);
+                tokenStore.on('load', function(store, records, successful) {
+                    console.log('Token store load - Success:', successful, 'Records:', records.length);
                 });
-                
-                // Check if store already has data
-                if (store.getCount() > 0) {
-                    console.log('Store already has data:', store.getCount(), 'records');
-                    grid.getView().refresh();
+            }
+
+            if (requestStore && requestGrid) {
+                console.log('Binding request store to request grid...');
+                requestGrid.setStore(requestStore);
+                requestStore.on('load', function(store, records, successful) {
+                    console.log('Request store load - Success:', successful, 'Records:', records.length);
+                });
+            }
+
+            if ((tokenStore && tokenGrid) && (requestStore && requestGrid)) {
+                // Initial load for the default active tab (Tokens)
+                if (tabs && tabs.getActiveTab && tabs.getActiveTab() && tabs.getActiveTab().getItemId() === 'tokenGrid') {
+                    tokenStore.load();
                 }
             } else if (retryCount < maxRetries) {
                 // Retry after 100ms
                 retryCount++;
                 setTimeout(bindStore.bind(this), 100);
             } else {
-                console.error('Failed to get token store after', maxRetries, 'attempts');
+                console.error('Failed to bind stores after', maxRetries, 'attempts');
             }
         }.bind(this);
         
         // Start trying to bind the store
         bindStore();
+    },
+
+    // When switching tabs, load data for the active tab
+    onTabChange: function(tabPanel, newCard) {
+        var controller = this.findController();
+        if (!controller) return;
+        var itemId = newCard.getItemId();
+        if (itemId === 'tokenGrid') {
+            controller.loadTokenData();
+        } else if (itemId === 'requestGrid') {
+            controller.loadRequestData();
+        }
     },
 
     // Search and filter event handlers

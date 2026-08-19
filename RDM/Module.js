@@ -18,6 +18,7 @@ Ext.define('Store.rdmtoken.Module', {
         'Store.rdmtoken.view.ReportPanel',
         'Store.rdmtoken.controller.TokenController',
         'Store.rdmtoken.store.TokenStore',
+        'Store.rdmtoken.store.TokenRequestStore',
         'Store.rdmtoken.store.UnitsStore',
         'Store.rdmtoken.store.ContractsStore'
     ],
@@ -68,6 +69,7 @@ Ext.define('Store.rdmtoken.Module', {
         window.RDMStores = {
             units: Ext.create('Store.rdmtoken.store.UnitsStore'),
             tokens: Ext.create('Store.rdmtoken.store.TokenStore'),
+            tokenRequests: Ext.create('Store.rdmtoken.store.TokenRequestStore'),
             contracts: Ext.create('Store.rdmtoken.store.ContractsStore')
         };
 

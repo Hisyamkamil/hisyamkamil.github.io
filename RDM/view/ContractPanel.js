@@ -124,9 +124,10 @@ Ext.define('Store.rdmtoken.view.ContractPanel', {
                     dataIndex: 'serialNumber',
                     flex: 1,
                     renderer: function(value, metaData, record) {
-                        // Get from nested unitDetails
-                        var unitDetails = record.get('unitDetails');
-                        return unitDetails ? unitDetails.serialNumber : 'N/A';
+                        // Frontend aligns serialNumber with backend unitId.
+                        // Use computed field when available; fallback to nested/external fields.
+                        var u = record.get('unitDetails') || {};
+                        return value || u.externalUnitId || record.get('unitId') || 'N/A';
                     }
                 },
                 {

@@ -47,50 +47,18 @@ Ext.define('Store.rdmtoken.view.DashboardPanel', {
     },
 
     loadDashboardMetrics: function() {
-        console.log('DashboardPanel: Loading dashboard metrics...');
-        
         if (this.getController()) {
             this.getController().loadDashboardMetrics();
-        } else {
-            console.warn('No controller available, using fallback API call');
-            // Fallback direct API call using ApiConfig
-            var apiConfig = Store.rdmtoken.config.ApiConfig;
-            Ext.Ajax.request({
-                url: apiConfig.getUrl('tokenDashboard'),
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                success: this.onMetricsLoaded.bind(this),
-                failure: function(response) {
-                    console.error('Failed to load dashboard metrics:', response);
-                }
-            });
         }
     },
 
     onMetricsLoaded: function(response) {
         try {
             var result = Ext.decode(response.responseText);
-            console.log('DashboardPanel: Metrics loaded:', result);
-            // Use normalizer to support both top-level and legacy envelope
-            var normalizer = (window.RDMApiResponse && window.RDMApiResponse.normalizeDashboardResponse)
-                ? window.RDMApiResponse
-                : null;
-            var overview = null;
-            if (normalizer) {
-                overview = normalizer.normalizeDashboardResponse(result).overview;
-            } else {
-                // Fallback: try top-level first then envelope
-                overview = (result && result.overview) ? result.overview : (result && result.body && result.body.overview) ? result.body.overview : null;
-            }
-            if (overview) {
-                this.updateMetricCards(overview);
-            } else {
-                console.error('Invalid dashboard response format');
-            }
+            var overview = window.RDMApiResponse.normalizeDashboardResponse(result).overview;
+            this.updateMetricCards(overview);
         } catch (e) {
-            console.error('Error parsing dashboard metrics:', e);
+            // No-op; controller handles error fallback
         }
     },
 
