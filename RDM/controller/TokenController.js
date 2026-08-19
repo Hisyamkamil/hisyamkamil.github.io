@@ -1851,6 +1851,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
      */
     proceedWithTokenGeneration: function(tokenData, tokenId) {
         console.log('=== PROCEEDING WITH TOKEN GENERATION ===');
+        // Ensure controller context is available in async callbacks
+        var me = this;
         
         // Prepare API request data according to specification
         var apiConfig = Store.rdmtoken.config.ApiConfig;
@@ -1919,12 +1921,21 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 try {
                     var result = Ext.decode(response.responseText);
                     console.log('Parsed Result:', result);
+
+                    // Treat either classic wrapped format {status:200, body:{...}} or
+                    // raw payload object returned directly by the backend as success
+                    var isHttpOk = (response.status >= 200 && response.status < 300);
+                    var responseData = null;
+                    if (result && result.status === 200 && result.body) {
+                        responseData = result.body;
+                        isHttpOk = true;
+                    } else {
+                        responseData = result; // assume raw payload on 2xx
+                    }
                     
-                    if (result.status === 200 && result.body) {
+                    if (isHttpOk && responseData) {
                         console.log('✅ Token generated successfully');
-                        console.log('Token response data:', result.body);
-                        
-                        var responseData = result.body;
+                        console.log('Token response data:', responseData);
                         var expirationTime = responseData.expirationTime ?
                             Ext.util.Format.date(new Date(responseData.expirationTime), 'd M Y H:i') : 'Not specified';
                         
@@ -1937,6 +1948,9 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                             '<h4 style="color: #1565c0; margin-bottom: 10px;">STS Token</h4>',
                             '<div style="font-size: 20px; font-weight: bold; color: #1565c0; font-family: monospace; letter-spacing: 1px;">' +
                             (responseData.stsDeliveryMethods?.display || responseData.stsToken || 'N/A') + '</div>',
+                            '<div style="margin-top:8px;color:#555;">Device delivery: <strong>' +
+                                (responseData.deliveryMethods?.automatic || 'pending') +
+                            '</strong></div>',
                             '</div>',
                             '</div>',
                             
@@ -1983,12 +1997,12 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                         
                         Ext.Msg.alert('Token Generated', successMessage);
                     } else {
-                        console.error('❌ API returned error status:', result.status);
+                        console.error('❌ API returned error or non-2xx status:', result && result.status);
                         var errorMsg = 'Failed to generate token';
-                        if (result.body && result.body.message) {
-                            errorMsg = result.body.message;
-                        } else if (result.body && result.body.error) {
-                            errorMsg = result.body.error;
+                        if (result && result.body && (result.body.message || result.body.error)) {
+                            errorMsg = result.body.message || result.body.error;
+                        } else if (result && (result.message || result.error)) {
+                            errorMsg = result.message || result.error;
                         }
                         Ext.Msg.alert('Generate Token Failed', errorMsg);
                     }
@@ -1998,8 +2012,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 }
                 
                 // Refresh both tabs regardless of success/error to show updated status
-                me.refreshTokenGrid();
-                if (typeof me.loadRequestData === 'function') {
+                me && me.refreshTokenGrid && me.refreshTokenGrid();
+                if (me && typeof me.loadRequestData === 'function') {
                     me.loadRequestData({ status: 'pending' });
                 }
                 // Optional UX: switch to Tokens tab to show the new active token
