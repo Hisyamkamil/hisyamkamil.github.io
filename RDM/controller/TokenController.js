@@ -1421,8 +1421,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                 contractId: contractId,
                 periodStart: this.formatDateToISO(values.periodStart),
                 periodExpiredToken: this.formatDateToISO(values.periodExpiredToken),
-                // Ensure numeric values
-                duration: parseInt(values.duration, 10) + parseInt(values.additionalDuration || 0, 10),
+                // Ensure numeric values (send base duration only; backend stores additional separately)
+                duration: parseInt(values.duration, 10),
                 additionalDuration: parseInt(values.additionalDuration || 0, 10),
                 requestorName: values.requestorName || 'Current User'
             };
@@ -1675,7 +1675,23 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
 
     // Helper methods
     findDashboardPanel: function() {
-        return Ext.ComponentQuery.query('Store\\.rdmtoken\\.view\\.DashboardPanel')[0];
+        // Try by alias/xtype first (preferred)
+        var cmp = Ext.ComponentQuery.query('rdmdashboardpanel')[0];
+        if (cmp) return cmp;
+        // Try by itemId on the MainPanel card
+        cmp = Ext.ComponentQuery.query('panel#dashboard')[0] || Ext.ComponentQuery.query('#dashboard')[0];
+        if (cmp) return cmp;
+        // Fallback to class-based query (less reliable)
+        cmp = Ext.ComponentQuery.query('Store\\.rdmtoken\\.view\\.DashboardPanel')[0];
+        if (cmp) return cmp;
+        // As a last resort, defer retry once to allow render
+        Ext.defer(function(){
+            var retry = Ext.ComponentQuery.query('rdmdashboardpanel')[0] || Ext.ComponentQuery.query('panel#dashboard')[0];
+            if (retry) {
+                console.log('Dashboard panel found after deferral');
+            }
+        }, 100);
+        return null;
     },
 
     initializeGlobalTokenFunctions: function() {
@@ -1861,7 +1877,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
             requestId: tokenData.requestId || tokenData.id || tokenId,
             serialNumber: tokenData.serialNumber,
             imei: tokenData.imei, // Now guaranteed to be available
-            durationHours: parseInt(tokenData.durationHours, 10) || 0,
+            // Prefer durationHours; fallback to quotaHours for backward compatibility
+            durationHours: parseInt(tokenData.durationHours || tokenData.quotaHours, 10) || 0,
             contractId: tokenData.contractId || tokenData.id
         };
         

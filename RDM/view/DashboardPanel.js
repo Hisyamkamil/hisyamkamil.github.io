@@ -4,6 +4,7 @@
  */
 Ext.define('Store.rdmtoken.view.DashboardPanel', {
     extend: 'Ext.panel.Panel',
+    alias: 'widget.rdmdashboardpanel',
     
     config: {
         controller: null
