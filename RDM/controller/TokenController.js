@@ -1772,7 +1772,8 @@ Ext.define('Store.rdmtoken.controller.TokenController', {
                     Ext.Msg.wait('Generating token...', 'Processing');
                     
                     // Get token request data from either Tokens or Pending Requests grid
-                    var tokenRequestRecord = this.getTokenActionRecord(tokenId);
+                    // Use `me` to ensure correct context inside the confirm callback
+                    var tokenRequestRecord = me.getTokenActionRecord(tokenId);
                     
                     if (!tokenRequestRecord) {
                         console.error('Token request record not found for:', tokenId);
